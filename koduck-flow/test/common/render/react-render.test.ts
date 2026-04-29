@@ -6,7 +6,7 @@ import { RegistryManager, createRegistryManager } from "../../../src/common/regi
 import type { IEntity } from "../../../src/common/entity/types";
 import type { IRenderContext } from "../../../src/common/render/types";
 
-// Mock 依赖
+// Mock dependencies
 vi.mock("../../../src/common/logger", () => {
   const debug = vi.fn();
   const info = vi.fn();
@@ -75,27 +75,27 @@ describe("ReactRender", () => {
     vi.clearAllMocks();
   });
 
-  describe("构造函数和初始化", () => {
-    test("应该正确初始化 ReactRender", () => {
+  describe("Constructor and initialization", () => {
+    test("should correctly initialize ReactRender", () => {
       expect(reactRender).toBeDefined();
       expect(reactRender.getName()).toBe("ReactRender");
       expect(reactRender.getType()).toBe("react");
     });
 
-    test("应该初始化性能统计", () => {
+    test("should initialize performance stats", () => {
       const stats = reactRender.getPerformanceStats();
       expect(stats).toBeDefined();
       expect(stats.type).toBe("react");
       expect(stats.name).toBe("ReactRender");
     });
 
-    test("应该初始化缓存", () => {
-      // 验证内部缓存初始化
+    test("should initialize cache", () => {
+      // Verify internal cache initialization
       expect(reactRender).toBeDefined();
     });
   });
 
-  describe("实体渲染", () => {
+  describe("Entity rendering", () => {
     const mockEntity = {
       id: "test-entity",
       type: "rectangle",
@@ -103,18 +103,18 @@ describe("ReactRender", () => {
       dispose: vi.fn(),
     } as unknown as IEntity;
 
-    test("render 应该返回 React 元素", () => {
+    test("render should return a React element", () => {
       const result = reactRender.render(mockEntity);
 
-      // 对于没有注册表的实体，应该返回 null 或默认元素
+      // For entities without registry, should return null or default element
       expect(result).toBeDefined();
     });
 
-    test("canRender 应该根据实体类型判断是否能渲染", () => {
+    test("canRender should determine if rendering is possible based on entity type", () => {
       expect(reactRender.canRender(mockEntity)).toBe(true);
     });
 
-    test("render 应该处理不同类型的实体", () => {
+    test("render should handle different types of entities", () => {
       const textEntity = {
         id: "text-entity",
         type: "text",
@@ -127,7 +127,7 @@ describe("ReactRender", () => {
     });
   });
 
-  describe("缓存管理", () => {
+  describe("Cache management", () => {
     const mockEntity = {
       id: "cache-test-entity",
       type: "rectangle",
@@ -135,28 +135,28 @@ describe("ReactRender", () => {
       dispose: vi.fn(),
     } as unknown as IEntity;
 
-    test("应该缓存渲染结果", () => {
+    test("should cache rendering results", () => {
       const result1 = reactRender.render(mockEntity);
       const result2 = reactRender.render(mockEntity);
 
-      // 相同的实体应该返回相同的结果（缓存命中）
+      // Same entity should return same result (cache hit)
       expect(result1).toBe(result2);
     });
 
-    test("应该更新性能统计中的缓存计数", () => {
+    test("should update cache count in performance stats", () => {
       const statsBefore = reactRender.getPerformanceStats();
 
       reactRender.render(mockEntity);
-      reactRender.render(mockEntity); // 缓存命中
+      reactRender.render(mockEntity); // cache hit
 
       const statsAfter = reactRender.getPerformanceStats();
 
-      // 缓存命中计数应该增加
+      // Cache hit count should increase
       expect(statsAfter.cacheHitCount ?? 0).toBeGreaterThanOrEqual(statsBefore.cacheHitCount ?? 0);
     });
   });
 
-  describe("批量渲染", () => {
+  describe("Batch rendering", () => {
     const mockEntities = [
       {
         id: "entity1",
@@ -166,17 +166,17 @@ describe("ReactRender", () => {
       { id: "entity2", type: "circle", dispose: vi.fn() } as unknown as IEntity,
     ];
 
-    test("batchRender 应该处理多个实体", () => {
+    test("batchRender should handle multiple entities", () => {
       expect(() => reactRender.batchRender(mockEntities)).not.toThrow();
     });
 
-    test("batchRender 应该处理空实体列表", () => {
+    test("batchRender should handle empty entity lists", () => {
       expect(() => reactRender.batchRender([])).not.toThrow();
     });
   });
 
-  describe("配置管理", () => {
-    test("configure 应该接受配置参数", () => {
+  describe("Configuration management", () => {
+    test("configure should accept config parameters", () => {
       const config = {
         batchSize: 10,
         enableCache: true,
@@ -186,13 +186,13 @@ describe("ReactRender", () => {
       expect(() => reactRender.configure(config)).not.toThrow();
     });
 
-    test("configure 应该处理空配置", () => {
+    test("configure should handle empty config", () => {
       expect(() => reactRender.configure({})).not.toThrow();
     });
   });
 
-  describe("注册表管理器设置", () => {
-    test("setRegistryManager 应该设置注册表管理器", () => {
+  describe("Registry manager setup", () => {
+    test("setRegistryManager should set the registry manager", () => {
       const newRegistryManager = createRegistryManager();
       reactRender.setRegistryManager(newRegistryManager);
 
@@ -200,8 +200,8 @@ describe("ReactRender", () => {
     });
   });
 
-  describe("性能统计", () => {
-    test("getPerformanceStats 应该返回性能统计信息", () => {
+  describe("Performance stats", () => {
+    test("getPerformanceStats should return performance statistics", () => {
       const stats = reactRender.getPerformanceStats();
 
       expect(stats).toHaveProperty("renderCount");
@@ -213,7 +213,7 @@ describe("ReactRender", () => {
       expect(stats).toHaveProperty("name", "ReactRender");
     });
 
-    test("渲染操作应该更新性能统计", () => {
+    test("rendering operations should update performance statistics", () => {
       const mockEntity = {
         id: "perf-test",
         dispose: vi.fn(),
@@ -227,8 +227,8 @@ describe("ReactRender", () => {
     });
   });
 
-  describe("React 组件渲染", () => {
-    test("应该能够渲染为有效的 React 组件", () => {
+  describe("React component rendering", () => {
+    test("should be able to render as a valid React component", () => {
       const mockEntity = {
         id: "react-test",
         type: "div",
@@ -238,13 +238,13 @@ describe("ReactRender", () => {
 
       const element = reactRender.render(mockEntity);
 
-      // 验证返回的是有效的 React 元素
+      // Verify returned value is a valid React element
       if (element) {
         expect(React.isValidElement(element)).toBe(true);
       }
     });
 
-    test("应该处理异步渲染", async () => {
+    test("should handle async rendering", async () => {
       const mockEntity = {
         id: "async-test",
         type: "async-component",
@@ -254,31 +254,31 @@ describe("ReactRender", () => {
 
       const element = reactRender.render(mockEntity);
 
-      // 异步渲染应该返回有效的元素或 null
+      // Async rendering should return valid element or null
       expect(element === null || React.isValidElement(element)).toBe(true);
     });
   });
 
-  describe("资源清理", () => {
-    test("dispose 应该清理资源", () => {
+  describe("Resource cleanup", () => {
+    test("dispose should clean up resources", () => {
       expect(() => reactRender.dispose()).not.toThrow();
     });
 
-    test("dispose 应该可重复调用", () => {
+    test("dispose should be idempotent", () => {
       reactRender.dispose();
       expect(() => reactRender.dispose()).not.toThrow();
     });
   });
 
-  describe("边界情况", () => {
-    test("应该处理无效的实体输入", () => {
+  describe("Edge cases", () => {
+    test("should handle invalid entity input", () => {
       const invalidEntity = null as unknown as IEntity;
 
       expect(() => reactRender.render(invalidEntity)).not.toThrow();
       expect(() => reactRender.canRender(invalidEntity)).not.toThrow();
     });
 
-    test("应该处理没有数据的实体", () => {
+    test("should handle entities without data", () => {
       const entityWithoutData = {
         id: "no-data",
         type: "empty",
@@ -289,7 +289,7 @@ describe("ReactRender", () => {
       expect(result).toBeDefined();
     });
 
-    test("应该处理循环引用数据", () => {
+    test("should handle circular reference data", () => {
       const circularData: Record<string, unknown> = { name: "circular" };
       circularData.self = circularData;
 
@@ -303,7 +303,7 @@ describe("ReactRender", () => {
       expect(() => reactRender.render(entityWithCircularData)).not.toThrow();
     });
 
-    test("应该处理异常情况下的渲染", () => {
+    test("should handle rendering under exceptional conditions", () => {
       const problematicEntity = {
         id: "problematic",
         type: "error",
@@ -311,13 +311,13 @@ describe("ReactRender", () => {
         dispose: vi.fn(),
       } as unknown as IEntity;
 
-      // 即使渲染出错，也不应该抛出异常
+      // Even if rendering errors, it should not throw exception
       expect(() => reactRender.render(problematicEntity)).not.toThrow();
     });
   });
 
-  describe("React 渲染集成测试", () => {
-    test("应该能够验证 React 元素有效性", () => {
+  describe("React rendering integration tests", () => {
+    test("should be able to validate React element validity", () => {
       const mockEntity = {
         id: "integration-test",
         type: "button",
@@ -328,14 +328,14 @@ describe("ReactRender", () => {
       const element = reactRender.render(mockEntity);
 
       if (element && React.isValidElement(element)) {
-        // 验证是有效的 React 元素
+        // Verify it is a valid React element
         expect(React.isValidElement(element)).toBe(true);
       }
     });
   });
 
-  describe("renderContext 方法", () => {
-    test("应该处理渲染上下文并更新性能统计", () => {
+  describe("renderContext method", () => {
+    test("should handle render context and update performance stats", () => {
       const context: IRenderContext = {
         nodes: [
           { id: "node1", type: "test", dispose: vi.fn() } as unknown as IEntity,
@@ -353,7 +353,7 @@ describe("ReactRender", () => {
       expect(updatedStats.renderCount).toBeGreaterThan(initialStats.renderCount);
     });
 
-    test("应该处理空的渲染上下文", () => {
+    test("should handle empty render context", () => {
       const context: IRenderContext = {
         nodes: [],
         viewport: { x: 0, y: 0, zoom: 1, width: 800, height: 600 },
@@ -365,7 +365,7 @@ describe("ReactRender", () => {
       }).not.toThrow();
     });
 
-    test("应该处理没有节点的渲染上下文", () => {
+    test("should handle render context without nodes", () => {
       const context: IRenderContext = {
         nodes: [],
         viewport: { x: 0, y: 0, zoom: 1, width: 800, height: 600 },
@@ -378,8 +378,8 @@ describe("ReactRender", () => {
     });
   });
 
-  describe("并发渲染功能", () => {
-    test("renderEntityConcurrent 应该支持使用 transition 的渲染", () => {
+  describe("Concurrent rendering features", () => {
+    test("renderEntityConcurrent should support rendering with transition", () => {
       const entity = {
         id: "concurrent-entity",
         type: "test",
@@ -396,7 +396,7 @@ describe("ReactRender", () => {
       expect(React.isValidElement(result)).toBe(true);
     });
 
-    test("renderEntityConcurrent 应该支持不使用 transition 的渲染", () => {
+    test("renderEntityConcurrent should support rendering without transition", () => {
       const entity = {
         id: "sync-entity",
         type: "test",
@@ -414,8 +414,8 @@ describe("ReactRender", () => {
     });
   });
 
-  describe("异步渲染功能", () => {
-    test("renderEntityAsync 应该返回 Promise 并解析为 React 元素", async () => {
+  describe("Async rendering features", () => {
+    test("renderEntityAsync should return Promise resolving to React element", async () => {
       const entity = {
         id: "async-entity",
         type: "test",
@@ -430,8 +430,8 @@ describe("ReactRender", () => {
     });
   });
 
-  describe("批量并发渲染", () => {
-    test("batchRenderConcurrent 应该处理多个实体并返回结果映射", async () => {
+  describe("Batch concurrent rendering", () => {
+    test("batchRenderConcurrent should handle multiple entities and return result map", async () => {
       const entities = [
         {
           id: "batch-entity-1",
@@ -459,7 +459,7 @@ describe("ReactRender", () => {
       }
     });
 
-    test("batchRenderConcurrent 应该处理空实体列表", async () => {
+    test("batchRenderConcurrent should handle empty entity lists", async () => {
       const results = await reactRender.batchRenderConcurrent([]);
 
       expect(results).toBeInstanceOf(Map);
@@ -467,9 +467,9 @@ describe("ReactRender", () => {
     });
   });
 
-  describe("批量渲染并发模式", () => {
-    test("batchRender 应该在启用并发时正常工作", () => {
-      // 先配置启用并发
+  describe("Batch rendering concurrent mode", () => {
+    test("batchRender should work normally when concurrent mode is enabled", () => {
+      // First configure to enable concurrent mode
       reactRender.configure({
         enableBatchRendering: true,
         enablePerformanceOptimization: true,
@@ -499,9 +499,9 @@ describe("ReactRender", () => {
     });
   });
 
-  describe("dispose 完整清理", () => {
-    test("dispose 应该清理所有资源和重置状态", () => {
-      // 先进行一些操作以创建状态
+  describe("dispose full cleanup", () => {
+    test("dispose should clean up all resources and reset state", () => {
+      // First perform some operations to create state
       const entity = {
         id: "dispose-test-entity",
         type: "test",
@@ -512,10 +512,10 @@ describe("ReactRender", () => {
       reactRender.render(entity);
       reactRender.configure({ batchSize: 50 });
 
-      // 执行 dispose
+      // Execute dispose
       reactRender.dispose();
 
-      // 验证性能统计被重置
+      // Verify performance stats are reset
       const stats = reactRender.getPerformanceStats();
       expect(stats.totalRenderTime).toBe(0);
       expect(stats.renderCount).toBe(0);
@@ -524,7 +524,7 @@ describe("ReactRender", () => {
       expect(stats.averageRenderTime).toBe(0);
     });
 
-    test("dispose 应该可重复调用", () => {
+    test("dispose should be idempotent", () => {
       expect(() => {
         reactRender.dispose();
         reactRender.dispose();

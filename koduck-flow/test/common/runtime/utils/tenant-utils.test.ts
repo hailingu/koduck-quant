@@ -1,5 +1,5 @@
 /**
- * 租户工具函数单元测试
+ * Tenant utility function unit tests
  */
 
 import { describe, it, expect } from "vitest";
@@ -201,7 +201,7 @@ describe("tenant-utils", () => {
 
       const cloned = cloneTenantContext(original)!;
 
-      // 修改克隆对象
+      // Modify cloned object
       cloned.tenantId = "tenant-2";
       cloned.environmentKey.environment = "staging";
       cloned.quotas!.maxEntities = 200;
@@ -210,7 +210,7 @@ describe("tenant-utils", () => {
       cloned.rollout!.percentage = 75;
       cloned.rollout!.features!.newUI = false;
 
-      // 验证原始对象未受影响
+      // Verify original object is not affected
       expect(original.tenantId).toBe("tenant-1");
       expect(original.environmentKey.environment).toBe("production");
       expect(original.quotas?.maxEntities).toBe(100);
@@ -259,10 +259,10 @@ describe("tenant-utils", () => {
 
       const cloned = cloneTenantContext(original)!;
 
-      // 验证所有字段都被正确克隆
+      // Verify all fields are correctly cloned
       expect(cloned).toEqual(original);
 
-      // 验证所有嵌套对象都是新的引用
+      // Verify all nested objects are new references
       expect(cloned).not.toBe(original);
       expect(cloned.environmentKey).not.toBe(original.environmentKey);
       expect(cloned.quotas).not.toBe(original.quotas);

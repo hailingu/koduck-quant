@@ -567,7 +567,7 @@ export interface IFlowGraphAST extends IDisposable, ISerializable {
 }
 
 /**
- * 边端点实体接口
+ * Edge endpoint entity interface
  */
 export interface IEndpoint extends IDisposable, ISerializable {
   nodeId: string;
@@ -577,26 +577,26 @@ export interface IEndpoint extends IDisposable, ISerializable {
 }
 
 /**
- * 边接口
- * 定义了边的公共 API，支持节点间的连接管理，支持多个源和目标端点。
+ * Edge interface
+ * Defines the public API for edges, supporting connection management between nodes with multiple source and target endpoints.
  */
 export interface IEdge extends IDisposable, ISerializable {
-  // 端点和节点
+  // Endpoints and nodes
   readonly sources: IEndpoint[];
   readonly targets: IEndpoint[];
 
-  // 状态
+  // State
   readonly isValid: boolean;
   readonly state: "active" | "inactive" | "disabled";
 
-  // 状态管理
+  // State management
   setState(state: "active" | "inactive" | "disabled"): void;
   activate(): void;
   deactivate(): void;
   disable(): void;
   isActive(): boolean;
 
-  // 连接检查
+  // Connection checks
   connectsNode(nodeId: string): boolean;
   connectsNodes(node1: string, node2: string): boolean;
   getOtherNodes(nodeId: string): string[];
@@ -608,85 +608,85 @@ export interface IEdge extends IDisposable, ISerializable {
  */
 export interface IFlowAST<N extends INode = INode> extends IDisposable, ISerializable {
   /**
-   * 根节点
-   * 流程图的起始节点，整个流程树的入口点
+   * Root node
+   * The starting node of the flowchart, the entry point of the entire flow tree
    */
   root: OptionalProp<N>;
 
   /**
-   * 写锁状态标识
-   * 用于实现非重入的写锁机制，防止并发修改结构。
+   * Write-lock state flag
+   * Used to implement a non-reentrant write-lock mechanism to prevent concurrent structural modifications.
    */
   readonly isLocked: boolean;
 
   /**
-   * 钩子配置
+   * Hook configuration
    */
   enableHooks: OptionalProp<boolean>;
   hookDepthLimit: OptionalProp<number>;
 
   /**
-   * 添加子节点到目标节点
-   * @param targetNode 目标父节点
-   * @param addedNode 要添加的子节点
-   * @param index 可选的插入位置索引（1基）
-   * @returns 返回添加的节点实例
+   * Add a child node to the target node
+   * @param targetNode Target parent node
+   * @param addedNode Child node to add
+   * @param index Optional insertion position index (1-based)
+   * @returns The added node instance
    */
   addChild(targetNode: N, addedNode: N, index?: number): N;
 
   /**
-   * 从流程树中移除指定节点
-   * @param node 要移除的节点
-   * @returns 操作是否成功
+   * Remove the specified node from the flow tree
+   * @param node Node to remove
+   * @returns Whether the operation succeeded
    */
   removeNode(node: N): boolean;
 
   /**
-   * 深度优先遍历流程树
-   * @param f 节点访问回调，返回 false 将终止遍历
-   * @param node 起始节点，默认从 root 开始
-   * @param depth 起始深度，默认 0
+   * Depth-first traversal of the flow tree
+   * @param f Node visitor callback; returning false stops traversal
+   * @param node Starting node, defaults to root
+   * @param depth Starting depth, defaults to 0
    */
   traverse(f: NodeTraversalFn<N>, node: N, depth: number): void;
   traverse(f: NodeTraversalFn<N>, node?: N, depth?: number): void;
 
   /**
-   * 移动单个节点到新的父节点下
-   * @param node 要移动的节点
-   * @param newParent 新的父节点
-   * @param index 插入位置（可选），使用1基索引
-   * @returns 操作是否成功
+   * Move a single node under a new parent
+   * @param node Node to move
+   * @param newParent New parent node
+   * @param index Insertion position (optional), using 1-based index
+   * @returns Whether the operation succeeded
    */
   moveNode(node: N, newParent: N, index?: number): boolean;
 
   /**
-   * 批量移动多个节点到新的父节点下
-   * @param nodes 要移动的节点数组
-   * @param newParent 新的父节点
-   * @param startIndex 起始插入位置（可选），使用1基索引
-   * @returns 操作是否成功
+   * Batch move multiple nodes under a new parent
+   * @param nodes Array of nodes to move
+   * @param newParent New parent node
+   * @param startIndex Starting insertion position (optional), using 1-based index
+   * @returns Whether the operation succeeded
    */
   moveNodes(nodes: N[], newParent: N, startIndex?: number): boolean;
 
   /**
-   * 查找满足条件的节点
-   * @param predicate 查找条件函数
-   * @param startNode 起始节点，默认从 root 开始
-   * @returns 找到的节点或 undefined
+   * Find a node matching the condition
+   * @param predicate Search condition function
+   * @param startNode Starting node, defaults to root
+   * @returns The found node or undefined
    */
   findNode(predicate: (node: N) => boolean, startNode?: N): N | undefined;
 
   /**
-   * 获取从根到指定节点的路径
-   * @param node 目标节点
-   * @returns 路径数组，从根到节点
+   * Get the path from root to the specified node
+   * @param node Target node
+   * @returns Path array from root to node
    */
   getPath(node: N): N[];
 }
 
 /**
- * Flow 实体接口
- * 定义了 Flow 实体管理的接口，支持实体的创建、更新、删除和序列化。
+ * Flow entity interface
+ * Defines the interface for Flow entity management, supporting entity creation, update, deletion, and serialization.
  */
 export type FlowHookResult = boolean | void | Promise<boolean | void>;
 
@@ -730,13 +730,13 @@ export interface FlowMetadata {
 }
 
 /**
- * Flow 接口
- * 定义了流程的公共 API，参考 Flow 类的实现，支持实体管理和流程树操作。
+ * Flow interface
+ * Defines the public API for flows, referencing the Flow class implementation, supporting entity management and flow tree operations.
  *
- * 设计要点：
- * - 泛型 N 扩展 INode<N>，确保节点类型一致性。
- * - 提供实体管理功能，可以直接操作 IFlowEntity 实例。
- * - 支持流程树的遍历、节点操作和序列化。
+ * Design highlights:
+ * - Generic N extends INode<N> to ensure node type consistency.
+ * - Provides entity management capabilities, allowing direct manipulation of IFlowEntity instances.
+ * - Supports flow tree traversal, node operations, and serialization.
  */
 export interface IFlow<
   N extends INode = INode,
@@ -746,15 +746,15 @@ export interface IFlow<
 > extends IDisposable,
     ISerializable {
   /**
-   * 流程抽象语法树
-   * 可选的 AST，用于管理流程树结构。
-   * 类型对齐要求：T 必须等于 N。
+   * Flow abstract syntax tree
+   * Optional AST for managing the flow tree structure.
+   * Type alignment requirement: T must equal N.
    */
   flowAST: OptionalProp<IFlowAST<N>>;
   flowGraph: OptionalProp<IFlowGraphAST>;
 
   /**
-   * 序列化相关属性
+   * Serialization-related properties
    */
   id: string;
   name: OptionalProp<string>;
@@ -763,14 +763,14 @@ export interface IFlow<
   metadata: OptionalProp<FlowMetadata>;
 
   /**
-   * 钩子配置
+   * Hook configuration
    */
   enableHooks: OptionalProp<boolean>;
   hookDepthLimit: OptionalProp<number>;
 
   /**
-   * 事件钩子
-   * 返回 false 中断操作，异步钩子应避免阻塞。
+   * Event hooks
+   * Returning false interrupts the operation; async hooks should avoid blocking.
    */
   onEntityAdded: OptionalProp<FlowLifecycleHandler<NE>>;
   onEntityRemoved: OptionalProp<FlowLifecycleHandler<string>>;
@@ -778,129 +778,129 @@ export interface IFlow<
   onFlowSaved: OptionalProp<FlowLifecycleHandler<void>>;
 
   /**
-   * 遍历流程树
-   * @param f 节点访问回调
-   * @param node 起始节点
-   * @param depth 起始深度
+   * Traverse the flow tree
+   * @param f Node visitor callback
+   * @param node Starting node
+   * @param depth Starting depth
    */
   traverse(f: NodeTraversalFn<N>, node: N, depth: number): void;
   traverse(f: NodeTraversalFn<N>, node?: N, depth?: number): void;
 
   /**
-   * 添加子节点到目标节点
-   * @param targetNode 目标父节点
-   * @param childNode 子节点
-   * @returns 操作是否成功
+   * Add a child node to the target node
+   * @param targetNode Target parent node
+   * @param childNode Child node
+   * @returns Whether the operation succeeded
    */
   addToNode(targetNode: N, childNode: N): boolean;
 
   /**
-   * 为节点绑定实体实例，通常在 AST 与实体系统同步时使用。
+   * Bind an entity instance to a node, typically used when synchronizing the AST with the entity system.
    */
   attachEntityToNode?(node: N, entity: NE): void;
 
   /**
-   * 移除节点
-   * @param id 节点 ID
-   * @returns 操作是否成功
+   * Remove a node
+   * @param id Node ID
+   * @returns Whether the operation succeeded
    */
   removeNode(id: string): boolean;
 
   /**
-   * 获取节点
-   * @param id 节点 ID
-   * @returns 节点实例或 undefined
+   * Get a node
+   * @param id Node ID
+   * @returns Node instance or undefined
    */
   getNode(id: string): N | undefined;
 
   /**
-   * 获取所有节点
-   * @returns 节点数组
+   * Get all nodes
+   * @returns Array of nodes
    */
   getAllNodes(): N[];
 
   /**
-   * 检查是否包含节点
-   * @param node 节点实例
-   * @returns 是否包含
+   * Check if a node is contained
+   * @param node Node instance
+   * @returns Whether it is contained
    */
   hasNode(node: N): boolean;
 
   /**
-   * 创建实体
-   * @param type 实体类型
-   * @param args 创建参数
-   * @returns 创建的实体实例
+   * Create an entity
+   * @param type Entity type
+   * @param args Creation arguments
+   * @returns Created entity instance
    */
   createEntity<T extends NE = NE>(type: string, args?: Record<string, unknown>): T;
 
   /**
-   * 获取实体
-   * @param id 实体 ID
-   * @returns 实体实例或 undefined
+   * Get an entity
+   * @param id Entity ID
+   * @returns Entity instance or undefined
    */
   getEntity<T extends IFlowEntity>(id: string): T | undefined;
 
   /**
-   * 获取根实体
-   * @returns 根实体的 IFlowEntity 实例或 undefined
+   * Get the root entity
+   * @returns Root entity IFlowEntity instance or undefined
    */
   getRootEntity(): NE | undefined;
 
   /**
-   * 获取实体的子实体
-   * @param entity 父实体
-   * @returns 子实体的数组
+   * Get child entities of an entity
+   * @param entity Parent entity
+   * @returns Array of child entities
    */
   getChildEntities(entity: NE): NE[];
 
   /**
-   * 获取所有实体
+   * Get all entities
    */
   getAllEntities(): NE[];
 
   /**
-   * 获取所有边实体
+   * Get all edge entities
    */
   getAllEdgeEntities?(): EE[];
 
   /**
-   * 记录节点到图结构中，并可选地与给定父节点建立链接。
+   * Record a node into the graph structure, optionally establishing a link with a given parent node.
    */
   addNode(entity: NE, options?: FlowNodeLinkOptions): void;
 
   /**
-   * 新增边实体
+   * Add a new edge entity
    */
   addEdgeEntity?(edge: EE): boolean;
 
   /**
-   * 在图上直接建立节点间链接。
+   * Directly establish links between nodes on the graph.
    */
   linkNodes(sourceId: string, targetId: string, metadata?: FlowLinkMetadata): boolean;
 
   /**
-   * 移除节点之间的链接。
+   * Remove links between nodes.
    */
   unlinkNodes(sourceId: string, targetId: string): boolean;
 
   /**
-   * 移除边实体
+   * Remove an edge entity
    */
   removeEdgeEntity?(edgeId: string): boolean;
 
   /**
-   * 获取指定边实体
+   * Get the specified edge entity
    */
   getEdgeEntity?(edgeId: string): EE | undefined;
 
   /**
-   * 创建并注册新的边实体
+   * Create and register a new edge entity
    */
   createEdgeEntity?(type: string, args?: Record<string, unknown>): EE;
 
   /**
-   * 通过节点查找实体（使用内部索引，必要时回退线性扫描）
+   * Find entity by node (uses internal index, falls back to linear scan if necessary)
    */
   findEntityByNode(node: N): NE | undefined;
 }

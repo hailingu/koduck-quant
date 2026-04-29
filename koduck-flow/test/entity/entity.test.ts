@@ -1,6 +1,6 @@
 /**
- * Entity 核心类单元测试
- * 测试实体的创建、属性管理、生命周期等功能
+ * Entity core class unit tests
+ * Tests entity creation, property management, lifecycle, and other features
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
@@ -8,7 +8,7 @@ import { Entity } from "../../src/common/entity/entity";
 import type { IEntity, IEntityArguments } from "../../src/common/entity/types";
 import { Data } from "../../src/common/data";
 
-// 测试用的数据类型
+// Test data type
 class TestData extends Data {
   name!: string;
   value!: number;
@@ -25,14 +25,14 @@ class TestData extends Data {
   }
 }
 
-// 测试用的配置类型
+// Test configuration type
 interface TestConfig extends IEntityArguments {
   debug?: boolean;
   theme?: string;
   options?: Record<string, unknown>;
 }
 
-// 测试用的自定义实体类
+// Test custom entity class
 class TestEntity extends Entity<TestData, TestConfig> {
   static type = "TestEntity";
 
@@ -41,7 +41,7 @@ class TestEntity extends Entity<TestData, TestConfig> {
     this.config = config;
   }
 
-  // 添加一些测试方法
+  // Add some test methods
   public getName(): string {
     return this.data?.name || "unknown";
   }
@@ -55,9 +55,9 @@ class TestEntity extends Entity<TestData, TestConfig> {
   }
 }
 
-// 没有显式设置 type 的实体类
+// Entity class without explicit type
 class UnnamedEntity extends Entity {
-  // 没有设置 static type
+  // No static type set
 }
 
 describe("Entity", () => {
@@ -67,8 +67,8 @@ describe("Entity", () => {
     entity = new Entity();
   });
 
-  describe("基础实体功能", () => {
-    it("应该创建具有唯一ID的实体", () => {
+  describe("Basic entity functionality", () => {
+    it("should create an entity with a unique ID", () => {
       const entity1 = new Entity();
       const entity2 = new Entity();
 
@@ -79,7 +79,7 @@ describe("Entity", () => {
       expect(entity1.id.length).toBeGreaterThan(0);
     });
 
-    it("应该正确报告实体类型", () => {
+    it("should correctly report the entity type", () => {
       const basicEntity = new Entity();
       const testEntity = new TestEntity();
       const unnamedEntity = new UnnamedEntity();
@@ -89,7 +89,7 @@ describe("Entity", () => {
       expect(unnamedEntity.type).toBe("UnnamedEntity");
     });
 
-    it("应该实现 IEntity 接口", () => {
+    it("should implement the IEntity interface", () => {
       const entity: IEntity = new Entity();
 
       expect(entity).toHaveProperty("id");
@@ -100,15 +100,15 @@ describe("Entity", () => {
       expect(typeof entity.dispose).toBe("function");
     });
 
-    it("应该正确报告是否已释放", () => {
+    it("should correctly report whether disposed", () => {
       expect(entity.isDisposed).toBe(false);
       entity.dispose();
       expect(entity.isDisposed).toBe(true);
     });
   });
 
-  describe("数据管理", () => {
-    it("应该能设置和获取数据", () => {
+  describe("Data management", () => {
+    it("should be able to set and get data", () => {
       const testData = new TestData({
         name: "test",
         value: 42,
@@ -125,7 +125,7 @@ describe("Entity", () => {
       expect((entity.data as TestData)?.nested?.flag).toBe(true);
     });
 
-    it("应该能更新数据", () => {
+    it("should be able to update data", () => {
       const initialData = new TestData({ name: "initial", value: 1 });
       const updatedData = new TestData({ name: "updated", value: 2 });
 
@@ -136,7 +136,7 @@ describe("Entity", () => {
       expect(entity.data).toEqual(updatedData);
     });
 
-    it("应该能清空数据", () => {
+    it("should be able to clear data", () => {
       const testData = new TestData({ name: "test", value: 42 });
 
       entity.data = testData;
@@ -146,18 +146,18 @@ describe("Entity", () => {
       expect(entity.data).toBeUndefined();
     });
 
-    it("应该将 null 转换为 undefined", () => {
+    it("should convert null to undefined", () => {
       const testData = new TestData({ name: "test", value: 42 });
 
       entity.data = testData;
       expect(entity.data).toEqual(testData);
 
-      // @ts-expect-error 测试 null 处理
+      // @ts-expect-error testing null handling
       entity.data = null;
       expect(entity.data).toBeUndefined();
     });
 
-    it("释放后不应能设置数据", () => {
+    it("should not be able to set data after disposal", () => {
       const testData = new TestData({ name: "test", value: 42 });
 
       entity.dispose();
@@ -167,8 +167,8 @@ describe("Entity", () => {
     });
   });
 
-  describe("配置管理", () => {
-    it("应该能设置和获取配置", () => {
+  describe("Configuration management", () => {
+    it("should be able to set and get configuration", () => {
       const testConfig: TestConfig = {
         debug: true,
         theme: "dark",
@@ -184,7 +184,7 @@ describe("Entity", () => {
       expect(entity.config?.theme).toBe("dark");
     });
 
-    it("应该能更新配置", () => {
+    it("should be able to update configuration", () => {
       const initialConfig: TestConfig = { debug: false, theme: "light" };
       const updatedConfig: TestConfig = { debug: true, theme: "dark" };
 
@@ -195,7 +195,7 @@ describe("Entity", () => {
       expect(entity.config).toEqual(updatedConfig);
     });
 
-    it("应该能清空配置", () => {
+    it("should be able to clear configuration", () => {
       const testConfig: TestConfig = { debug: true, theme: "dark" };
 
       entity.config = testConfig;
@@ -205,18 +205,18 @@ describe("Entity", () => {
       expect(entity.config).toBeUndefined();
     });
 
-    it("应该将 null 转换为 undefined", () => {
+    it("should convert null to undefined", () => {
       const testConfig: TestConfig = { debug: true, theme: "dark" };
 
       entity.config = testConfig;
       expect(entity.config).toEqual(testConfig);
 
-      // @ts-expect-error 测试 null 处理
+      // @ts-expect-error testing null handling
       entity.config = null;
       expect(entity.config).toBeUndefined();
     });
 
-    it("释放后不应能设置配置", () => {
+    it("should not be able to set configuration after disposal", () => {
       const testConfig: TestConfig = { debug: true, theme: "dark" };
 
       entity.dispose();
@@ -226,7 +226,7 @@ describe("Entity", () => {
     });
   });
 
-  describe("自定义实体功能", () => {
+  describe("Custom entity functionality", () => {
     let testEntity: TestEntity;
 
     beforeEach(() => {
@@ -236,25 +236,25 @@ describe("Entity", () => {
       });
     });
 
-    it("应该正确初始化自定义实体", () => {
+    it("should correctly initialize custom entities", () => {
       expect(testEntity.type).toBe("TestEntity");
       expect(testEntity.config?.debug).toBe(true);
       expect(testEntity.config?.theme).toBe("custom");
     });
 
-    it("应该支持自定义方法", () => {
-      // 未设置数据时的默认值
+    it("should support custom methods", () => {
+      // Default values when data is not set
       expect(testEntity.getName()).toBe("unknown");
       expect(testEntity.getValue()).toBe(0);
       expect(testEntity.getTheme()).toBe("custom");
 
-      // 设置数据后
+      // After setting data
       testEntity.data = new TestData({ name: "test-entity", value: 100 });
       expect(testEntity.getName()).toBe("test-entity");
       expect(testEntity.getValue()).toBe(100);
     });
 
-    it("应该保持类型安全", () => {
+    it("should maintain type safety", () => {
       const data = new TestData({
         name: "typed-entity",
         value: 200,
@@ -273,8 +273,8 @@ describe("Entity", () => {
     });
   });
 
-  describe("生命周期管理", () => {
-    it("应该正确初始化状态", () => {
+  describe("Lifecycle management", () => {
+    it("should correctly initialize state", () => {
       const newEntity = new Entity();
 
       expect(newEntity.isDisposed).toBe(false);
@@ -283,7 +283,7 @@ describe("Entity", () => {
       expect(newEntity.config).toBeUndefined();
     });
 
-    it("应该正确处理释放操作", () => {
+    it("should correctly handle disposal", () => {
       const testData = new TestData({ name: "test", value: 42 });
       const testConfig: TestConfig = { debug: true };
 
@@ -301,16 +301,16 @@ describe("Entity", () => {
       expect(entity.isDisposed).toBe(true);
     });
 
-    it("应该支持重复释放而不出错", () => {
+    it("should support repeated disposal without errors", () => {
       entity.dispose();
       expect(entity.isDisposed).toBe(true);
 
-      // 重复释放不应该报错
+      // Repeated disposal should not throw
       expect(() => entity.dispose()).not.toThrow();
       expect(entity.isDisposed).toBe(true);
     });
 
-    it("释放后 ID 应该保持不变", () => {
+    it("ID should remain unchanged after disposal", () => {
       const originalId = entity.id;
 
       entity.dispose();
@@ -320,7 +320,7 @@ describe("Entity", () => {
     });
   });
 
-  describe("边界情况", () => {
+  describe("Edge cases", () => {
     class SimpleData extends Data {
       value?: string;
       count?: number;
@@ -342,28 +342,28 @@ describe("Entity", () => {
       }
     }
 
-    it("应该处理空字符串数据", () => {
+    it("should handle empty string data", () => {
       const entity = new Entity<SimpleData>();
 
       entity.data = new SimpleData({ value: "" });
       expect(entity.data?.value).toBe("");
     });
 
-    it("应该处理数字 0 值", () => {
+    it("should handle numeric 0 value", () => {
       const entity = new Entity<SimpleData>();
 
       entity.data = new SimpleData({ count: 0 });
       expect(entity.data?.count).toBe(0);
     });
 
-    it("应该处理布尔 false 值", () => {
+    it("should handle boolean false value", () => {
       const entity = new Entity<SimpleData>();
 
       entity.data = new SimpleData({ enabled: false });
       expect(entity.data?.enabled).toBe(false);
     });
 
-    it("应该处理复杂嵌套数据", () => {
+    it("should handle complex nested data", () => {
       const complexData = new SimpleData({
         level1: {
           level2: {
@@ -387,7 +387,7 @@ describe("Entity", () => {
     });
   });
 
-  describe("继承和多态", () => {
+  describe("Inheritance and polymorphism", () => {
     class BaseData extends Data {
       base?: string;
 
@@ -415,7 +415,7 @@ describe("Entity", () => {
       }
     }
 
-    it("应该支持继承链", () => {
+    it("should support inheritance chains", () => {
       const derived = new DerivedEntity();
 
       expect(derived.type).toBe("DerivedEntity");
@@ -427,7 +427,7 @@ describe("Entity", () => {
       expect(derived.getDerivedInfo()).toBe("derived-test");
     });
 
-    it("应该支持多态性", () => {
+    it("should support polymorphism", () => {
       const entities: BaseEntity[] = [new BaseEntity(), new DerivedEntity()];
 
       expect(entities[0].type).toBe("BaseEntity");

@@ -79,7 +79,7 @@ describe("validateConfig", () => {
 
     const [issue] = result.errors;
     expect(issue.path).toBe("event.batchSize");
-    expect(issue.expected).toBe("数值 ≥ 1");
+    expect(issue.expected).toBe("value ≥ 1");
     expect(issue.hint).toContain("batchSize");
     expect(issue.severity).toBe("error");
   });

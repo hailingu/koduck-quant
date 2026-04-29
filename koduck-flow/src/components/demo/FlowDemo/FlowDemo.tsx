@@ -226,7 +226,7 @@ function getFlowNodeDimensions(
   nodeType: FlowCanvasNodeType
 ): { width: number; height: number } {
   const theme = FLOW_NODE_THEMES[FLOW_NODE_FORM_DEFINITIONS[nodeType].themeKey];
-  // 优先读取 size.width/size.height（resize 更新的字段），其次是顶层 width/height
+  // Prefer size.width/size.height (fields updated by resize), then top-level width/height
   const width =
     (entity?.data as { size?: { width?: number } } | undefined)?.size?.width ??
     (entity?.data as { width?: number } | undefined)?.width ??
@@ -268,14 +268,14 @@ function createVirtualTelemetry(size: number): VirtualTelemetryItem[] {
 }
 
 /**
- * 简化的 FlowDemo 组件
- * 只保留 Editor 和新建 Flow 的基本功能
+ * Simplified FlowDemo component
+ * Keeps only Editor and basic new Flow functionality
  * @returns The FlowDemo component
  */
 const FlowDemoContent: React.FC = () => {
   const { runtime, renderManager, entityManager, renderEvents } = useKoduckFlowManagers();
 
-  // 在组件初始化时检查注册表状态
+  // Check registry state on component initialization
   React.useEffect(() => {
     flowLogger.info({
       event: FlowDemoEvent.Init,
@@ -299,17 +299,17 @@ const FlowDemoContent: React.FC = () => {
     });
   }, [runtime]);
 
-  // 交互选中与拖拽状态
+  // Interaction selection and drag state
 
-  // Editor 状态管理
+  // Editor state management
   const [canvasRef, setCanvasRef] = useState<HTMLCanvasElement | null>(null);
 
-  // 渲染上下文构建器
+  // Render context builder
   const [renderContextBuilder, setRenderContextBuilder] = useState<RenderContextBuilder | null>(
     null
   );
 
-  // 使用 canvas 引用初始化 useFlow
+  // Initialize useFlow with canvas reference
   const { flow, nodes, edges, nodePositions, addNode, addEdge, removeNode } = useFlow({
     canvas: canvasRef,
   });
@@ -506,9 +506,9 @@ const FlowDemoContent: React.FC = () => {
     undoStackRef.current.push(command);
     refreshHistoryState();
   }, [refreshHistoryState]);
-  // 使用 ref 保持最新的选中集供 DragTool 读取，避免因选中变化重建交互管理器
+  // Use ref to keep latest selection set for DragTool to read, avoiding interaction manager rebuild on selection change
   const selectedIdsRef = React.useRef<Set<string>>(new Set());
-  // 初始化时同步一次
+  // Sync once on initialization
   if (selectedIdsRef.current !== selectedIds) {
     selectedIdsRef.current = selectedIds;
   }
@@ -578,7 +578,7 @@ const FlowDemoContent: React.FC = () => {
       return null;
     }
 
-    // Start 节点的表单内嵌在卡片中，不需要额外的浮动表单
+    // Start node form is embedded in the card, no extra floating form needed
     if (nodeType === FLOW_CANVAS_NODE_TYPES.Start) {
       return null;
     }
@@ -604,7 +604,7 @@ const FlowDemoContent: React.FC = () => {
     const canvasHeight = canvasRef?.height ?? 600;
     const margin = 12;
 
-    // 其他节点类型：使用浮动表单
+    // Other node types: use floating form
     const anchorX = (nodePosition.x - viewportX) * zoom + widthPx / 2;
     const anchorY = (nodePosition.y - viewportY) * zoom;
     const overlayWidth = Math.min(Math.max(320, widthPx + 80), 420);
@@ -709,7 +709,7 @@ const FlowDemoContent: React.FC = () => {
     setActiveFlowNodeId,
   ]);
 
-  // Start 节点使用 React BaseFlowNode 组件渲染（而不是 Canvas）
+  // Start node rendered using React BaseFlowNode component (instead of Canvas)
   const startNodeOverlays = React.useMemo(() => {
     if (!renderContextBuilder) return null;
 
@@ -718,7 +718,7 @@ const FlowDemoContent: React.FC = () => {
     const viewportX = viewport?.x ?? 0;
     const viewportY = viewport?.y ?? 0;
 
-    // 筛选出 flow-start-canvas 类型的节点
+    // Filter nodes of type flow-start-canvas
     const startNodes = nodes.filter((entity) => {
       const entityType =
         (entity as { type?: string }).type ??
@@ -739,26 +739,26 @@ const FlowDemoContent: React.FC = () => {
       const posX = (position as { x?: number })?.x ?? 0;
       const posY = (position as { y?: number })?.y ?? 0;
 
-      // 获取节点尺寸
+      // Get node dimensions
       const entityData = entity.data as
         | { size?: { width?: number; height?: number }; width?: number; height?: number }
         | undefined;
       const width = entityData?.size?.width ?? entityData?.width ?? theme.defaultWidth;
       const height = entityData?.size?.height ?? entityData?.height ?? theme.defaultHeight;
 
-      // 计算屏幕坐标
+      // Calculate screen coordinates
       const screenX = (posX - viewportX) * zoom;
       const screenY = (posY - viewportY) * zoom;
       const screenWidth = width * zoom;
       const screenHeight = height * zoom;
 
-      // 获取配置数据
+      // Get config data
       const config =
         nodeConfigs[entity.id] ??
         (entity.data as { config?: Record<string, unknown> } | undefined)?.config ??
         {};
 
-      // 创建适配的 FlowNodeEntity 用于 BaseFlowNode
+      // Create adapted FlowNodeEntity for BaseFlowNode
       const flowNodeEntity = new FlowNodeEntity({
         nodeType: "start",
         label:
@@ -777,10 +777,10 @@ const FlowDemoContent: React.FC = () => {
         },
         config,
       });
-      // 复用原始实体 ID
+      // Reuse original entity ID
       (flowNodeEntity as unknown as { id: string }).id = entity.id;
 
-      // 设置输出端口
+      // Set output ports
       flowNodeEntity.setPorts([
         { id: "output", name: "开始", type: "output", dataType: "any" },
       ]);
@@ -812,24 +812,24 @@ const FlowDemoContent: React.FC = () => {
                 setActiveFlowNodeId(entity.id);
               }}
               onMove={(_, newPosition) => {
-                // 更新原始实体位置
+                // Update original entity position
                 if (entity.data) {
                   (entity.data as { position?: { x: number; y: number } }).position = newPosition;
                 }
-                // 也更新实体自身（如果有 x, y 属性）
+                // Also update entity itself (if it has x, y properties)
                 (entity as { x?: number; y?: number }).x = newPosition.x;
                 (entity as { x?: number; y?: number }).y = newPosition.y;
-                // 触发重渲染
+                // Trigger re-render
                 renderEvents.requestRenderAll({ reason: "start-node-moved" });
               }}
               onResize={(_, newSize) => {
-                // 更新原始实体尺寸
+                // Update original entity size
                 if (entity.data) {
                   (entity.data as { size?: { width: number; height: number } }).size = newSize;
                   (entity.data as { width?: number; height?: number }).width = newSize.width;
                   (entity.data as { width?: number; height?: number }).height = newSize.height;
                 }
-                // 触发重渲染
+                // Trigger re-render
                 renderEvents.requestRenderAll({ reason: "start-node-resized" });
               }}
               onFormChange={(_, values) => {
@@ -852,10 +852,10 @@ const FlowDemoContent: React.FC = () => {
     setSelectedIds,
   ]);
 
-  // 交互：通过 InteractionManager + DragTool 插件化实现
+  // Interaction: implemented via InteractionManager + DragTool plugin pattern
   const interactionManagerRef = useRef<InteractionManager | null>(null);
 
-  // 初始化交互管理器与拖拽工具
+  // Initialize interaction manager and drag tool
   React.useEffect(() => {
     if (!renderContextBuilder) return;
     const mgr = new InteractionManager(
@@ -889,14 +889,14 @@ const FlowDemoContent: React.FC = () => {
     };
   }, [entityManager, renderContextBuilder, renderEvents, flow]);
 
-  // 绘制：交由 RenderManager 统一全量重绘
+  // Drawing: delegated to RenderManager for unified full redraw
   const handleDraw = useCallback(() => {
     renderEvents.requestRenderAll({ reason: "editor-draw" });
   }, [renderEvents]);
 
-  // 工具函数迁移到 DragTool 内部
+  // Utility functions moved inside DragTool
 
-  // 视口变化回调
+  // Viewport change callback
   const handleViewportChange = useCallback(
     (viewport: { x: number; y: number; zoom: number; width: number; height: number }) => {
       flowLogger.debug({
@@ -917,7 +917,7 @@ const FlowDemoContent: React.FC = () => {
         width: viewport.width ?? 0,
         height: viewport.height ?? 0,
       });
-      // 同步给 RenderManager，并触发一次重绘以更新网格/内容
+      // Sync to RenderManager and trigger a redraw to update grid/content
       try {
         renderManager.updateRenderContext({ viewport });
         const payload: {
@@ -946,7 +946,7 @@ const FlowDemoContent: React.FC = () => {
     [renderEvents, renderManager]
   );
 
-  // 渲染上下文构建器就绪回调
+  // Render context builder ready callback
   const handleRenderContextReady = useCallback(
     (builder: RenderContextBuilder) => {
       flowLogger.debug({
@@ -967,7 +967,7 @@ const FlowDemoContent: React.FC = () => {
         });
       }
 
-      // 构建初始的 IRenderContext 并设置到 render-manager
+      // Build initial IRenderContext and set to render-manager
       const renderContext = builder.buildContext(renderEntities, {
         source: "flow-demo",
       });
@@ -983,12 +983,12 @@ const FlowDemoContent: React.FC = () => {
         renderManager.setRenderContext(renderContext);
       }
 
-      // 不再通过 UI 回调驱动，RenderManager 在实体更新时会自行触发 renderAll()
+      // No longer driven by UI callback; RenderManager triggers renderAll() automatically on entity updates
     },
     [renderEntities, renderManager]
   );
 
-  // 监听节点变化，更新渲染上下文
+  // Listen for node changes and update render context
   React.useEffect(() => {
     if (!renderContextBuilder) return;
 
@@ -1014,7 +1014,7 @@ const FlowDemoContent: React.FC = () => {
     renderEvents.requestRenderAll({ reason: "entities-updated" });
   }, [renderContextBuilder, renderEntities, renderEvents, renderManager]);
 
-  // 基本的鼠标事件处理器（转发到 InteractionManager）
+  // Basic mouse event handlers (forwarded to InteractionManager)
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     interactionManagerRef.current?.onMouseDown(e);
   }, []);
@@ -1062,7 +1062,7 @@ const FlowDemoContent: React.FC = () => {
     };
   }, [handleRedo, handleUndo, removeNode, selectedIds]);
 
-  // 绑定滚轮缩放（围绕鼠标位置缩放）
+  // Bind wheel zoom (zoom around mouse position)
   React.useEffect(() => {
     if (!ENABLE_CANVAS_ZOOM) {
       return;
@@ -1077,13 +1077,13 @@ const FlowDemoContent: React.FC = () => {
       const vp = renderContextBuilder.getViewport();
       const prevZoom = vp.zoom || 1;
 
-      // 缩放步进与范围
-      const zoomFactor = Math.exp(-e.deltaY * 0.001); // 平滑缩放
+      // Zoom step and range
+      const zoomFactor = Math.exp(-e.deltaY * 0.001); // Smooth zoom
       const nextZoom = Math.min(3, Math.max(0.25, prevZoom * zoomFactor));
       if (nextZoom === prevZoom) return;
 
-      // 保持鼠标下的世界坐标不变
-      // 基于 screen = (world - viewport) * zoom 进行换算
+      // Keep world coordinates under mouse unchanged
+      // Convert based on screen = (world - viewport) * zoom
       const worldX = mouseX / prevZoom + (vp.x || 0);
       const worldY = mouseY / prevZoom + (vp.y || 0);
       const nextX = worldX - mouseX / nextZoom;
@@ -1123,7 +1123,7 @@ const FlowDemoContent: React.FC = () => {
     };
   }, [canvasRef, renderContextBuilder, renderEvents, renderManager]);
 
-  // 删除重复的 handleDraw（已在上方定义）
+  // Remove duplicate handleDraw (already defined above)
 
   const handleAddNode = useCallback(() => {
     if (!flow) {
@@ -1270,14 +1270,14 @@ const FlowDemoContent: React.FC = () => {
     });
   }, []);
 
-  // 新建 Flow 功能
+  // New Flow feature
   const createNewFlow = useCallback(() => {
     flowLogger.info({
       event: FlowDemoEvent.FlowCreateRequested,
       message: "New flow creation requested",
       emoji: "🆕",
     });
-    // 这里可以添加创建新 Flow 的逻辑
+    // Logic for creating a new Flow can be added here
     if (flow) {
       const entityCount = flow.getAllEntities?.().length;
       flowLogger.debug({
@@ -1297,7 +1297,7 @@ const FlowDemoContent: React.FC = () => {
     }
   }, [flow]);
 
-  // 创建 UML Class Entity 功能
+  // Create UML Class Entity feature
   const createUMLClassEntity = useCallback(() => {
     const entityType = "uml-class-canvas" as const;
     flowLogger.info({
@@ -1425,7 +1425,7 @@ const FlowDemoContent: React.FC = () => {
     }
   }, [addNode, flow]);
 
-  // 通用：创建指定类型的 UML 实体
+  // Generic: create UML entity of specified type
   const createUMLEntity = useCallback(
     (
       type: "uml-interface-canvas" | "uml-usecase-canvas" | "uml-actor-canvas",
@@ -1433,7 +1433,7 @@ const FlowDemoContent: React.FC = () => {
     ) => {
       logger.info("🏗️ 创建 UML Entity", { type });
 
-      // 详细日志: 检查注册表状态
+      // Detailed log: check registry status
       const registryManager = runtime.RegistryManager;
       logger.info("🔍 检查注册表状态", {
         type,
@@ -1459,7 +1459,7 @@ const FlowDemoContent: React.FC = () => {
 
         if (entity) {
           logger.info("✅ UML Entity 创建成功:", entity.id);
-          // 渲染由 RenderManager 的自动全量重绘负责
+          // Rendering is handled by RenderManager's automatic full redraw
 
           const entities = flow.getAllEntities();
           logger.debug("📊 Flow 中当前节点数:", entities.length);
@@ -1473,7 +1473,7 @@ const FlowDemoContent: React.FC = () => {
     [addNode, flow, runtime]
   );
 
-  // 创建 UML 其他类型实体
+  // Create other UML entity types
   const createUMLInterfaceEntity = useCallback(() => {
     createUMLEntity("uml-interface-canvas", {
       x: 200,
@@ -1533,11 +1533,11 @@ const FlowDemoContent: React.FC = () => {
   }, [addEdge, flow]);
 
   // ============================================================================
-  // Flow Canvas 节点创建功能
+  // Flow Canvas node creation feature
   // ============================================================================
 
   /**
-   * 通用：创建指定类型的 Flow Canvas 实体
+   * Generic: create Flow Canvas entity of specified type
    */
   const createFlowCanvasNode = useCallback(
     (type: FlowCanvasNodeType, defaults: { x: number; y: number; label: string }) => {
@@ -1607,7 +1607,7 @@ const FlowDemoContent: React.FC = () => {
     [addNode, flow]
   );
 
-  // 创建 Flow Start Canvas 节点
+  // Create Flow Start Canvas node
   const createFlowStartNode = useCallback(() => {
     createFlowCanvasNode(FLOW_CANVAS_NODE_TYPES.Start, {
       x: 50,
@@ -1616,7 +1616,7 @@ const FlowDemoContent: React.FC = () => {
     });
   }, [createFlowCanvasNode]);
 
-  // 创建 Flow Action Canvas 节点
+  // Create Flow Action Canvas node
   const createFlowActionNode = useCallback(() => {
     createFlowCanvasNode(FLOW_CANVAS_NODE_TYPES.Action, {
       x: 200,
@@ -1625,7 +1625,7 @@ const FlowDemoContent: React.FC = () => {
     });
   }, [createFlowCanvasNode]);
 
-  // 创建 Flow Decision Canvas 节点
+  // Create Flow Decision Canvas node
   const createFlowDecisionNode = useCallback(() => {
     createFlowCanvasNode(FLOW_CANVAS_NODE_TYPES.Decision, {
       x: 450,
@@ -1634,7 +1634,7 @@ const FlowDemoContent: React.FC = () => {
     });
   }, [createFlowCanvasNode]);
 
-  // 创建 Flow End Canvas 节点
+  // Create Flow End Canvas node
   const createFlowEndNode = useCallback(() => {
     createFlowCanvasNode(FLOW_CANVAS_NODE_TYPES.End, {
       x: 600,
@@ -1889,7 +1889,7 @@ const FlowDemoContent: React.FC = () => {
         </button>
       </div>
 
-      {/* Flow Canvas 节点创建按钮 */}
+      {/* Flow Canvas node creation buttons */}
       <div style={{ marginBottom: "20px" }}>
         <span style={{ marginRight: "12px", fontWeight: 600, color: "#334155" }}>Flow 节点：</span>
         <button
@@ -2152,7 +2152,7 @@ const FlowDemoContent: React.FC = () => {
         </div>
       )}
 
-      {/* Editor 组件 */}
+      {/* Editor component */}
       <div data-testid="flow-editor-wrapper" style={{ position: "relative", marginBottom: "32px" }}>
         <Editor
           canvasRef={canvasRef}
@@ -2172,7 +2172,7 @@ const FlowDemoContent: React.FC = () => {
           onViewportChange={handleViewportChange}
           onRenderContextReady={handleRenderContextReady}
         />
-        {/* Start 节点使用 React 渲染 */}
+        {/* Start node rendered with React */}
         {startNodeOverlays}
         {flowNodeFormOverlay}
       </div>

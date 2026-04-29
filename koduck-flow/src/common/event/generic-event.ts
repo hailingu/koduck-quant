@@ -3,10 +3,10 @@ import { BaseEvent } from "./base-event";
 import type { EventPreset } from "./config";
 
 /**
- * 通用事件类
+ * Generic event class
  *
- * BaseEvent 的具体实现，可用于创建任意类型的简单事件。
- * 替代 Emitter 类的功能，提供相同的便捷API但享受BaseEvent的所有优化。
+ * Concrete implementation of BaseEvent, can be used to create simple events of any type.
+ * Replaces Emitter class functionality, providing the same convenient API while enjoying all BaseEvent optimizations.
  */
 export class GenericEvent<T> extends BaseEvent<T> {
   constructor(
@@ -18,10 +18,10 @@ export class GenericEvent<T> extends BaseEvent<T> {
 }
 
 /**
- * 创建事件发射器的工厂函数
+ * Factory function for creating event emitters
  *
- * 替代 new Emitter<T>() 的使用方式，提供相同的便捷API。
- * 内部使用 BaseEvent 实现，享受批处理和性能优化等所有功能。
+ * Replaces the usage of new Emitter<T>(), providing the same convenient API.
+ * Internally uses BaseEvent implementation, enjoying all features such as batching and performance optimization.
  */
 export function createEmitter<T>(
   eventName?: string,

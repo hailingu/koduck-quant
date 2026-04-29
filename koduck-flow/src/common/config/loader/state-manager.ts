@@ -1,13 +1,13 @@
 /**
- * 配置状态管理器实现
- * 集中管理配置状态，解耦各模块间的状态依赖
+ * Config state manager implementation
+ * Centralizes config state management and decouples state dependencies between modules
  */
 
 import type { KoduckFlowConfig } from "../schema.js";
 import type { IConfigState, ConfigChangeListener } from "./types/index.js";
 
 /**
- * 配置历史记录条目
+ * Config history entry
  */
 interface ConfigHistoryEntry {
   config: KoduckFlowConfig;
@@ -16,8 +16,8 @@ interface ConfigHistoryEntry {
 }
 
 /**
- * 配置状态管理器
- * 提供配置状态的读写、订阅和历史记录功能
+ * Config state manager
+ * Provides read/write, subscription, and history tracking for config state
  */
 export class ConfigStateManager implements IConfigState {
   private currentConfig: KoduckFlowConfig;
@@ -33,76 +33,76 @@ export class ConfigStateManager implements IConfigState {
     this.history = [];
     this.maxHistorySize = maxHistorySize;
 
-    // 记录初始配置到历史
+    // Record initial config to history
     this.addToHistory(initialConfig, "initialization");
   }
 
   /**
-   * 获取当前配置状态
+   * Get current config state
    */
   getCurrentConfig(): KoduckFlowConfig {
     return this.currentConfig;
   }
 
   /**
-   * 设置配置状态
+   * Set config state
    */
   setCurrentConfig(config: KoduckFlowConfig, silent = false): void {
     const oldConfig = this.currentConfig;
     this.previousConfig = oldConfig;
     this.currentConfig = config;
 
-    // 记录到历史
+    // Record to history
     this.addToHistory(config, "manual-update");
 
-    // 触发监听器
+    // Trigger listeners
     if (!silent && this.listeners.size > 0) {
       this.notifyListeners(config, oldConfig);
     }
   }
 
   /**
-   * 获取上一次的配置状态
+   * Get previous config state
    */
   getPreviousConfig(): KoduckFlowConfig | undefined {
     return this.previousConfig;
   }
 
   /**
-   * 订阅配置变更事件
+   * Subscribe to config change events
    */
   subscribe(listener: ConfigChangeListener): () => void {
     this.listeners.add(listener);
 
-    // 返回取消订阅函数
+    // Return unsubscribe function
     return () => {
       this.unsubscribe(listener);
     };
   }
 
   /**
-   * 取消订阅配置变更事件
+   * Unsubscribe from config change events
    */
   unsubscribe(listener: ConfigChangeListener): void {
     this.listeners.delete(listener);
   }
 
   /**
-   * 获取所有监听器
+   * Get all listeners
    */
   getListeners(): ReadonlyArray<ConfigChangeListener> {
     return Array.from(this.listeners);
   }
 
   /**
-   * 清空所有监听器
+   * Clear all listeners
    */
   clearListeners(): void {
     this.listeners.clear();
   }
 
   /**
-   * 获取配置历史记录
+   * Get config history
    */
   getHistory(limit?: number): ReadonlyArray<ConfigHistoryEntry> {
     if (limit && limit > 0) {
@@ -112,10 +112,10 @@ export class ConfigStateManager implements IConfigState {
   }
 
   /**
-   * 清空配置历史记录
+   * Clear config history
    */
   clearHistory(): void {
-    // 保留最新的一条记录
+    // Keep the latest record
     if (this.history.length > 0) {
       const latest = this.history.at(-1)!;
       this.history = [latest];
@@ -125,7 +125,7 @@ export class ConfigStateManager implements IConfigState {
   }
 
   /**
-   * 添加配置到历史记录
+   * Add config to history
    */
   private addToHistory(config: KoduckFlowConfig, trigger?: string): void {
     const entry: ConfigHistoryEntry = {
@@ -137,14 +137,14 @@ export class ConfigStateManager implements IConfigState {
     }
     this.history.push(entry);
 
-    // 限制历史记录大小
+    // Limit history size
     if (this.history.length > this.maxHistorySize) {
       this.history.shift();
     }
   }
 
   /**
-   * 通知所有监听器配置已变更
+   * Notify all listeners that config has changed
    */
   private notifyListeners(newConfig: KoduckFlowConfig, oldConfig: KoduckFlowConfig): void {
     for (const listener of this.listeners) {
@@ -157,31 +157,31 @@ export class ConfigStateManager implements IConfigState {
   }
 
   /**
-   * 更新配置并记录触发器
+   * Update config and record trigger
    */
   updateConfig(config: KoduckFlowConfig, trigger: string, silent = false): void {
     const oldConfig = this.currentConfig;
     this.previousConfig = oldConfig;
     this.currentConfig = config;
 
-    // 记录到历史
+    // Record to history
     this.addToHistory(config, trigger);
 
-    // 触发监听器
+    // Trigger listeners
     if (!silent && this.listeners.size > 0) {
       this.notifyListeners(config, oldConfig);
     }
   }
 
   /**
-   * 获取监听器数量
+   * Get listener count
    */
   getListenerCount(): number {
     return this.listeners.size;
   }
 
   /**
-   * 获取历史记录大小
+   * Get history size
    */
   getHistorySize(): number {
     return this.history.length;

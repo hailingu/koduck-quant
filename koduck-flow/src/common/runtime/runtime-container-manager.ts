@@ -12,17 +12,17 @@
  */
 
 /**
- * RuntimeContainerManager - DI 容器管理器
+ * RuntimeContainerManager - DI container manager
  *
  * @description
- * 负责管理 DI 容器的生命周期和核心服务访问。
- * 提供服务解析、核心服务 getter 和容器清理功能。
+ * Responsible for managing the DI container lifecycle and core service access.
+ * Provides service resolution, core service getters, and container cleanup.
  *
  * @responsibilities
- * - 管理 DI 容器引用
- * - 提供服务注册与解析
- * - 管理核心服务（Entity/Render/Registry/Event）访问
- * - 处理容器清理和资源释放
+ * - Manage DI container reference
+ * - Provide service registration and resolution
+ * - Manage core service (Entity/Render/Registry/Event) access
+ * - Handle container cleanup and resource release
  *
  * @module runtime/runtime-container-manager
  */
@@ -39,68 +39,68 @@ import type { EntityEventManager } from "../event/entity-event-manager";
 import type { IEntity } from "../entity";
 
 /**
- * 核心管理器集合接口
+ * Core manager collection interface
  *
  * @description
- * 包含所有核心服务管理器的引用
+ * Contains references to all core service managers
  */
 export interface CoreManagers {
-  /** 实体管理器 - 管理实体的创建、查询和生命周期 */
+  /** Entity manager - manages entity creation, querying, and lifecycle */
   entity: EntityManager;
-  /** 渲染管理器 - 管理实体的渲染和视图更新 */
+  /** Render manager - manages entity rendering and view updates */
   render: RenderManager;
-  /** 注册表管理器 - 管理实体类型注册和查找 */
+  /** Registry manager - manages entity type registration and lookup */
   registry: RegistryManager;
-  /** 事件总线 - 全局事件分发 */
+  /** Event bus - global event dispatch */
   eventBus: EventBus;
-  /** 渲染事件管理器 - 渲染相关事件管理 */
+  /** Render event manager - rendering-related event management */
   renderEvents: RenderEventManager;
-  /** 实体事件管理器 - 实体相关事件管理 */
+  /** Entity event manager - entity-related event management */
   entityEvents: EntityEventManager<IEntity>;
 }
 
 /**
- * RuntimeContainerManager 类
+ * RuntimeContainerManager class
  *
  * @description
- * DI 容器管理器，封装容器操作和核心服务访问。
- * 作为 KoduckFlowRuntime 的子模块，专注于容器管理职责。
+ * DI container manager that encapsulates container operations and core service access.
+ * As a submodule of KoduckFlowRuntime, focuses on container management responsibilities.
  *
  * @example
  * ```typescript
  * const container = createCoreContainer();
  * const containerManager = new RuntimeContainerManager(container);
  *
- * // 服务解析
+ * // Service resolution
  * const service = containerManager.resolve<MyService>(TOKENS.myService);
  *
- * // 核心服务访问
+ * // Core service access
  * const entityManager = containerManager.getEntityManager();
  *
- * // 清理
+ * // Cleanup
  * containerManager.dispose();
  * ```
  */
 export class RuntimeContainerManager implements IDisposable {
-  /** DI 容器实例（只读） */
+  /** DI container instance (read-only) */
   readonly container: IDependencyContainer;
 
-  /** 核心管理器缓存 */
+  /** Core manager cache */
   private readonly coreManagers: CoreManagers;
 
-  /** 标记是否已释放 */
+  /** Flag indicating whether disposed */
   private disposed = false;
 
   /**
-   * 构造函数
+   * Constructor
    *
-   * @param container - DI 容器实例
+   * @param container - DI container instance
    *
-   * @throws {Error} 如果容器为 null 或 undefined
+   * @throws {Error} If container is null or undefined
    *
    * @description
-   * 初始化容器管理器并解析所有核心服务。
-   * 核心服务在构造时立即解析并缓存，避免重复解析开销。
+   * Initializes the container manager and resolves all core services.
+   * Core services are resolved and cached immediately at construction to avoid repeated resolution overhead.
    */
   constructor(container: IDependencyContainer) {
     if (!container) {
@@ -109,7 +109,7 @@ export class RuntimeContainerManager implements IDisposable {
 
     this.container = container;
 
-    // 解析并缓存所有核心服务
+    // Resolve and cache all core services
     this.coreManagers = {
       entity: container.resolve<EntityManager>(TOKENS.entityManager),
       render: container.resolve<RenderManager>(TOKENS.renderManager),
@@ -121,14 +121,14 @@ export class RuntimeContainerManager implements IDisposable {
   }
 
   /**
-   * 从容器中解析服务
+   * Resolve service from container
    *
-   * @template T - 服务类型
-   * @param token - 服务标识（字符串或 Symbol）
-   * @returns 解析的服务实例
+   * @template T - Service type
+   * @param token - Service identifier (string or Symbol)
+   * @returns Resolved service instance
    *
-   * @throws {Error} 如果容器已释放
-   * @throws {Error} 如果服务未注册或解析失败
+   * @throws {Error} If container has been disposed
+   * @throws {Error} If service is not registered or resolution fails
    *
    * @example
    * ```typescript
@@ -141,12 +141,12 @@ export class RuntimeContainerManager implements IDisposable {
   }
 
   /**
-   * 检查容器中是否存在指定服务
+   * Check if specified service exists in container
    *
-   * @param token - 服务标识（字符串或 Symbol）
-   * @returns 如果服务已注册返回 true，否则返回 false
+   * @param token - Service identifier (string or Symbol)
+   * @returns true if service is registered, false otherwise
    *
-   * @throws {Error} 如果容器已释放
+   * @throws {Error} If container has been disposed
    *
    * @example
    * ```typescript
@@ -161,15 +161,15 @@ export class RuntimeContainerManager implements IDisposable {
   }
 
   /**
-   * 获取所有核心管理器
+   * Get all core managers
    *
-   * @returns 核心管理器集合
+   * @returns Core manager collection
    *
-   * @throws {Error} 如果容器已释放
+   * @throws {Error} If container has been disposed
    *
    * @description
-   * 返回包含所有核心服务的对象。
-   * 核心服务在构造时已解析并缓存，此方法直接返回缓存。
+   * Returns an object containing all core services.
+   * Core services are resolved and cached at construction; this method returns the cache directly.
    */
   getCoreManagers(): CoreManagers {
     this.ensureNotDisposed();
@@ -177,14 +177,14 @@ export class RuntimeContainerManager implements IDisposable {
   }
 
   /**
-   * 获取实体管理器
+   * Get entity manager
    *
-   * @returns EntityManager 实例
+   * @returns EntityManager instance
    *
-   * @throws {Error} 如果容器已释放
+   * @throws {Error} If container has been disposed
    *
    * @description
-   * 便捷方法，直接访问实体管理器。
+   * Convenience method to directly access the entity manager.
    */
   getEntityManager(): EntityManager {
     this.ensureNotDisposed();
@@ -192,14 +192,14 @@ export class RuntimeContainerManager implements IDisposable {
   }
 
   /**
-   * 获取渲染管理器
+   * Get render manager
    *
-   * @returns RenderManager 实例
+   * @returns RenderManager instance
    *
-   * @throws {Error} 如果容器已释放
+   * @throws {Error} If container has been disposed
    *
    * @description
-   * 便捷方法，直接访问渲染管理器。
+   * Convenience method to directly access the render manager.
    */
   getRenderManager(): RenderManager {
     this.ensureNotDisposed();
@@ -207,14 +207,14 @@ export class RuntimeContainerManager implements IDisposable {
   }
 
   /**
-   * 获取注册表管理器
+   * Get registry manager
    *
-   * @returns RegistryManager 实例
+   * @returns RegistryManager instance
    *
-   * @throws {Error} 如果容器已释放
+   * @throws {Error} If container has been disposed
    *
    * @description
-   * 便捷方法，直接访问注册表管理器。
+   * Convenience method to directly access the registry manager.
    */
   getRegistryManager(): RegistryManager {
     this.ensureNotDisposed();
@@ -222,14 +222,14 @@ export class RuntimeContainerManager implements IDisposable {
   }
 
   /**
-   * 获取事件总线
+   * Get event bus
    *
-   * @returns EventBus 实例
+   * @returns EventBus instance
    *
-   * @throws {Error} 如果容器已释放
+   * @throws {Error} If container has been disposed
    *
    * @description
-   * 便捷方法，直接访问事件总线。
+   * Convenience method to directly access the event bus.
    */
   getEventBus(): EventBus {
     this.ensureNotDisposed();
@@ -237,14 +237,14 @@ export class RuntimeContainerManager implements IDisposable {
   }
 
   /**
-   * 获取渲染事件管理器
+   * Get render event manager
    *
-   * @returns RenderEventManager 实例
+   * @returns RenderEventManager instance
    *
-   * @throws {Error} 如果容器已释放
+   * @throws {Error} If container has been disposed
    *
    * @description
-   * 便捷方法，直接访问渲染事件管理器。
+   * Convenience method to directly access the render event manager.
    */
   getRenderEvents(): RenderEventManager {
     this.ensureNotDisposed();
@@ -252,14 +252,14 @@ export class RuntimeContainerManager implements IDisposable {
   }
 
   /**
-   * 获取实体事件管理器
+   * Get entity event manager
    *
-   * @returns EntityEventManager 实例
+   * @returns EntityEventManager instance
    *
-   * @throws {Error} 如果容器已释放
+   * @throws {Error} If container has been disposed
    *
    * @description
-   * 便捷方法，直接访问实体事件管理器。
+   * Convenience method to directly access the entity event manager.
    */
   getEntityEvents(): EntityEventManager<IEntity> {
     this.ensureNotDisposed();
@@ -267,15 +267,15 @@ export class RuntimeContainerManager implements IDisposable {
   }
 
   /**
-   * 获取 Worker Pool 管理器
+   * Get Worker Pool manager
    *
-   * @returns WorkerPoolManager 实例 | undefined
+   * @returns WorkerPoolManager instance | undefined
    *
-   * @throws {Error} 如果容器已释放
+   * @throws {Error} If container has been disposed
    *
    * @description
-   * 便捷方法，直接访问 Worker Pool 管理器（如果已注册）。
-   * 如果 Worker Pool 未在 DI 容器中注册，返回 undefined。
+   * Convenience method to directly access the Worker Pool manager (if registered).
+   * Returns undefined if Worker Pool is not registered in the DI container.
    */
   getWorkerPoolManager() {
     this.ensureNotDisposed();
@@ -287,22 +287,22 @@ export class RuntimeContainerManager implements IDisposable {
   }
 
   /**
-   * 释放容器管理器资源
+   * Dispose container manager resources
    *
    * @description
-   * 清理核心管理器缓存，标记为已释放。
-   * 注意：此方法不会释放容器本身，容器的生命周期由外部管理。
+   * Clean up core manager cache and mark as disposed.
+   * Note: This method does not dispose the container itself; the container lifecycle is managed externally.
    *
    * @remarks
-   * 多次调用 dispose() 是安全的，但只有第一次调用会执行清理。
+   * Multiple dispose() calls are safe, but only the first call performs cleanup.
    */
   dispose(): void {
     if (this.disposed) {
       return;
     }
 
-    // 清理缓存引用（帮助 GC）
-    // 注意：不释放 container，因为它由 KoduckFlowRuntime 管理
+    // Clean up cache references (help GC)
+    // Note: Do not dispose container, as it is managed by KoduckFlowRuntime
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (this.coreManagers as any).entity = null;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -320,13 +320,13 @@ export class RuntimeContainerManager implements IDisposable {
   }
 
   /**
-   * 检查是否已释放
+   * Check if disposed
    *
-   * @throws {Error} 如果已释放
+   * @throws {Error} If already disposed
    *
    * @private
    * @description
-   * 内部方法，用于在操作前检查状态。
+   * Internal method used to check state before operations.
    */
   private ensureNotDisposed(): void {
     if (this.disposed) {
@@ -336,18 +336,18 @@ export class RuntimeContainerManager implements IDisposable {
 }
 
 /**
- * 注册 Runtime 实例到容器
+ * Register Runtime instance to container
  *
- * @param container - DI 容器实例
- * @param runtime - KoduckFlowRuntime 实例
+ * @param container - DI container instance
+ * @param runtime - KoduckFlowRuntime instance
  *
  * @description
- * 将 runtime 实例注册到容器中，供其他服务依赖注入使用。
- * 同时注册租户上下文、配额、Rollout 的占位符。
+ * Register the runtime instance into the container for use by other services via dependency injection.
+ * Also registers placeholders for tenant context, quota, and rollout.
  *
  * @internal
  * @remarks
- * 此函数从 koduck-flow-runtime.ts 迁移而来，保持向后兼容。
+ * This function was migrated from koduck-flow-runtime.ts for backward compatibility.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function registerRuntimeInstance(container: IDependencyContainer, runtime: any): void {
@@ -357,7 +357,7 @@ export function registerRuntimeInstance(container: IDependencyContainer, runtime
     ownsInstance: false,
   });
 
-  // 注册租户相关占位符（初始值为 null）
+  // Register tenant-related placeholders (initial value is null)
   container.registerInstance(TOKENS.tenantContext, null, {
     lifecycle: "singleton",
     replace: true,

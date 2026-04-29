@@ -5,7 +5,7 @@ import { TENANT_ENTITY_QUOTA_KEY } from "../../../src/common/runtime/types";
 import { logger } from "../../../src/common/logger";
 
 /**
- * 创建测试用的租户上下文
+ * Create test tenant context
  */
 function createTestContext(overrides?: Partial<ResolvedTenantContext>): ResolvedTenantContext {
   return {
@@ -41,13 +41,13 @@ describe("RuntimeQuotaManager", () => {
     vi.restoreAllMocks();
   });
 
-  describe("构造函数和初始化", () => {
-    it("应该成功创建配额管理器实例", () => {
+  describe("Constructor and Initialization", () => {
+    it("should successfully create quota manager instance", () => {
       expect(quotaManager).toBeDefined();
       expect(quotaManager).toBeInstanceOf(RuntimeQuotaManager);
     });
 
-    it("应该接受租户上下文提供函数", () => {
+    it("should accept tenant context provider function", () => {
       const manager = new RuntimeQuotaManager(
         () => createTestContext(),
         () => 0
@@ -55,7 +55,7 @@ describe("RuntimeQuotaManager", () => {
       expect(manager).toBeDefined();
     });
 
-    it("应该接受实体数量提供函数", () => {
+    it("should accept entity count provider function", () => {
       const manager = new RuntimeQuotaManager(
         () => null,
         () => 42
@@ -64,31 +64,31 @@ describe("RuntimeQuotaManager", () => {
     });
   });
 
-  describe("claimQuota() - 配额申请", () => {
-    it("无租户上下文时应该总是返回 true", () => {
+  describe("claimQuota() - Quota Claim", () => {
+    it("should always return true when no tenant context", () => {
       tenantContext = null;
       expect(quotaManager.claimQuota("api-calls", 10)).toBe(true);
       expect(quotaManager.claimQuota("storage", 100)).toBe(true);
     });
 
-    it("空桶名应该返回 true", () => {
+    it("should return true for empty bucket name", () => {
       tenantContext = createTestContext();
       expect(quotaManager.claimQuota("", 10)).toBe(true);
     });
 
-    it("amount <= 0 应该返回 true", () => {
+    it("should return true when amount <= 0", () => {
       tenantContext = createTestContext();
       expect(quotaManager.claimQuota("api-calls", 0)).toBe(true);
       expect(quotaManager.claimQuota("api-calls", -5)).toBe(true);
     });
 
-    it("无配额限制时应该总是返回 true", () => {
-      tenantContext = createTestContext(); // 无 quotas 配置
+    it("should always return true when no quota limit", () => {
+      tenantContext = createTestContext(); // No quotas config
       expect(quotaManager.claimQuota("api-calls", 100)).toBe(true);
       expect(quotaManager.claimQuota("storage", 1000)).toBe(true);
     });
 
-    it("应该成功申请配额（未超限）", () => {
+    it("should successfully claim quota (within limit)", () => {
       tenantContext = createTestContext({
         quotas: {
           custom: {
@@ -102,7 +102,7 @@ describe("RuntimeQuotaManager", () => {
       expect(quotaManager.claimQuota("api-calls", 30)).toBe(true);
     });
 
-    it("应该拒绝申请配额（超限）", () => {
+    it("should reject quota claim (exceeds limit)", () => {
       const warnSpy = vi.spyOn(logger, "warn");
       tenantContext = createTestContext({
         tenantId: "tenant-quota-test",
@@ -113,10 +113,10 @@ describe("RuntimeQuotaManager", () => {
         },
       });
 
-      // 申请 40，成功
+      // Claim 40, success
       expect(quotaManager.claimQuota("api-calls", 40)).toBe(true);
 
-      // 再申请 20，总共 60，超过限制 50，失败
+      // Claim another 20, total 60, exceeds limit 50, failure
       expect(quotaManager.claimQuota("api-calls", 20)).toBe(false);
 
       expect(warnSpy).toHaveBeenCalledWith("KoduckFlowRuntime tenant quota exceeded", {
@@ -127,7 +127,7 @@ describe("RuntimeQuotaManager", () => {
       });
     });
 
-    it("应该正确累加配额使用量", () => {
+    it("should correctly accumulate quota usage", () => {
       tenantContext = createTestContext({
         quotas: {
           custom: {
@@ -149,7 +149,7 @@ describe("RuntimeQuotaManager", () => {
       expect(snapshot3?.usage).toBe(45);
     });
 
-    it("应该支持多个配额桶", () => {
+    it("should support multiple quota buckets", () => {
       tenantContext = createTestContext({
         quotas: {
           custom: {
@@ -169,7 +169,7 @@ describe("RuntimeQuotaManager", () => {
       expect(quotaManager.getQuotaSnapshot("bandwidth")?.usage).toBe(800);
     });
 
-    it("实体配额应该调用 ensureEntityQuotaAvailable()", () => {
+    it("entity quota should call ensureEntityQuotaAvailable()", () => {
       tenantContext = createTestContext({
         quotas: {
           maxEntities: 10,
@@ -179,18 +179,18 @@ describe("RuntimeQuotaManager", () => {
 
       expect(quotaManager.claimQuota(TENANT_ENTITY_QUOTA_KEY, 1)).toBe(true);
 
-      entityCount = 10; // 已达限制
+      entityCount = 10; // Limit reached
       expect(quotaManager.claimQuota(TENANT_ENTITY_QUOTA_KEY, 1)).toBe(false);
     });
   });
 
-  describe("releaseQuota() - 配额释放", () => {
-    it("空桶名应该返回当前使用量", () => {
+  describe("releaseQuota() - Quota Release", () => {
+    it("should return current usage for empty bucket name", () => {
       tenantContext = createTestContext();
       expect(quotaManager.releaseQuota("", 10)).toBe(0);
     });
 
-    it("amount <= 0 应该返回当前使用量", () => {
+    it("should return current usage when amount <= 0", () => {
       tenantContext = createTestContext();
       quotaManager.claimQuota("api-calls", 50);
 
@@ -198,7 +198,7 @@ describe("RuntimeQuotaManager", () => {
       expect(quotaManager.releaseQuota("api-calls", -5)).toBe(50);
     });
 
-    it("应该正确释放配额", () => {
+    it("should correctly release quota", () => {
       tenantContext = createTestContext({
         quotas: {
           custom: {
@@ -215,7 +215,7 @@ describe("RuntimeQuotaManager", () => {
       expect(quotaManager.getQuotaSnapshot("api-calls")?.usage).toBe(30);
     });
 
-    it("释放量大于使用量时应该归零", () => {
+    it("should reset to zero when release amount exceeds usage", () => {
       tenantContext = createTestContext();
       quotaManager.claimQuota("api-calls", 30);
 
@@ -224,7 +224,7 @@ describe("RuntimeQuotaManager", () => {
       expect(quotaManager.getQuotaSnapshot("api-calls")?.usage).toBe(0);
     });
 
-    it("使用量归零后应该删除配额桶", () => {
+    it("should delete quota bucket when usage reaches zero", () => {
       tenantContext = createTestContext();
       quotaManager.claimQuota("api-calls", 50);
 
@@ -233,12 +233,12 @@ describe("RuntimeQuotaManager", () => {
       expect(snapshot?.usage).toBe(0);
     });
 
-    it("未申请过的配额桶释放应该返回 0", () => {
+    it("should return 0 when releasing unclaimed quota bucket", () => {
       tenantContext = createTestContext();
       expect(quotaManager.releaseQuota("non-existent", 10)).toBe(0);
     });
 
-    it("实体配额释放应该同步实际数量", () => {
+    it("entity quota release should sync with actual count", () => {
       tenantContext = createTestContext({
         quotas: {
           maxEntities: 10,
@@ -247,21 +247,21 @@ describe("RuntimeQuotaManager", () => {
       entityCount = 5;
       quotaManager.claimQuota(TENANT_ENTITY_QUOTA_KEY, 1);
 
-      entityCount = 3; // 实体数量减少
+      entityCount = 3; // Entity count decreased
       const remaining = quotaManager.releaseQuota(TENANT_ENTITY_QUOTA_KEY, 1);
 
-      // 应该同步为实际数量 3，而不是 5-1=4
+      // Should sync to actual count 3, not 5-1=4
       expect(remaining).toBe(3);
     });
   });
 
-  describe("getQuotaSnapshot() - 配额快照", () => {
-    it("无租户上下文应该返回 undefined", () => {
+  describe("getQuotaSnapshot() - Quota Snapshot", () => {
+    it("should return undefined when no tenant context", () => {
       tenantContext = null;
       expect(quotaManager.getQuotaSnapshot("api-calls")).toBeUndefined();
     });
 
-    it("应该返回正确的配额快照（有限制）", () => {
+    it("should return correct quota snapshot (with limit)", () => {
       tenantContext = createTestContext({
         quotas: {
           custom: {
@@ -281,8 +281,8 @@ describe("RuntimeQuotaManager", () => {
       });
     });
 
-    it("应该返回正确的配额快照（无限制）", () => {
-      tenantContext = createTestContext(); // 无 quotas 配置
+    it("should return correct quota snapshot (no limit)", () => {
+      tenantContext = createTestContext(); // No quotas config
       quotaManager.claimQuota("api-calls", 50);
 
       const snapshot = quotaManager.getQuotaSnapshot("api-calls");
@@ -294,7 +294,7 @@ describe("RuntimeQuotaManager", () => {
       expect(snapshot?.remaining).toBeUndefined();
     });
 
-    it("应该返回正确的配额快照（已用尽）", () => {
+    it("should return correct quota snapshot (exhausted)", () => {
       tenantContext = createTestContext({
         quotas: {
           custom: {
@@ -314,7 +314,7 @@ describe("RuntimeQuotaManager", () => {
       });
     });
 
-    it("应该返回正确的配额快照（超额，不应该出现但需防御）", () => {
+    it("should return correct quota snapshot (over-quota, shouldn't happen but needs defense)", () => {
       tenantContext = createTestContext({
         quotas: {
           custom: {
@@ -323,23 +323,23 @@ describe("RuntimeQuotaManager", () => {
         },
       });
 
-      // 手动设置超额使用量（测试防御逻辑）
+      // Manually set over-quota usage (test defensive logic)
       quotaManager.claimQuota("api-calls", 40);
-      quotaManager.claimQuota("api-calls", 15); // 总共 55，超过 50
+      quotaManager.claimQuota("api-calls", 15); // Total 55, exceeds 50
 
       const snapshot = quotaManager.getQuotaSnapshot("api-calls");
-      expect(snapshot?.usage).toBe(40); // 第二次申请失败，只有 40
+      expect(snapshot?.usage).toBe(40); // Second claim failed, only 40
       expect(snapshot?.remaining).toBe(10);
     });
   });
 
-  describe("listQuotaSnapshots() - 列出所有配额快照", () => {
-    it("无租户上下文应该返回空数组", () => {
+  describe("listQuotaSnapshots() - List All Quota Snapshots", () => {
+    it("should return empty array when no tenant context", () => {
       tenantContext = null;
       expect(quotaManager.listQuotaSnapshots()).toEqual([]);
     });
 
-    it("应该列出所有已使用的配额桶", () => {
+    it("should list all used quota buckets", () => {
       tenantContext = createTestContext({
         quotas: {
           custom: {
@@ -372,7 +372,7 @@ describe("RuntimeQuotaManager", () => {
       });
     });
 
-    it("应该包含已配置但未使用的配额桶", () => {
+    it("should include configured but unused quota buckets", () => {
       tenantContext = createTestContext({
         quotas: {
           custom: {
@@ -383,11 +383,11 @@ describe("RuntimeQuotaManager", () => {
         },
       });
 
-      // 只使用 api-calls
+      // Only use api-calls
       quotaManager.claimQuota("api-calls", 30);
 
       const snapshots = quotaManager.listQuotaSnapshots();
-      expect(snapshots).toHaveLength(3); // 应该包含 3 个配额桶
+      expect(snapshots).toHaveLength(3); // Should include 3 quota buckets
 
       const bandwidthSnapshot = snapshots.find((s) => s.key === "bandwidth");
       expect(bandwidthSnapshot).toEqual({
@@ -398,7 +398,7 @@ describe("RuntimeQuotaManager", () => {
       });
     });
 
-    it("应该包含实体配额（已配置）", () => {
+    it("should include entity quota (configured)", () => {
       tenantContext = createTestContext({
         quotas: {
           maxEntities: 10,
@@ -419,7 +419,7 @@ describe("RuntimeQuotaManager", () => {
       });
     });
 
-    it("应该同时列出自定义配额和实体配额", () => {
+    it("should list both custom and entity quotas", () => {
       tenantContext = createTestContext({
         quotas: {
           maxEntities: 20,
@@ -441,20 +441,20 @@ describe("RuntimeQuotaManager", () => {
     });
   });
 
-  describe("ensureEntityQuotaAvailable() - 实体配额检查", () => {
-    it("无租户上下文应该返回 true", () => {
+  describe("ensureEntityQuotaAvailable() - Entity Quota Check", () => {
+    it("should return true when no tenant context", () => {
       tenantContext = null;
       entityCount = 100;
       expect(quotaManager.ensureEntityQuotaAvailable()).toBe(true);
     });
 
-    it("无实体配额限制应该返回 true", () => {
-      tenantContext = createTestContext(); // 无 maxEntities
+    it("should return true when no entity quota limit", () => {
+      tenantContext = createTestContext(); // No maxEntities
       entityCount = 100;
       expect(quotaManager.ensureEntityQuotaAvailable()).toBe(true);
     });
 
-    it("实体数量未达限制应该返回 true", () => {
+    it("should return true when entity count hasn't reached limit", () => {
       tenantContext = createTestContext({
         quotas: {
           maxEntities: 10,
@@ -467,7 +467,7 @@ describe("RuntimeQuotaManager", () => {
       expect(quotaManager.ensureEntityQuotaAvailable()).toBe(true);
     });
 
-    it("实体数量达到限制应该返回 false 并记录警告", () => {
+    it("should return false and log warning when entity count reaches limit", () => {
       const warnSpy = vi.spyOn(logger, "warn");
       tenantContext = createTestContext({
         tenantId: "tenant-entity-limit",
@@ -486,7 +486,7 @@ describe("RuntimeQuotaManager", () => {
       });
     });
 
-    it("实体数量超过限制应该返回 false", () => {
+    it("should return false when entity count exceeds limit", () => {
       tenantContext = createTestContext({
         quotas: {
           maxEntities: 10,
@@ -498,8 +498,8 @@ describe("RuntimeQuotaManager", () => {
     });
   });
 
-  describe("syncEntityQuotaUsage() - 同步实体配额", () => {
-    it("无租户上下文应该删除实体配额桶", () => {
+  describe("syncEntityQuotaUsage() - Sync Entity Quota", () => {
+    it("should delete entity quota bucket when no tenant context", () => {
       tenantContext = createTestContext({
         quotas: { maxEntities: 10 },
       });
@@ -509,11 +509,11 @@ describe("RuntimeQuotaManager", () => {
 
       tenantContext = null;
       quotaManager.syncEntityQuotaUsage();
-      // 无租户上下文时，getQuotaSnapshot 返回 undefined
+      // When no tenant context, getQuotaSnapshot returns undefined
       expect(quotaManager.getQuotaSnapshot(TENANT_ENTITY_QUOTA_KEY)).toBeUndefined();
     });
 
-    it("无实体配额限制应该删除实体配额桶", () => {
+    it("should delete entity quota bucket when no entity quota limit", () => {
       tenantContext = createTestContext({
         quotas: { maxEntities: 10 },
       });
@@ -521,14 +521,14 @@ describe("RuntimeQuotaManager", () => {
       quotaManager.syncEntityQuotaUsage();
       expect(quotaManager.getQuotaSnapshot(TENANT_ENTITY_QUOTA_KEY)?.usage).toBe(5);
 
-      tenantContext = createTestContext(); // 移除 maxEntities
+      tenantContext = createTestContext(); // Remove maxEntities
       quotaManager.syncEntityQuotaUsage();
-      // 无实体配额限制时，快照应该显示 usage 为 0（因为配额桶已被删除）
+      // When no entity quota limit, snapshot should show usage as 0 (because quota bucket was deleted)
       const snapshot = quotaManager.getQuotaSnapshot(TENANT_ENTITY_QUOTA_KEY);
       expect(snapshot?.usage).toBe(0);
     });
 
-    it("应该同步实际实体数量", () => {
+    it("should sync with actual entity count", () => {
       tenantContext = createTestContext({
         quotas: { maxEntities: 20 },
       });
@@ -547,8 +547,8 @@ describe("RuntimeQuotaManager", () => {
     });
   });
 
-  describe("clear() - 清空配额", () => {
-    it("应该清空所有配额使用量", () => {
+  describe("clear() - Clear Quotas", () => {
+    it("should clear all quota usage", () => {
       tenantContext = createTestContext({
         quotas: {
           custom: {
@@ -571,8 +571,8 @@ describe("RuntimeQuotaManager", () => {
     });
   });
 
-  describe("边界条件和错误处理", () => {
-    it("应该处理配额限制为 0 的情况", () => {
+  describe("Boundary Conditions and Error Handling", () => {
+    it("should handle quota limit of 0", () => {
       tenantContext = createTestContext({
         quotas: {
           custom: {
@@ -584,7 +584,7 @@ describe("RuntimeQuotaManager", () => {
       expect(quotaManager.claimQuota("api-calls", 1)).toBe(false);
     });
 
-    it("应该处理大数量配额申请", () => {
+    it("should handle large quota claims", () => {
       tenantContext = createTestContext({
         quotas: {
           custom: {
@@ -597,7 +597,7 @@ describe("RuntimeQuotaManager", () => {
       expect(quotaManager.getQuotaSnapshot("api-calls")?.usage).toBe(999999);
     });
 
-    it("应该处理多次清空操作", () => {
+    it("should handle multiple clear operations", () => {
       tenantContext = createTestContext();
       quotaManager.claimQuota("api-calls", 50);
 
@@ -608,8 +608,8 @@ describe("RuntimeQuotaManager", () => {
       expect(quotaManager.getQuotaSnapshot("api-calls")?.usage).toBe(0);
     });
 
-    it("应该处理租户上下文切换", () => {
-      // 第一个租户
+    it("should handle tenant context switching", () => {
+      // First tenant
       tenantContext = createTestContext({
         tenantId: "tenant-1",
         quotas: {
@@ -618,7 +618,7 @@ describe("RuntimeQuotaManager", () => {
       });
       quotaManager.claimQuota("api-calls", 50);
 
-      // 切换到第二个租户（应该使用独立的配额）
+      // Switch to second tenant (should use independent quotas)
       tenantContext = createTestContext({
         tenantId: "tenant-2",
         quotas: {
@@ -626,13 +626,13 @@ describe("RuntimeQuotaManager", () => {
         },
       });
 
-      // 注意：切换租户时需要手动 clear()，这里测试的是未清空的情况
-      // 配额使用量仍然是 50（因为没有清空）
+      // Note: Manual clear() is needed when switching tenants, here we test the uncleared case
+      // Quota usage is still 50 (because it wasn't cleared)
       expect(quotaManager.getQuotaSnapshot("api-calls")?.usage).toBe(50);
-      expect(quotaManager.claimQuota("api-calls", 100)).toBe(true); // 限制变为 200
+      expect(quotaManager.claimQuota("api-calls", 100)).toBe(true); // Limit becomes 200
     });
 
-    it("应该处理配额桶名称包含特殊字符", () => {
+    it("should handle quota bucket names with special characters", () => {
       tenantContext = createTestContext({
         quotas: {
           custom: {

@@ -1,45 +1,45 @@
 /**
- * 引擎类型模块循环依赖修复测试
+ * Engine types module circular dependency fix tests
  *
- * 测试目标：
- * 1. 验证类型导入不会产生循环依赖
- * 2. 验证所有类型定义正确导出
- * 3. 验证向后兼容性
+ * Test objectives:
+ * 1. Verify type imports do not create circular dependencies
+ * 2. Verify all type definitions are correctly exported
+ * 3. Verify backward compatibility
  */
 
 import { describe, it, expect } from "vitest";
 
 describe("Engine Types - Circular Dependency Fix", () => {
-  describe("类型导入测试", () => {
-    it("应该能从 types/engine-types 导入核心引擎类型", async () => {
+  describe("Type import tests", () => {
+    it("should be able to import core engine types from types/engine-types", async () => {
       const engineTypes = await import("../../../src/common/engine/types/engine-types");
 
       expect(engineTypes).toBeDefined();
       expect(typeof engineTypes).toBe("object");
     });
 
-    it("应该能从 types/worker-bridge-types 导入 Worker 桥接类型", async () => {
+    it("should be able to import Worker bridge types from types/worker-bridge-types", async () => {
       const workerTypes = await import("../../../src/common/engine/types/worker-bridge-types");
 
       expect(workerTypes).toBeDefined();
       expect(typeof workerTypes).toBe("object");
     });
 
-    it("应该能从 types/index 导入所有类型", async () => {
+    it("should be able to import all types from types/index", async () => {
       const allTypes = await import("../../../src/common/engine/types");
 
       expect(allTypes).toBeDefined();
       expect(typeof allTypes).toBe("object");
     });
 
-    it("应该能从 engine/types.ts 导入类型（向后兼容）", async () => {
+    it("should be able to import types from engine/types.ts (backward compatibility)", async () => {
       const legacyTypes = await import("../../../src/common/engine/types");
 
       expect(legacyTypes).toBeDefined();
       expect(typeof legacyTypes).toBe("object");
     });
 
-    it("应该能从 worker-bridge.ts 导入类型", async () => {
+    it("should be able to import types from worker-bridge.ts", async () => {
       const workerBridge = await import("../../../src/common/engine/worker-bridge");
 
       expect(workerBridge).toBeDefined();
@@ -47,31 +47,31 @@ describe("Engine Types - Circular Dependency Fix", () => {
     });
   });
 
-  describe("类型定义完整性测试", () => {
-    it("engine-types 应该导出所有核心引擎类型", async () => {
+  describe("Type definition completeness tests", () => {
+    it("engine-types should export all core engine types", async () => {
       const types = await import("../../../src/common/engine/types/engine-types");
 
-      // 这些类型应该存在（TypeScript 会在编译时检查）
-      // 这里主要验证模块能够正常加载
+      // These types should exist (TypeScript checks at compile time)
+      // Mainly verify the module can load normally
       expect(types).toBeDefined();
     });
 
-    it("worker-bridge-types 应该导出所有 Worker 相关类型", async () => {
+    it("worker-bridge-types should export all Worker-related types", async () => {
       const types = await import("../../../src/common/engine/types/worker-bridge-types");
 
       expect(types).toBeDefined();
     });
 
-    it("types.ts 应该导出 FlowEngineMetricsRecorder", async () => {
+    it("types.ts should export FlowEngineMetricsRecorder", async () => {
       const types = await import("../../../src/common/engine/types");
 
       expect(types).toBeDefined();
     });
   });
 
-  describe("循环依赖检测", () => {
-    it("engine-types 不应该依赖 worker-bridge-types", async () => {
-      // 通过成功导入来验证没有循环依赖
+  describe("Circular dependency detection", () => {
+    it("engine-types should not depend on worker-bridge-types", async () => {
+      // Verify no circular dependency by successful import
       const engineTypes = await import("../../../src/common/engine/types/engine-types");
       const workerBridgeTypes = await import(
         "../../../src/common/engine/types/worker-bridge-types"
@@ -81,27 +81,27 @@ describe("Engine Types - Circular Dependency Fix", () => {
       expect(workerBridgeTypes).toBeDefined();
     });
 
-    it("worker-bridge.ts 应该只依赖类型模块，不依赖 types.ts", async () => {
-      // 导入 worker-bridge 不应该导致循环依赖错误
+    it("worker-bridge.ts should only depend on type modules, not types.ts", async () => {
+      // Importing worker-bridge should not cause circular dependency errors
       const workerBridge = await import("../../../src/common/engine/worker-bridge");
 
       expect(workerBridge).toBeDefined();
       expect(workerBridge.FlowEngineWorkerBridge).toBeDefined();
     });
 
-    it("types.ts 作为兼容层应该正常工作", async () => {
+    it("types.ts should work as a compatibility layer", async () => {
       const types = await import("../../../src/common/engine/types");
 
       expect(types).toBeDefined();
     });
   });
 
-  describe("TypeScript 类型兼容性", () => {
-    it("EntityResult 类型应该可用", async () => {
-      // 验证类型模块可以正常导入
+  describe("TypeScript type compatibility", () => {
+    it("EntityResult type should be available", async () => {
+      // Verify type module can be imported normally
       await import("../../../src/common/engine/types/engine-types");
 
-      // 验证类型可以正常使用
+      // Verify types can be used normally
       const result = {
         status: "success" as const,
         output: "test",
@@ -110,8 +110,8 @@ describe("Engine Types - Circular Dependency Fix", () => {
       expect(result.status).toBe("success");
     });
 
-    it("EngineConfig 类型应该可用", async () => {
-      // 验证 EngineConfig 类型存在且可导入
+    it("EngineConfig type should be available", async () => {
+      // Verify EngineConfig type exists and can be imported
       await import("../../../src/common/engine/types/engine-types");
 
       const config = {
@@ -122,8 +122,8 @@ describe("Engine Types - Circular Dependency Fix", () => {
       expect(config.concurrency).toBe(4);
     });
 
-    it("FlowEngineWorkerObserver 类型应该可用", async () => {
-      // 验证 FlowEngineWorkerObserver 类型存在且可导入
+    it("FlowEngineWorkerObserver type should be available", async () => {
+      // Verify FlowEngineWorkerObserver type exists and can be imported
       await import("../../../src/common/engine/types/worker-bridge-types");
 
       const observer = {
@@ -136,32 +136,32 @@ describe("Engine Types - Circular Dependency Fix", () => {
     });
   });
 
-  describe("模块导入依赖关系", () => {
-    it("应该按正确顺序导入模块", async () => {
-      // 1. 先导入 engine-types（基础类型）
+  describe("Module import dependency relationships", () => {
+    it("should import modules in the correct order", async () => {
+      // 1. Import engine-types first (base types)
       const engineTypes = await import("../../../src/common/engine/types/engine-types");
       expect(engineTypes).toBeDefined();
 
-      // 2. 再导入 worker-bridge-types（依赖 engine-types）
+      // 2. Then import worker-bridge-types (depends on engine-types)
       const workerTypes = await import("../../../src/common/engine/types/worker-bridge-types");
       expect(workerTypes).toBeDefined();
 
-      // 3. 最后导入 worker-bridge（依赖所有类型）
+      // 3. Finally import worker-bridge (depends on all types)
       const workerBridge = await import("../../../src/common/engine/worker-bridge");
       expect(workerBridge).toBeDefined();
     });
 
-    it("types.ts 应该能聚合所有类型", async () => {
+    it("types.ts should be able to aggregate all types", async () => {
       const allTypes = await import("../../../src/common/engine/types");
 
-      // 验证可以从统一入口导入所有内容
+      // Verify all content can be imported from a unified entry
       expect(allTypes).toBeDefined();
     });
   });
 
-  describe("实际使用场景", () => {
-    it("应该能正常创建 FlowEngineMetricsRecorder 实例", async () => {
-      // 验证类型模块可以导入
+  describe("Real-world usage scenarios", () => {
+    it("should be able to create FlowEngineMetricsRecorder instance normally", async () => {
+      // Verify type module can be imported
       await import("../../../src/common/engine/types");
 
       const recorder = {
@@ -183,8 +183,8 @@ describe("Engine Types - Circular Dependency Fix", () => {
       expect(recorder.getWorkerObserver).toBeDefined();
     });
 
-    it("应该能正常创建 EntityExecutor", async () => {
-      // 验证类型模块可以导入
+    it("should be able to create EntityExecutor normally", async () => {
+      // Verify type module can be imported
       await import("../../../src/common/engine/types/engine-types");
 
       const executor = async (ctx: { entity: { id: string } }) => {

@@ -1,7 +1,7 @@
 /**
- * Workflow Service 单元测试
+ * Workflow Service unit tests
  *
- * 测试工作流服务的核心功能：注册、触发、重试、重放、审计等
+ * Tests core workflow service features: registration, triggering, retry, replay, audit, etc.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";

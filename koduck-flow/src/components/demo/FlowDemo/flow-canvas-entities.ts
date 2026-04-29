@@ -1,9 +1,9 @@
 /**
  * @file Flow Canvas Entities
  * @description
- * Canvas 渲染版本的 Flow 节点实体（Start, Action, Decision, End）。
- * 这些实体继承自 UMLNodeEntity，使用 @AutoRegistry 装饰器自动注册，
- * 可在 FlowDemo 的 Canvas 画布中创建和渲染。
+ * Canvas-rendered Flow node entities (Start, Action, Decision, End).
+ * These entities extend UMLNodeEntity and are auto-registered via the @AutoRegistry decorator,
+ * and can be created and rendered on the FlowDemo Canvas.
  *
  * @see docs/design/flow-node-canvas-integration-plan.md
  */
@@ -18,20 +18,20 @@ import {
 import { UMLNodeEntity } from "./uml-entities-new-decorator";
 import { FLOW_NODE_THEMES } from "../../flow-entity/themes/flow-node-themes";
 
-// 获取注册表管理器
+// Get registry manager
 const runtime = getRuntimeForEnvironment(DEFAULT_KODUCKFLOW_ENVIRONMENT);
 const flowCanvasRegistryManager = runtime.RegistryManager;
 
-logger.info("🔧 Flow Canvas 实体文件被加载");
+logger.info("🔧 Flow Canvas entity file loaded");
 
 // ============================================================================
 // Helper Functions
 // ============================================================================
 
 /**
- * 从渲染上下文获取 Canvas 2D Context
- * @param context - 渲染上下文对象
- * @returns Canvas 2D 渲染上下文，或 null
+ * Get Canvas 2D Context from render context
+ * @param context - Render context object
+ * @returns Canvas 2D render context, or null
  */
 function getCanvasContext(context: unknown): CanvasRenderingContext2D | null {
   const ctxObj = context as { canvas?: HTMLCanvasElement } | undefined;
@@ -41,13 +41,13 @@ function getCanvasContext(context: unknown): CanvasRenderingContext2D | null {
 }
 
 /**
- * 绘制圆角矩形路径
- * @param ctx - Canvas 2D 渲染上下文
- * @param x - 左上角 X 坐标
- * @param y - 左上角 Y 坐标
- * @param width - 矩形宽度
- * @param height - 矩形高度
- * @param radius - 圆角半径
+ * Draw rounded rectangle path
+ * @param ctx - Canvas 2D render context
+ * @param x - Top-left X coordinate
+ * @param y - Top-left Y coordinate
+ * @param width - Rectangle width
+ * @param height - Rectangle height
+ * @param radius - Corner radius
  */
 function drawRoundedRect(
   ctx: CanvasRenderingContext2D,
@@ -71,13 +71,13 @@ function drawRoundedRect(
 }
 
 /**
- * 绘制圆角矩形顶部（用于 header bar）
- * @param ctx - Canvas 2D 渲染上下文
- * @param x - 左上角 X 坐标
- * @param y - 左上角 Y 坐标
- * @param width - 矩形宽度
- * @param height - 矩形高度
- * @param radius - 圆角半径
+ * Draw rounded rectangle top (for header bar)
+ * @param ctx - Canvas 2D render context
+ * @param x - Top-left X coordinate
+ * @param y - Top-left Y coordinate
+ * @param width - Rectangle width
+ * @param height - Rectangle height
+ * @param radius - Corner radius
  */
 function drawRoundedRectTop(
   ctx: CanvasRenderingContext2D,
@@ -103,12 +103,12 @@ function drawRoundedRectTop(
 // ============================================================================
 
 /**
- * Flow 开始节点 - Canvas 版本
+ * Flow start node - Canvas version
  *
  * @description
- * 绿色卡片式节点，表示流程的起点。
- * 包含标题、描述、触发类型 badge 和表单内容区域。
- * 只有一个输出端口，没有输入端口。
+ * Green card-style node representing the start of a flow.
+ * Contains title, description, trigger type badge, and form content area.
+ * Has only one output port, no input ports.
  */
 @AutoRegistry({
   registryManager: flowCanvasRegistryManager,
@@ -127,8 +127,8 @@ export class FlowStartCanvasEntity extends UMLNodeEntity {
   static readonly type = "flow-start-canvas";
 
   /**
-   * 创建 Flow 开始节点实体
-   * @param args - 实体初始化参数
+   * Create Flow start node entity
+   * @param args - Entity initialization arguments
    */
   constructor(args?: IEntityArguments) {
     super(args);
@@ -144,19 +144,19 @@ export class FlowStartCanvasEntity extends UMLNodeEntity {
         ((args as Record<string, unknown> | undefined)?.height as number) ?? theme.defaultHeight;
     }
 
-    // 设置输出端口
+    // Set output port
     this.setPorts([{ name: "out", direction: "out", side: "bottom", offset: 0.5 }]);
 
     logger.debug("FlowStartCanvasEntity created", { id: this.id });
   }
 
   /**
-   * 渲染开始节点到 Canvas - 已禁用，改为使用 React BaseFlowNode 组件渲染
-   * @param context - 渲染上下文
+   * Render start node to Canvas - disabled, now rendered using React BaseFlowNode component
+   * @param context - Render context
    */
   override async render(_context?: unknown): Promise<void> {
-    // Start 节点现在由 React BaseFlowNode 组件渲染，不再使用 Canvas 绘制
-    // 这样可以支持边框拖拽缩放等交互功能
+    // Start node is now rendered by React BaseFlowNode component, no longer drawn with Canvas
+    // This enables border drag/resize and other interactive features
     return;
   }
 }
@@ -166,11 +166,11 @@ export class FlowStartCanvasEntity extends UMLNodeEntity {
 // ============================================================================
 
 /**
- * Flow 操作节点 - Canvas 版本
+ * Flow action node - Canvas version
  *
  * @description
- * 蓝色圆角矩形节点，表示流程中的操作步骤。
- * 有一个输入端口和一个输出端口。
+ * Blue rounded rectangle node representing an operation step in the flow.
+ * Has one input port and one output port.
  */
 @AutoRegistry({
   registryManager: flowCanvasRegistryManager,
@@ -189,8 +189,8 @@ export class FlowActionCanvasEntity extends UMLNodeEntity {
   static readonly type = "flow-action-canvas";
 
   /**
-   * 创建 Flow 操作节点实体
-   * @param args - 实体初始化参数
+   * Create Flow action node entity
+   * @param args - Entity initialization arguments
    */
   constructor(args?: IEntityArguments) {
     super(args);
@@ -206,7 +206,7 @@ export class FlowActionCanvasEntity extends UMLNodeEntity {
         ((args as Record<string, unknown> | undefined)?.height as number) ?? theme.defaultHeight;
     }
 
-    // 设置输入和输出端口
+    // Set input and output ports
     this.setPorts([
       { name: "in", direction: "in", side: "top", offset: 0.5 },
       { name: "out", direction: "out", side: "bottom", offset: 0.5 },
@@ -216,8 +216,8 @@ export class FlowActionCanvasEntity extends UMLNodeEntity {
   }
 
   /**
-   * 渲染操作节点到 Canvas
-   * @param context - 渲染上下文
+   * Render action node to Canvas
+   * @param context - Render context
    */
   override async render(context?: unknown): Promise<void> {
     const ctx = getCanvasContext(context);
@@ -230,7 +230,7 @@ export class FlowActionCanvasEntity extends UMLNodeEntity {
 
     ctx.save();
 
-    // 绘制圆角矩形背景
+    // Draw rounded rectangle background
     drawRoundedRect(ctx, x, y, width, height, radius);
     ctx.fillStyle = theme.backgroundColor;
     ctx.fill();
@@ -238,7 +238,7 @@ export class FlowActionCanvasEntity extends UMLNodeEntity {
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // 绘制 Header bar
+    // Draw header bar
     ctx.save();
     ctx.clip();
     drawRoundedRectTop(ctx, x, y, width, headerHeight, radius);
@@ -246,16 +246,16 @@ export class FlowActionCanvasEntity extends UMLNodeEntity {
     ctx.fill();
     ctx.restore();
 
-    // 绘制标签（在 header 中）
+    // Draw label (in header)
     ctx.fillStyle = "#ffffff";
     ctx.font = "bold 12px sans-serif";
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    ctx.fillText(this.label || "操作", x + 10, y + headerHeight / 2);
+    ctx.fillText(this.label || "Action", x + 10, y + headerHeight / 2);
 
     ctx.restore();
 
-    // 渲染端口
+    // Render ports
     this.renderPorts(ctx);
   }
 }
@@ -265,11 +265,11 @@ export class FlowActionCanvasEntity extends UMLNodeEntity {
 // ============================================================================
 
 /**
- * Flow 判断节点 - Canvas 版本
+ * Flow decision node - Canvas version
  *
  * @description
- * 黄色菱形节点，表示流程中的条件判断。
- * 有一个输入端口和多个输出端口（是/否分支）。
+ * Yellow diamond node representing a conditional decision in the flow.
+ * Has one input port and multiple output ports (yes/no branches).
  */
 @AutoRegistry({
   registryManager: flowCanvasRegistryManager,
@@ -288,8 +288,8 @@ export class FlowDecisionCanvasEntity extends UMLNodeEntity {
   static readonly type = "flow-decision-canvas";
 
   /**
-   * 创建 Flow 判断节点实体
-   * @param args - 实体初始化参数
+   * Create Flow decision node entity
+   * @param args - Entity initialization arguments
    */
   constructor(args?: IEntityArguments) {
     super(args);
@@ -305,7 +305,7 @@ export class FlowDecisionCanvasEntity extends UMLNodeEntity {
         ((args as Record<string, unknown> | undefined)?.height as number) ?? theme.defaultHeight;
     }
 
-    // 设置端口：顶部输入，左右两侧输出（是/否分支）
+    // Set ports: top input, left/right outputs (yes/no branches)
     this.setPorts([
       { name: "in", direction: "in", side: "top", offset: 0.5 },
       { name: "yes", direction: "out", side: "right", offset: 0.5 },
@@ -316,8 +316,8 @@ export class FlowDecisionCanvasEntity extends UMLNodeEntity {
   }
 
   /**
-   * 渲染判断节点到 Canvas
-   * @param context - 渲染上下文
+   * Render decision node to Canvas
+   * @param context - Render context
    */
   override async render(context?: unknown): Promise<void> {
     const ctx = getCanvasContext(context);
@@ -330,12 +330,12 @@ export class FlowDecisionCanvasEntity extends UMLNodeEntity {
 
     ctx.save();
 
-    // 绘制菱形
+    // Draw diamond
     ctx.beginPath();
-    ctx.moveTo(centerX, y); // 上顶点
-    ctx.lineTo(x + width, centerY); // 右顶点
-    ctx.lineTo(centerX, y + height); // 下顶点
-    ctx.lineTo(x, centerY); // 左顶点
+    ctx.moveTo(centerX, y); // Top vertex
+    ctx.lineTo(x + width, centerY); // Right vertex
+    ctx.lineTo(centerX, y + height); // Bottom vertex
+    ctx.lineTo(x, centerY); // Left vertex
     ctx.closePath();
     ctx.fillStyle = theme.backgroundColor;
     ctx.fill();
@@ -343,16 +343,16 @@ export class FlowDecisionCanvasEntity extends UMLNodeEntity {
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // 绘制标签
+    // Draw label
     ctx.fillStyle = theme.textColor;
     ctx.font = "bold 12px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(this.label || "判断", centerX, centerY);
+    ctx.fillText(this.label || "Decision", centerX, centerY);
 
     ctx.restore();
 
-    // 渲染端口
+    // Render ports
     this.renderPorts(ctx);
   }
 }
@@ -362,11 +362,11 @@ export class FlowDecisionCanvasEntity extends UMLNodeEntity {
 // ============================================================================
 
 /**
- * Flow 结束节点 - Canvas 版本
+ * Flow end node - Canvas version
  *
  * @description
- * 红色双圆环节点，表示流程的终点。
- * 只有一个输入端口，没有输出端口。
+ * Red double-circle node representing the end of a flow.
+ * Has only one input port, no output ports.
  */
 @AutoRegistry({
   registryManager: flowCanvasRegistryManager,
@@ -385,8 +385,8 @@ export class FlowEndCanvasEntity extends UMLNodeEntity {
   static readonly type = "flow-end-canvas";
 
   /**
-   * 创建 Flow 结束节点实体
-   * @param args - 实体初始化参数
+   * Create Flow end node entity
+   * @param args - Entity initialization arguments
    */
   constructor(args?: IEntityArguments) {
     super(args);
@@ -402,15 +402,15 @@ export class FlowEndCanvasEntity extends UMLNodeEntity {
         ((args as Record<string, unknown> | undefined)?.height as number) ?? theme.defaultHeight;
     }
 
-    // 设置输入端口
+    // Set input port
     this.setPorts([{ name: "in", direction: "in", side: "top", offset: 0.5 }]);
 
     logger.debug("FlowEndCanvasEntity created", { id: this.id });
   }
 
   /**
-   * 渲染结束节点到 Canvas
-   * @param context - 渲染上下文
+   * Render end node to Canvas
+   * @param context - Render context
    */
   override async render(context?: unknown): Promise<void> {
     const ctx = getCanvasContext(context);
@@ -424,7 +424,7 @@ export class FlowEndCanvasEntity extends UMLNodeEntity {
 
     ctx.save();
 
-    // 绘制外圆
+    // Draw outer circle
     ctx.beginPath();
     ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
     ctx.fillStyle = theme.backgroundColor;
@@ -433,31 +433,31 @@ export class FlowEndCanvasEntity extends UMLNodeEntity {
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // 绘制内圆（双圆环效果）
+    // Draw inner circle (double-circle effect)
     ctx.beginPath();
     ctx.arc(centerX, centerY, radius * 0.7, 0, Math.PI * 2);
     ctx.strokeStyle = theme.borderColor;
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // 绘制标签
+    // Draw label
     ctx.fillStyle = theme.textColor;
     ctx.font = "bold 14px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(this.label || "结束", centerX, centerY);
+    ctx.fillText(this.label || "End", centerX, centerY);
 
     ctx.restore();
 
-    // 渲染端口
+    // Render ports
     this.renderPorts(ctx);
   }
 }
 
 // ============================================================================
-// 日志：注册完成
+// Log: registration complete
 // ============================================================================
 
-logger.info("✅ Flow Canvas 实体注册完成", {
+logger.info("✅ Flow Canvas entity registration complete", {
   entities: ["flow-start-canvas", "flow-action-canvas", "flow-decision-canvas", "flow-end-canvas"],
 });

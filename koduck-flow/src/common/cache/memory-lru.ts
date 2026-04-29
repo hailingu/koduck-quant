@@ -17,21 +17,21 @@ interface InternalEntry<K, V> extends CacheEntry<K, V> {
 }
 
 /**
- * 轻量内存 LRU 缓存实现（并发去重 + 标签化失效）
+ * Lightweight in-memory LRU cache implementation (concurrent deduplication + tag-based invalidation)
  */
 export class MemoryLRUCache<K, V> implements Cache<K, V> {
   private readonly namespace?: string;
   private readonly maxEntries?: number;
   private readonly maxWeight?: number;
   private readonly weigh?: (key: K, value: V) => number;
-  // 预留：淘汰策略（当前实现按 LRU 行为处理）
+  // Reserved: eviction policy (current implementation follows LRU behavior)
   private readonly onEvict?: (entry: CacheEntry<K, V>, reason: EvictReason) => void;
   private readonly clock: Clock = { now: () => Date.now() };
   private readonly scheduler?: SchedulerLike;
   private readonly defaultTTL?: number;
   private readonly keyHash: (key: K) => KeyHash = (k) => JSON.stringify(k);
 
-  // LRU: 使用 Map 保持插入顺序；每次命中 move-to-end
+  // LRU: Use Map to preserve insertion order; move-to-end on each hit
   private readonly map = new Map<KeyHash, InternalEntry<K, V>>();
   private readonly tags = new Map<string, Set<KeyHash>>();
   private readonly inFlight = new Map<KeyHash, Promise<V>>();
@@ -52,7 +52,7 @@ export class MemoryLRUCache<K, V> implements Cache<K, V> {
     if (policy?.maxEntries !== undefined) this.maxEntries = policy.maxEntries;
     if (policy?.maxWeight !== undefined) this.maxWeight = policy.maxWeight;
     if (policy?.weigh) this.weigh = policy.weigh;
-    // 预留 eviction 策略开关，当前实现固定 LRU 行为
+    // Reserved eviction policy switch, current implementation fixed to LRU behavior
     if (policy?.onEvict) this.onEvict = policy.onEvict;
     if (policy?.clock) this.clock = policy.clock;
     if (policy?.scheduler) this.scheduler = policy.scheduler;
@@ -72,7 +72,7 @@ export class MemoryLRUCache<K, V> implements Cache<K, V> {
       this.misses++;
       return undefined;
     }
-    // LRU 提升
+    // LRU promotion
     this.map.delete(kh);
     e.lastAccessedAt = this.clock.now();
     this.map.set(kh, e);
@@ -85,7 +85,7 @@ export class MemoryLRUCache<K, V> implements Cache<K, V> {
     const now = this.clock.now();
     const old = this.map.get(kh);
     if (old) {
-      // 替换：先更新权重
+      // Replacement: update weight first
       if (this.weigh) {
         this.currentWeight -= old.weight ?? 0;
       }
@@ -168,7 +168,7 @@ export class MemoryLRUCache<K, V> implements Cache<K, V> {
     const hit = this.get(key);
     if (hit !== undefined) return Promise.resolve(hit);
 
-    const dedupe = options?.dedupe !== false; // 默认去重
+    const dedupe = options?.dedupe !== false; // deduplicate by default
     if (dedupe) {
       const inflight = this.inFlight.get(kh);
       if (inflight) return inflight;
@@ -184,7 +184,7 @@ export class MemoryLRUCache<K, V> implements Cache<K, V> {
 
     const timeout = options?.timeout && options.timeout > 0 ? options.timeout : undefined;
     if (timeout && this.scheduler) {
-      // 软超时：到时调用方超时，但不取消生产者
+      // Soft timeout: caller times out but the producer is not cancelled
       return Promise.race<Promise<V>>([
         p.finally(() => this.inFlight.delete(kh)),
         new Promise<V>((_, reject) => {
@@ -254,7 +254,7 @@ export class MemoryLRUCache<K, V> implements Cache<K, V> {
     return count;
   }
 
-  // ===== 内部工具 =====
+  // ===== Internal utilities =====
 
   private expiresAtFrom(ttl?: number): number | undefined {
     const t = ttl ?? this.defaultTTL;
@@ -280,7 +280,7 @@ export class MemoryLRUCache<K, V> implements Cache<K, V> {
     this.map.delete(kh);
     if (detachTags) this.detachTags(kh, e.tags);
     if (this.weigh) this.currentWeight -= e.weight ?? 0;
-    // 资源释放可通过外部 onEvict/SetOptions.dispose 实现；此处不强行反射调用
+    // Resource release can be implemented via external onEvict/SetOptions.dispose; no forced reflective call here
     this.onEvict?.(e, reason);
     if (reason === "evict") this.evictions++;
   }
@@ -304,17 +304,17 @@ export class MemoryLRUCache<K, V> implements Cache<K, V> {
   }
 
   private evictIfNeeded(): void {
-    // 基于 maxEntries
+    // Based on maxEntries
     if (this.maxEntries !== undefined) {
       while (this.map.size > this.maxEntries) {
-        // LRU：Map 的第一项为最旧
+        // LRU: the first item in Map is the oldest
         const first = this.map.entries().next().value;
         if (!first) break;
         const [kh, e] = first;
         this.removeEntry(kh, e, "evict", true);
       }
     }
-    // 基于 maxWeight
+    // Based on maxWeight
     if (this.maxWeight !== undefined && this.weigh) {
       while (this.currentWeight > this.maxWeight) {
         const first = this.map.entries().next().value;

@@ -26,27 +26,27 @@ export interface IRegistryPersistence {
 }
 
 /**
- * 注册表管理器
+ * Registry manager
  *
- * 实现 IRegistryManager 接口的注册表管理中心，负责：
- * 1. 管理多个实体注册表的生命周期
- * 2. 提供统一的注册表访问接口
- * 3. 支持动态添加和移除注册表
+ * Registry management center implementing the IRegistryManager interface, responsible for:
+ * 1. Managing the lifecycle of multiple entity registries
+ * 2. Providing unified registry access interface
+ * 3. Supporting dynamic addition and removal of registries
  *
- * 主要功能：
- * - 注册表管理：addRegistry() 添加注册表实例
- * - 查询服务：getRegistry(name) 获取指定注册表
- * - 生命周期：removeRegistry() 移除注册表
+ * Main features:
+ * - Registry management: addRegistry() to add registry instances
+ * - Query service: getRegistry(name) to get specified registry
+ * - Lifecycle: removeRegistry() to remove registries
  *
  * @example
  * ```typescript
  * const manager = RegistryManager.getInstance();
  * const entityRegistry = new EntityRegistry(...);
  *
- * // 添加注册表
+ * // Add registry
  * manager.addRegistry("entity", entityRegistry);
  *
- * // 获取注册表
+ * // Get registry
  * const registry = manager.getRegistry<IRenderableRegistry<IEntity>>("entity");
  * ```
  */
@@ -55,13 +55,13 @@ export class RegistryManager implements IRegistryManager<IEntity>, IDisposable {
   readonly name = "RegistryManager";
   readonly type = "registry";
 
-  /** 注册表映射表，key: 注册表名称, value: 注册表实例 */
+  /** Registry mapping table, key: registry name, value: registry instance */
   private _registries: Map<string, IRegistry<IEntity>> = new Map();
-  /** 当前默认注册表名称（更明确的默认指针管理） */
+  /** Current default registry name (more explicit default pointer management) */
   private _defaultRegistryName: string | undefined;
-  /** 类型绑定表：实体类型 -> 注册表名称 */
+  /** Type binding table: entity type -> registry name */
   private readonly _typeBindings: Map<string, string> = new Map();
-  /** 等待注册表的实体队列 */
+  /** Entity queue waiting for registry */
   private readonly _pendingEntities: Set<IEntity> = new Set();
 
   // Performance optimization: lookup cache for entity type -> registry
@@ -72,21 +72,21 @@ export class RegistryManager implements IRegistryManager<IEntity>, IDisposable {
   private _persistence?: IRegistryPersistence;
   private _initialized = false;
 
-  /** IRegistryManager 接口要求的 meta 属性 */
+  /** Meta property required by IRegistryManager interface */
   public readonly meta: IMeta = {
     type: "RegistryManager",
-    description: "Koduck Flow 注册表管理器 - 统一管理多个实体注册表",
+    description: "Koduck Flow registry manager - unified management of multiple entity registries",
   };
 
   /**
-   * 根据名称获取注册表（新 API）
+   * Get registry by name (new API)
    */
   public getRegistry(name: string): IRegistry<IEntity> | undefined {
     return this._registries.get(name);
   }
 
   /**
-   * 明确获取默认注册表（新 API）
+   * Explicitly get default registry (new API)
    */
   public getDefaultRegistry(): IRegistry<IEntity> | undefined {
     if (!this._defaultRegistryName) return undefined;
@@ -94,9 +94,9 @@ export class RegistryManager implements IRegistryManager<IEntity>, IDisposable {
   }
 
   /**
-   * 添加命名注册表
+   * Add named registry
    *
-   * 扩展方法：支持按名称管理多个注册表实例
+   * Extension method: supports managing multiple registry instances by name
    */
   public addRegistry<T extends IEntity>(name: string, registry: IRegistry<T>): void {
     if (!name || typeof name !== "string") {
@@ -125,7 +125,7 @@ export class RegistryManager implements IRegistryManager<IEntity>, IDisposable {
       return;
     }
 
-    // 检查是否已存在同名注册表
+    // Check if a registry with the same name already exists
     if (this._registries.has(name)) {
       logError(
         ErrorCode.REGISTRY_TYPE_ALREADY_REGISTERED,
@@ -148,9 +148,9 @@ export class RegistryManager implements IRegistryManager<IEntity>, IDisposable {
       // Clear lookup cache when registry changes
       this._clearLookupCache();
 
-      // 新语义：不再自动设置默认注册表，需显式 setDefaultRegistry(name)
+      // New semantics: no longer auto-set default registry, need explicit setDefaultRegistry(name)
 
-      // 检查 pending 实体并重试渲染（保持现状，不新增机制）
+      // Check pending entities and retry rendering (keep current state, no new mechanism)
       this.processPendingEntities();
     } catch (error) {
       logError(ErrorCode.REGISTRY_INVALID_TYPE_INFO, `Failed to add registry "${name}"`, {
@@ -166,7 +166,7 @@ export class RegistryManager implements IRegistryManager<IEntity>, IDisposable {
   }
 
   /**
-   * 设置默认注册表名称
+   * Set default registry name
    */
   public setDefaultRegistry(name: string): void {
     if (!name || !this._registries.has(name)) {
@@ -181,29 +181,29 @@ export class RegistryManager implements IRegistryManager<IEntity>, IDisposable {
       return;
     }
     this._defaultRegistryName = name;
-    logger.info(`[RegistryManager] 默认注册表已设置为: ${name}`);
+    logger.info(`[RegistryManager] Default registry set to: ${name}`);
   }
 
-  // 旧 API getRegistryByName 已移除
+  // Old API getRegistryByName removed
 
   /**
-   * 处理等待的实体，当新的 registry 注册时重试渲染
+   * Process pending entities, retry rendering when new registry is registered
    */
   private processPendingEntities(): void {
-    // 导入 RenderManager 来通知重试渲染
-    // 避免循环依赖，使用动态导入或延迟处理
+    // Import RenderManager to notify retry rendering
+    // Avoid circular dependency, use dynamic import or deferred processing
     for (const entity of this._pendingEntities) {
       const registry = this.getRegistryForEntity(entity);
       if (registry) {
         this._pendingEntities.delete(entity);
-        // 这里可以触发渲染事件或回调
-        // 为了避免循环依赖，暂时只是从队列中移除
+        // Can trigger render events or callbacks here
+        // To avoid circular dependency, temporarily just remove from queue
       }
     }
   }
 
   /**
-   * 添加实体到等待队列（当找不到对应 registry 时使用）
+   * Add entity to pending queue (used when corresponding registry is not found)
    */
   public addPendingEntity(entity: IEntity): void {
     this._pendingEntities.add(entity);
@@ -211,12 +211,12 @@ export class RegistryManager implements IRegistryManager<IEntity>, IDisposable {
 
   /**
    *
-   * 根据实体查找对应的 registry 实例（优化版：使用缓存避免重复遍历）
-   * 查找规则（优先级）：
-   * - 尝试匹配 registry.meta.type === entity.type
-   * - 尝试调用 registry.canRender(entity)
-   * - 尝试匹配 registry.getConstructor().name === entity.type
-   * - 返回默认 registry
+   * Find corresponding registry instance by entity (optimized: use cache to avoid repeated traversal)
+   * Lookup rules (priority):
+   * - Try matching registry.meta.type === entity.type
+   * - Try calling registry.canRender(entity)
+   * - Try matching registry.getConstructor().name === entity.type
+   * - Return default registry
    */
   public getRegistryForEntity(entity: IEntity): IRegistry<IEntity> | undefined {
     if (!entity) return this.getDefaultRegistry();
@@ -230,7 +230,7 @@ export class RegistryManager implements IRegistryManager<IEntity>, IDisposable {
       return cached ?? this.getDefaultRegistry();
     }
 
-    // Fast path 2: 绑定表优先：type -> registryName
+    // Fast path 2: binding table first: type -> registryName
     const bound = this._typeBindings.get(entityType);
     if (bound) {
       const reg = this._registries.get(bound);
@@ -240,14 +240,14 @@ export class RegistryManager implements IRegistryManager<IEntity>, IDisposable {
       }
     }
 
-    // Fast path 3: 按注册表名称精准匹配
+    // Fast path 3: exact match by registry name
     const direct = this._registries.get(entityType);
     if (direct) {
       this._typeLookupCache.set(entityType, direct);
       return direct;
     }
 
-    // Slow path: 按 meta.type 匹配（一次性构建索引）
+    // Slow path: match by meta.type (build index once)
     if (this._metaTypeLookupCache.size === 0 && this._registries.size > 0) {
       this._buildMetaTypeLookupCache();
     }
@@ -258,14 +258,14 @@ export class RegistryManager implements IRegistryManager<IEntity>, IDisposable {
       return metaCached ?? this.getDefaultRegistry();
     }
 
-    // Fallback: 默认注册表
+    // Fallback: default registry
     const defaultReg = this.getDefaultRegistry();
     this._typeLookupCache.set(entityType, defaultReg ?? null);
     return defaultReg;
   }
 
   /**
-   * 构建 meta.type 查找缓存（一次性扫描所有注册表）
+   * Build meta.type lookup cache (scan all registries once)
    */
   private _buildMetaTypeLookupCache(): void {
     this._metaTypeLookupCache.clear();
@@ -275,7 +275,7 @@ export class RegistryManager implements IRegistryManager<IEntity>, IDisposable {
         this._metaTypeLookupCache.set(metaType, registry);
       }
 
-      // 同时缓存构造器名
+      // Also cache constructor name
       const ctor = (
         registry as Partial<{ getConstructor: () => { name?: string } }>
       ).getConstructor?.();
@@ -286,7 +286,7 @@ export class RegistryManager implements IRegistryManager<IEntity>, IDisposable {
   }
 
   /**
-   * 清空查找缓存（在注册表变更时调用）
+   * Clear lookup cache (called when registry changes)
    */
   private _clearLookupCache(): void {
     this._typeLookupCache.clear();
@@ -302,7 +302,7 @@ export class RegistryManager implements IRegistryManager<IEntity>, IDisposable {
       return cached ?? undefined;
     }
 
-    // Fast path 2: 绑定表优先
+    // Fast path 2: binding table first
     const bound = this._typeBindings.get(type);
     if (bound) {
       const reg = this._registries.get(bound);
@@ -312,14 +312,14 @@ export class RegistryManager implements IRegistryManager<IEntity>, IDisposable {
       }
     }
 
-    // Fast path 3: 名称精准
+    // Fast path 3: exact name match
     const direct = this._registries.get(type);
     if (direct) {
       this._typeLookupCache.set(type, direct);
       return direct;
     }
 
-    // Slow path: meta.type 匹配（使用缓存）
+    // Slow path: meta.type match (using cache)
     if (this._metaTypeLookupCache.size === 0 && this._registries.size > 0) {
       this._buildMetaTypeLookupCache();
     }
@@ -337,9 +337,9 @@ export class RegistryManager implements IRegistryManager<IEntity>, IDisposable {
   }
 
   /**
-   * 移除指定名称的注册表
+   * Remove registry by specified name
    *
-   * 扩展方法：从命名注册表集合中移除指定注册表
+   * Extension method: remove specified registry from named registry collection
    */
   public removeRegistry(name: string): boolean {
     if (!name || typeof name !== "string") {
@@ -369,13 +369,13 @@ export class RegistryManager implements IRegistryManager<IEntity>, IDisposable {
     }
     const ok = this._registries.delete(name);
     if (ok) {
-      // 若删除的是默认注册表，清空默认指针
+      // If deleted registry is the default, clear default pointer
       if (this._defaultRegistryName === name) {
         this._defaultRegistryName = undefined;
       }
       // Clear lookup cache when registry changes
       this._clearLookupCache();
-      // 清理绑定到该名称的所有类型映射
+      // Clean up all type mappings bound to this name
       for (const [t, n] of Array.from(this._typeBindings.entries())) {
         if (n === name) this._typeBindings.delete(t);
       }
@@ -384,7 +384,7 @@ export class RegistryManager implements IRegistryManager<IEntity>, IDisposable {
   }
 
   /**
-   * 绑定实体类型到指定注册表名称
+   * Bind entity type to specified registry name
    */
   public bindTypeToRegistry(type: string, name: string): void {
     if (!type || !name) return;
@@ -400,48 +400,48 @@ export class RegistryManager implements IRegistryManager<IEntity>, IDisposable {
   }
 
   /**
-   * 解除类型与注册表的绑定
+   * Unbind type from registry
    */
   public unbindType(type: string): void {
     if (!type) return;
     this._typeBindings.delete(type);
   }
 
-  /** 检查注册表是否存在 */
+  /** Check if registry exists */
   public hasRegistry(name: string): boolean {
     return this._registries.has(name);
   }
 
-  /** 获取所有注册表名称 */
+  /** Get all registry names */
   public getRegistryNames(): string[] {
     return Array.from(this._registries.keys());
   }
 
-  /** 获取所有注册表实例 */
+  /** Get all registry instances */
   public getAllRegistries(): IRegistry<IEntity>[] {
     return Array.from(this._registries.values());
   }
 
   /**
-   * 获取所有注册表名称
+   * Get all registry names
    */
   public getAllRegistryNames(): string[] {
     return Array.from(this._registries.keys());
   }
 
-  /** 清空所有注册表引用 */
+  /** Clear all registry references */
   public clearRegistries(): void {
     this._registries.clear();
     this._clearLookupCache();
     logger.warn("Registries cleared");
   }
 
-  /** 获取注册表数量 */
+  /** Get registry count */
   public getRegistryCount(): number {
     return this._registries.size;
   }
 
-  /** 获取注册表条目 */
+  /** Get registry entries */
   public getRegistryEntries(): [string, IRegistry<IEntity>][] {
     return Array.from(this._registries.entries());
   }
@@ -521,7 +521,7 @@ export class RegistryManager implements IRegistryManager<IEntity>, IDisposable {
   }
 
   /**
-   * 清理资源
+   * Clean up resources
    */
   dispose(): void {
     logger.debug("RegistryManager disposed");

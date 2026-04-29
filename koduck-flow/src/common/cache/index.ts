@@ -1,5 +1,5 @@
 /**
- * Koduck Flow 缓存系统统一导出（仅接口）
+ * Koduck Flow cache system unified exports (types only)
  */
 
 export type {

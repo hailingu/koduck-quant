@@ -1,81 +1,81 @@
 /**
- * 渲染系统配置常量
- * 统一管理所有渲染相关的阈值和配置参数
+ * Render system configuration constants
+ * Unified management of all rendering-related thresholds and configuration parameters
  */
 
 /**
- * 复杂度阈值配置
+ * Complexity threshold configuration
  */
 export const COMPLEXITY_THRESHOLDS = {
-  /** 低复杂度阈值 */
+  /** Low complexity threshold */
   LOW: 0.3,
-  /** 中等复杂度阈值 */
+  /** Medium complexity threshold */
   MEDIUM: 0.6,
-  /** 高复杂度阈值 */
+  /** High complexity threshold */
   HIGH: 0.8,
-  /** 超高复杂度阈值（WebGPU推荐） */
+  /** Ultra-high complexity threshold (WebGPU recommended) */
   ULTRA_HIGH: 0.7,
 } as const;
 
 /**
- * 性能阈值配置
+ * Performance threshold configuration
  */
 export const PERFORMANCE_THRESHOLDS = {
-  /** 最低FPS阈值 */
+  /** Minimum FPS threshold */
   MIN_FPS: 30,
-  /** 目标FPS */
+  /** Target FPS */
   TARGET_FPS: 60,
-  /** 最大内存使用率 */
+  /** Max memory usage rate */
   MAX_MEMORY: 0.8,
-  /** 内存警告阈值 */
+  /** Memory warning threshold */
   MEMORY_WARNING: 0.6,
-  /** 高置信度阈值 */
+  /** High confidence threshold */
   HIGH_CONFIDENCE: 0.95,
-  /** 中等置信度阈值 */
+  /** Medium confidence threshold */
   MEDIUM_CONFIDENCE: 0.85,
-  /** 低置信度阈值 */
+  /** Low confidence threshold */
   LOW_CONFIDENCE: 0.75,
-  /** FPS平滑因子 */
+  /** FPS smoothing factor */
   FPS_SMOOTHING_FACTOR: 0.9,
 } as const;
 
 /**
- * 缓存配置
+ * Cache configuration
  */
 export const CACHE_LIMITS = {
-  /** 选择缓存最大大小 */
+  /** Selection cache max size */
   SELECTION_CACHE_SIZE: 50,
-  /** 缓存TTL（秒） */
+  /** Cache TTL (seconds) */
   TTL_SECONDS: 30,
-  /** LRU缓存阈值 */
+  /** LRU cache threshold */
   LRU_THRESHOLD: 45,
 } as const;
 
 /**
- * 实体数量阈值
+ * Entity count thresholds
  */
 export const ENTITY_COUNT_THRESHOLDS = {
-  /** 小规模数据集 */
+  /** Small dataset */
   SMALL: 100,
-  /** 中等规模数据集 */
+  /** Medium dataset */
   MEDIUM: 1000,
-  /** 大规模数据集 */
+  /** Large dataset */
   LARGE: 5000,
-  /** 超大规模数据集 */
+  /** Ultra-large dataset */
   ULTRA_LARGE: 10000,
 } as const;
 
 /**
- * LOD配置常量
+ * LOD configuration constants
  */
 export const LOD_CONFIG = {
-  /** 性能阈值 */
+  /** Performance threshold */
   PERFORMANCE_THRESHOLD: 1000,
-  /** 视口边距 */
+  /** Viewport margin */
   VIEWPORT_MARGIN: 100,
-  /** 聚类半径 */
+  /** Cluster radius */
   CLUSTER_RADIUS: 50,
-  /** LOD级别定义 */
+  /** LOD level definitions */
   LEVELS: [
     {
       minZoom: 0,
@@ -109,31 +109,31 @@ export const LOD_CONFIG = {
 } as const;
 
 /**
- * GPU层级定义
+ * GPU tier definitions
  */
 export const GPU_TIERS = {
-  /** 集成显卡 */
+  /** Integrated GPU */
   INTEGRATED: 1,
-  /** 中端独显 */
+  /** Mid-range discrete GPU */
   MIDRANGE: 2,
-  /** 高端独显 */
+  /** High-end discrete GPU */
   HIGH_END: 3,
 } as const;
 
 /**
- * 设备检测配置
+ * Device detection configuration
  */
 export const DEVICE_DETECTION = {
-  /** 设备能力检测超时时间（毫秒） */
+  /** Device capability detection timeout (milliseconds) */
   TIMEOUT_MS: 1000,
-  /** 是否启用异步检测 */
+  /** Whether to enable async detection */
   ASYNC_DETECTION: true,
-  /** 默认GPU层级 */
+  /** Default GPU tier */
   DEFAULT_GPU_TIER: GPU_TIERS.INTEGRATED,
 } as const;
 
 /**
- * 渲染器优先级
+ * Renderer priority
  */
 export const RENDERER_PRIORITY = {
   REACT: 90,
@@ -143,19 +143,19 @@ export const RENDERER_PRIORITY = {
 } as const;
 
 /**
- * 调试配置
+ * Debug configuration
  */
 export const DEBUG_CONFIG = {
-  /** 是否启用选择原因记录 */
+  /** Whether to enable selection reason logging */
   ENABLE_SELECTION_REASONS: true,
-  /** 是否启用性能监控 */
+  /** Whether to enable performance monitoring */
   ENABLE_PERFORMANCE_MONITORING: true,
-  /** 是否启用缓存统计 */
+  /** Whether to enable cache statistics */
   ENABLE_CACHE_STATS: true,
 } as const;
 
 /**
- * 类型定义
+ * Type definitions
  */
 export type ComplexityLevel = keyof typeof COMPLEXITY_THRESHOLDS;
 export type GPUTier = (typeof GPU_TIERS)[keyof typeof GPU_TIERS];

@@ -2,112 +2,112 @@ import type { IEntity } from "../entity/types";
 import type { IRegistryManager, IRegistry } from "./types";
 
 /**
- * RegistryBroker 接口
+ * RegistryBroker interface
  *
- * 中介者模式接口，用于解耦 RegistryManager 和 EntityManager 之间的直接依赖。
- * 通过事件驱动的方式协调注册表查询和管理操作。
+ * Mediator pattern interface for decoupling direct dependencies between RegistryManager and EntityManager.
+ * Coordinates registry queries and management operations in an event-driven manner.
  */
 export interface IRegistryBroker {
   /**
-   * 注册 RegistryManager 实例
-   * @param manager RegistryManager 实例
+   * Register RegistryManager instance
+   * @param manager RegistryManager instance
    */
   registerRegistryManager(manager: IRegistryManager<IEntity>): void;
 
   /**
-   * 注册 EntityManager 实例
-   * @param manager EntityManager 实例（通过回调方式避免循环依赖）
+   * Register EntityManager instance
+   * @param manager EntityManager instance (avoids circular dependencies via callback)
    */
   registerEntityManager(manager: { getEntityTypeRegistry: (type: string) => unknown }): void;
 
   /**
-   * 根据实体类型获取注册表
-   * @param type 实体类型
-   * @returns 对应的注册表实例
+   * Get registry by entity type
+   * @param type Entity type
+   * @returns Corresponding registry instance
    */
   getRegistryForType(type: string): IRegistry<IEntity> | undefined;
 
   /**
-   * 根据实体实例获取注册表
-   * @param entity 实体实例
-   * @returns 对应的注册表实例
+   * Get registry by entity instance
+   * @param entity Entity instance
+   * @returns Corresponding registry instance
    */
   getRegistryForEntity(entity: IEntity): IRegistry<IEntity> | undefined;
 
   /**
-   * 获取默认注册表
-   * @returns 默认注册表实例
+   * Get default registry
+   * @returns Default registry instance
    */
   getDefaultRegistry(): IRegistry<IEntity> | undefined;
 
   /**
-   * 检查注册表是否存在
-   * @param name 注册表名称
-   * @returns 是否存在
+   * Check if registry exists
+   * @param name Registry name
+   * @returns Whether it exists
    */
   hasRegistry(name: string): boolean;
 
   /**
-   * 获取所有注册表名称
-   * @returns 注册表名称数组
+   * Get all registry names
+   * @returns Array of registry names
    */
   getRegistryNames(): string[];
 
   /**
-   * 添加注册表
-   * @param name 注册表名称
-   * @param registry 注册表实例
+   * Add registry
+   * @param name Registry name
+   * @param registry Registry instance
    */
   addRegistry(name: string, registry: IRegistry<IEntity>): void;
 
   /**
-   * 移除注册表
-   * @param name 注册表名称
-   * @returns 是否成功移除
+   * Remove registry
+   * @param name Registry name
+   * @returns Whether removal succeeded
    */
   removeRegistry(name: string): boolean;
 
   /**
-   * 设置默认注册表
-   * @param name 注册表名称
+   * Set default registry
+   * @param name Registry name
    */
   setDefaultRegistry(name: string): void;
 
   /**
-   * 绑定实体类型到注册表
-   * @param type 实体类型
-   * @param name 注册表名称
+   * Bind entity type to registry
+   * @param type Entity type
+   * @param name Registry name
    */
   bindTypeToRegistry(type: string, name: string): void;
 
   /**
-   * 解除类型绑定
-   * @param type 实体类型
+   * Unbind type
+   * @param type Entity type
    */
   unbindType(type: string): void;
 
   /**
-   * 订阅注册表变更事件
-   * @param listener 事件监听器
-   * @returns 取消订阅函数
+   * Subscribe to registry change events
+   * @param listener Event listener
+   * @returns Unsubscribe function
    */
   onRegistryChange(listener: (event: RegistryEvent) => void): () => void;
 
   /**
-   * 订阅实体变更事件
-   * @param listener 事件监听器
-   * @returns 取消订阅函数
+   * Subscribe to entity change events
+   * @param listener Event listener
+   * @returns Unsubscribe function
    */
   onEntityChange(listener: (event: EntityEvent) => void): () => void;
 
   /**
-   * 清理资源
+   * Clean up resources
    */
   dispose(): void;
 }
 
 /**
- * 注册表事件类型
+ * Registry event types
  */
 export type RegistryEvent =
   | { type: "REGISTRY_ADDED"; payload: { name: string; registry: IRegistry<IEntity> } }
@@ -118,7 +118,7 @@ export type RegistryEvent =
   | { type: "TYPE_UNBOUND"; payload: { type: string } };
 
 /**
- * 实体事件类型
+ * Entity event types
  */
 export type EntityEvent =
   | { type: "ENTITY_CREATED"; payload: { id: string; type: string; entity: IEntity } }

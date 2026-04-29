@@ -1,6 +1,6 @@
 /**
- * @fileoverview 工厂函数测试
- * 测试 createKoduckFlowRuntime 和 createScopedRuntime 的各种创建场景
+ * @fileoverview Factory function tests
+ * Test various creation scenarios for createKoduckFlowRuntime and createScopedRuntime
  */
 
 import { describe, expect, it, vi } from "vitest";

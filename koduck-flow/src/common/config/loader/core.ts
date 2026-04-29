@@ -112,7 +112,7 @@ export function reloadImpl(
 ): KoduckFlowConfig {
   const loader = base;
 
-  // 在配置变更前创建自动快照
+  // Create auto-snapshot before config change
   if (loader.hasLoadedOnce && loader.configCache) {
     const rollbackManager = getRollbackManager();
     const trigger = context?.trigger ?? "reload";

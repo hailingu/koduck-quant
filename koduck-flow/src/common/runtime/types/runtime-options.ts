@@ -1,5 +1,5 @@
 /**
- * KoduckFlowRuntime 配置选项类型定义
+ * KoduckFlowRuntime configuration options type definitions
  * @module runtime/types/runtime-options
  */
 
@@ -15,44 +15,44 @@ import type { IEntity } from "../../entity/";
 import type { ManagerInitializationOptions } from "./manager-initialization";
 
 /**
- * KoduckFlowRuntime 构造选项
+ * KoduckFlowRuntime construction options
  */
 export interface KoduckFlowRuntimeOptions {
   /**
-   * 自定义 DI 容器（可选，默认创建新容器）
+   * Custom DI container (optional, defaults to creating a new container)
    */
   container?: IDependencyContainer;
 
   /**
-   * 核心服务覆盖配置
+   * Core service override configuration
    */
   overrides?: CoreServiceOverrides;
 
   /**
-   * Manager 初始化配置
+   * Manager initialization configuration
    */
   managerInitialization?: ManagerInitializationOptions;
 }
 
 /**
- * 核心 Manager 集合
+ * Core Manager collection
  */
 export interface CoreManagers {
-  /** 实体管理器 */
+  /** Entity manager */
   entity: EntityManager;
-  /** 渲染管理器 */
+  /** Render manager */
   render: RenderManager;
-  /** 注册表管理器 */
+  /** Registry manager */
   registry: RegistryManager;
-  /** 事件总线 */
+  /** Event bus */
   eventBus: EventBus;
-  /** 渲染事件管理器 */
+  /** Render event manager */
   renderEvents: RenderEventManager;
-  /** 实体事件管理器 */
+  /** Entity event manager */
   entityEvents: EntityEventManager<IEntity>;
 }
 
 /**
- * 租户实体配额键名（内部使用）
+ * Tenant entity quota key (internal use)
  */
 export const TENANT_ENTITY_QUOTA_KEY = "__entities__";

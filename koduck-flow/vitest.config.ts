@@ -2,21 +2,21 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    // 全局配置
+    // Global configuration
     globals: true,
     environment: "jsdom",
 
-    // 设置文件
+    // Setup files
     setupFiles: ["./test/setup.ts"],
 
-    // 测试文件匹配
+    // Test file matching
     include: ["src/**/*.{test,spec}.{js,ts,jsx,tsx}", "test/**/*.{test,spec}.{js,ts,jsx,tsx}"],
     exclude: ["node_modules", "dist", "coverage", "test/e2e/**"],
 
-    // 报告器配置
+    // Reporter configuration
     reporters: process.env.CI ? ["default", "json"] : ["verbose"],
 
-    // 覆盖率配置
+    // Coverage configuration
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html", "lcov"],
@@ -46,11 +46,11 @@ export default defineConfig({
       },
     },
 
-    // 超时配置
+    // Timeout configuration
     testTimeout: 60000,
     hookTimeout: 10000,
 
-    // 其他配置
+    // Other configuration
     logHeapUsage: true,
     passWithNoTests: true,
   },

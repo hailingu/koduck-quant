@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
 /**
- * JSDoc 覆盖率检查脚本
+ * JSDoc coverage check script
  *
- * 分析源代码中的 JSDoc 注释覆盖率，生成详细报告。
+ * Analyze JSDoc comment coverage in source code and generate detailed reports.
  *
- * 使用方法:
+ * Usage:
  *   pnpm docs:coverage
  *   node scripts/check-jsdoc-coverage.js
  */
@@ -20,7 +20,7 @@ const rootDir = path.resolve(__dirname, "..");
 const reportsDir = path.join(rootDir, "reports");
 
 /**
- * 确保报告目录存在
+ * Ensure the reports directory exists
  */
 async function ensureReportsDir() {
   try {
@@ -32,9 +32,9 @@ async function ensureReportsDir() {
 }
 
 /**
- * 检查文件是否有有效的 JSDoc 注释
- * @param {string} content - 文件内容
- * @returns {boolean} 是否有有效的 JSDoc
+ * Check if the file has valid JSDoc comments
+ * @param {string} content - File content
+ * @returns {boolean} Whether valid JSDoc exists
  */
 function hasValidJsDoc(content) {
   const exports =
@@ -43,18 +43,18 @@ function hasValidJsDoc(content) {
     ) || [];
   const jsDocBlocks = content.match(/\/\*\*[\s\S]*?\*\//g) || [];
 
-  // 简单启发式检查：如果有导出但很少有 JSDoc，则返回 false
+  // Simple heuristic: return false if there are exports but few JSDoc blocks
   return !(exports.length > 0 && jsDocBlocks.length === 0);
 }
 
 /**
- * 检查 JSDoc 覆盖率
+ * Check JSDoc coverage
  */
 async function checkCoverage() {
   console.log("🔍 Starting JSDoc coverage analysis...\n");
 
   try {
-    // 获取所有 TypeScript 文件
+    // Get all TypeScript files
     const srcDir = path.join(rootDir, "src");
     const files = await glob("**/*.ts", {
       cwd: srcDir,
@@ -83,7 +83,7 @@ async function checkCoverage() {
 
     const coverage = totalFiles > 0 ? ((filesWithJsdoc / totalFiles) * 100).toFixed(2) : 0;
 
-    // 输出到控制台
+    // Output to console
     console.log("📊 JSDoc Coverage Report");
     console.log("━".repeat(50));
     console.log(`Total files:                ${totalFiles}`);
@@ -92,7 +92,7 @@ async function checkCoverage() {
     console.log(`Coverage rate:              ${coverage}%`);
     console.log("━".repeat(50) + "\n");
 
-    // 生成详细 JSON 报告
+    // Generate detailed JSON report
     const report = {
       timestamp: new Date().toISOString(),
       summary: {
@@ -109,7 +109,7 @@ async function checkCoverage() {
       JSON.stringify(report, null, 2)
     );
 
-    // 生成 Markdown 报告
+    // Generate Markdown report
     const mdReport = generateMarkdownReport(report);
     await fs.writeFile(path.join(reportsDir, "jsdoc-coverage-report.md"), mdReport);
 
@@ -117,7 +117,7 @@ async function checkCoverage() {
     console.log(`   - reports/jsdoc-coverage.json`);
     console.log(`   - reports/jsdoc-coverage-report.md\n`);
 
-    // 返回覆盖率百分比用于检查
+    // Return coverage percentage for checking
     return Number.parseFloat(coverage);
   } catch (error) {
     console.error("❌ Error during JSDoc coverage analysis:", error);
@@ -126,9 +126,9 @@ async function checkCoverage() {
 }
 
 /**
- * 生成 Markdown 格式的报告
- * @param {Object} report - 覆盖率报告对象
- * @returns {string} Markdown 文本
+ * Generate Markdown format report
+ * @param {Object} report - Coverage report object
+ * @returns {string} Markdown text
  */
 function generateMarkdownReport(report) {
   const { summary, allFiles } = report;
@@ -187,6 +187,6 @@ Total files: ${allFiles.length}
   return md;
 }
 
-// 运行检查
+// Run check
 await ensureReportsDir();
 await checkCoverage();

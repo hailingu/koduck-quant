@@ -14,7 +14,7 @@ import type { IFlowEdgeEntity, IFlowNodeEntity, IEdge, IEndpoint } from "../../.
 const runtime = getRuntimeForEnvironment(DEFAULT_KODUCKFLOW_ENVIRONMENT);
 const umlRegistryManager = runtime.RegistryManager;
 
-// 添加详细日志来跟踪UML实体注册过程
+// Add detailed logs to track UML entity registration process
 logger.info("🔧 UML装饰器文件被加载");
 logger.info("🔗 KoduckFlowRuntime对象:", runtime);
 logger.info("🔗 使用的注册表管理器:", {
@@ -24,7 +24,7 @@ logger.info("🔗 使用的注册表管理器:", {
   currentRegistries: umlRegistryManager?.getAllRegistryNames?.()?.length || 0,
 });
 
-// 验证这确实是同一个实例
+// Verify this is indeed the same instance
 logger.info("🔍 验证实例一致性:", {
   globalRuntimeRegistryManager: runtime.RegistryManager.toString(),
   umlRegistryManager: umlRegistryManager.toString(),
@@ -32,7 +32,7 @@ logger.info("🔍 验证实例一致性:", {
 });
 
 // ============================================================================
-// UML 类型定义
+// UML type definitions
 // ============================================================================
 
 export type UMLNodeType =
@@ -97,14 +97,14 @@ export type UMLEntityData = {
 } & Data;
 
 // ============================================================================
-// 基础 UML 实体类
+// Base UML entity class
 // ============================================================================
 
 export abstract class UMLEntity extends Entity<UMLEntityData> {
   protected constructor(args?: IEntityArguments) {
     super();
 
-    // 创建并初始化数据对象
+    // Create and initialize data object
     this.data = Object.assign(new Data(), {
       position: { x: 0, y: 0 },
       width: 120,
@@ -147,20 +147,20 @@ export abstract class UMLEntity extends Entity<UMLEntityData> {
   }
 
   /**
-   * 检查是否可以渲染
+   * Check if can render
    */
   canRender(context?: unknown): boolean {
     return !!context && typeof context === "object";
   }
 
   /**
-   * 渲染实体
+   * Render entity
    */
   async render(context?: unknown): Promise<void> {
-    // 基础 Canvas 绘制实现
+    // Base Canvas drawing implementation
     const ctxObj = context as { canvas?: HTMLCanvasElement } | undefined;
     const canvas = ctxObj?.canvas;
-    if (!canvas) return; // 没有 canvas 则跳过（可能是 React 渲染路径占位）
+    if (!canvas) return; // Skip if no canvas (may be a React render path placeholder)
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
@@ -194,18 +194,18 @@ export abstract class UMLEntity extends Entity<UMLEntityData> {
   }
 
   // ============================================================================
-  // 执行能力实现
+  // Execution capability implementation
   // ============================================================================
 
   /**
-   * 检查是否可以执行
+   * Check if can execute
    */
   canExecute(params?: unknown): boolean {
     return params !== undefined;
   }
 
   /**
-   * 执行实体特定的操作
+   * Execute entity-specific operation
    */
   async execute(params?: unknown): Promise<unknown> {
     logger.debug(`Executing ${this.constructor.name} with params:`, params);
@@ -213,18 +213,18 @@ export abstract class UMLEntity extends Entity<UMLEntityData> {
   }
 
   // ============================================================================
-  // 验证能力实现
+  // Validation capability implementation
   // ============================================================================
 
   /**
-   * 检查是否可以验证
+   * Check if can validate
    */
   canValidate(data?: unknown): boolean {
     return data !== undefined;
   }
 
   /**
-   * 验证实体数据
+   * Validate entity data
    */
   async validate(data?: unknown): Promise<boolean> {
     logger.debug(`Validating ${this.constructor.name} with data:`, data);
@@ -232,7 +232,7 @@ export abstract class UMLEntity extends Entity<UMLEntityData> {
   }
 
   // ============================================================================
-  // 几何和属性方法
+  // Geometry and property methods
   // ============================================================================
 
   getBounds() {
@@ -250,7 +250,7 @@ export abstract class UMLEntity extends Entity<UMLEntityData> {
     }
   }
 
-  // 属性访问器
+  // Property accessors
   get x(): number {
     return this.data?.position?.x ?? 0;
   }
@@ -472,11 +472,11 @@ export abstract class UMLEdgeEntity<E extends IEdge = IEdge>
 }
 
 // ============================================================================
-// 具体 UML 实体实现（使用新的装饰器系统）
+// Concrete UML entity implementations (using new decorator system)
 // ============================================================================
 
 /**
- * UML 类实体 - 使用新的能力感知装饰器系统
+ * UML class entity - using new capability-aware decorator system
  */
 @AutoRegistry({
   registryManager: umlRegistryManager,
@@ -511,7 +511,7 @@ export class UMLClassEntity extends UMLNodeEntity {
 }
 
 /**
- * UML 接口实体 - 使用新的能力感知装饰器系统
+ * UML interface entity - using new capability-aware decorator system
  */
 @AutoRegistry({
   registryManager: umlRegistryManager,
@@ -541,7 +541,7 @@ export class UMLInterfaceEntity extends UMLNodeEntity {
   }
 
   /**
-   * 渲染：虚线边框 + stereotype
+   * Render: dashed border + stereotype
    */
   override async render(context?: unknown): Promise<void> {
     const ctxObj = context as { canvas?: HTMLCanvasElement } | undefined;
@@ -582,7 +582,7 @@ export class UMLInterfaceEntity extends UMLNodeEntity {
 }
 
 /**
- * UML 用例实体 - 使用新的能力感知装饰器系统
+ * UML use case entity - using new capability-aware decorator system
  */
 @AutoRegistry({
   registryManager: umlRegistryManager,
@@ -622,7 +622,7 @@ export class UMLUseCaseEntity extends UMLNodeEntity {
   }
 
   /**
-   * 渲染：椭圆用例
+   * Render: ellipse use case
    */
   override async render(context?: unknown): Promise<void> {
     const ctxObj = context as { canvas?: HTMLCanvasElement } | undefined;
@@ -653,7 +653,7 @@ export class UMLUseCaseEntity extends UMLNodeEntity {
     ctx.fill();
     ctx.stroke();
 
-    // label 居中
+    // Center label
     ctx.fillStyle = textColor;
     ctx.font = "14px sans-serif";
     ctx.textBaseline = "middle";
@@ -665,7 +665,7 @@ export class UMLUseCaseEntity extends UMLNodeEntity {
 }
 
 /**
- * UML 参与者实体 - 使用新的能力感知装饰器系统
+ * UML actor entity - using new capability-aware decorator system
  */
 @AutoRegistry({
   registryManager: umlRegistryManager,
@@ -705,7 +705,7 @@ export class UMLActorEntity extends UMLNodeEntity {
   }
 
   /**
-   * 渲染：简易火柴人
+   * Render: simple stick figure
    */
   override async render(context?: unknown): Promise<void> {
     const ctxObj = context as { canvas?: HTMLCanvasElement } | undefined;
@@ -721,7 +721,7 @@ export class UMLActorEntity extends UMLNodeEntity {
     const stroke = this.data?.borderColor ?? "#333";
     const textColor = this.data?.textColor ?? "#000";
 
-    // 计算比例
+    // Calculate proportions
     const cx = x + width / 2;
     const headRadius = Math.min(width, height) * 0.15;
     const headCenterY = y + headRadius + 4;
@@ -732,18 +732,18 @@ export class UMLActorEntity extends UMLNodeEntity {
     ctx.strokeStyle = stroke;
     ctx.lineWidth = 2;
 
-    // 头
+    // Head
     ctx.beginPath();
     ctx.arc(cx, headCenterY, headRadius, 0, Math.PI * 2);
     ctx.stroke();
 
-    // 身体
+    // Body
     ctx.beginPath();
     ctx.moveTo(cx, bodyTopY);
     ctx.lineTo(cx, (bodyTopY + bodyBottomY) / 2);
     ctx.stroke();
 
-    // 手臂
+    // Arms
     const armY = bodyTopY + (bodyBottomY - bodyTopY) * 0.25;
     const armSpan = width * 0.45;
     ctx.beginPath();
@@ -751,7 +751,7 @@ export class UMLActorEntity extends UMLNodeEntity {
     ctx.lineTo(cx + armSpan, armY);
     ctx.stroke();
 
-    // 腿
+    // Legs
     const hipY = (bodyTopY + bodyBottomY) / 2;
     const legSpan = width * 0.35;
     ctx.beginPath();
@@ -761,7 +761,7 @@ export class UMLActorEntity extends UMLNodeEntity {
     ctx.lineTo(cx + legSpan, bodyBottomY);
     ctx.stroke();
 
-    // 标签（底部居中）
+    // Label (bottom center)
     ctx.fillStyle = textColor;
     ctx.font = "13px sans-serif";
     ctx.textAlign = "center";
@@ -773,7 +773,7 @@ export class UMLActorEntity extends UMLNodeEntity {
 }
 
 /**
- * UML 直线实体 - 支持在画布上绘制一条直线
+ * UML line entity - supports drawing a straight line on canvas
  */
 
 type LineEndpointConfig = {
@@ -1354,7 +1354,7 @@ export class UMLLineEntity extends UMLEdgeEntity<LineEdge> {
 }
 
 /**
- * 获取所有注册的UML实体信息
+ * Get info for all registered UML entities
  */
 export function getUMLEntityRegistryInfo() {
   const registryManager = umlRegistryManager;

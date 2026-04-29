@@ -1,14 +1,14 @@
 import type { IEntity } from "../entity/types";
 
 /**
- * 渲染上下文接口
- * 包含渲染所需的所有信息
+ * Render context interface
+ * Contains all information needed for rendering
  */
 export interface IRenderContext {
-  /** 要渲染的节点列表 */
+  /** List of nodes to render */
   nodes: IEntity[];
 
-  /** 视口信息 */
+  /** Viewport information */
   viewport: {
     x: number;
     y: number;
@@ -16,12 +16,12 @@ export interface IRenderContext {
     width: number;
     height: number;
   };
-  /** Canvas元素（可选，React 渲染路径不需要） */
+  /** Canvas element (optional, not needed for React render path) */
   canvas?: HTMLCanvasElement;
-  /** 渲染时间戳 */
+  /** Render timestamp */
   timestamp: number;
-  /** 额外的元数据 */
+  /** Additional metadata */
   metadata?: Record<string, unknown>;
-  /** 支持扩展 */
+  /** Supports extension */
   [key: string]: unknown;
 }

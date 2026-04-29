@@ -1,5 +1,5 @@
 /**
- * 哈希工具函数单元测试
+ * Hash utility function unit tests
  */
 
 import { describe, it, expect } from "vitest";
@@ -72,7 +72,7 @@ describe("hash-utils", () => {
       for (let i = 0; i < 100; i += 1) {
         hashes.add(hashString(`tenant-${i}`));
       }
-      // 验证哈希值分布良好（至少95个不同的哈希值）
+      // Verify hash values are well-distributed (at least 95 different hash values)
       expect(hashes.size).toBeGreaterThanOrEqual(95);
     });
   });

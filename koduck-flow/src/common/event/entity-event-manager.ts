@@ -1,8 +1,8 @@
 /**
- * Koduck Flow 实体事件管理器
+ * Koduck Flow entity event manager
  *
- * 专门管理实体生命周期相关的事件，包括添加、移除、更新等操作。
- * 继承自 EventManager 基类，可按需实例化或复用默认实例。
+ * Manages entity lifecycle-related events, including add, remove, update, and other operations.
+ * Inherits from EventManager base class, can be instantiated on demand or reuse the default instance.
  *
  * @example
  * ```typescript
@@ -18,18 +18,18 @@ import { GenericEvent } from "./generic-event";
 import type { EntityUpdateDetail } from "../entity/update-detail";
 
 /**
- * 实体事件管理器
+ * Entity event manager
  *
- * 面向实体生命周期事件的专用管理器。
- * 继承自 EventManager 基类，重写基类方法来处理具体的实体事件。
+ * Dedicated manager for entity lifecycle events.
+ * Inherits from EventManager base class, overrides base methods to handle specific entity events.
  *
- * @template T 实体数据类型
+ * @template T Entity data type
  * @since 1.0.0
  */
 export class EntityEventManager<T = unknown> extends EventManager<T> {
   /**
-   * 附加的“更新详情”事件通道：不破坏现有 onUpdate 签名的前提下，
-   * 提供更新类型/脏区等细节，供渲染/监听方选择性订阅。
+   * Additional "update detail" event channel: without breaking the existing onUpdate signature,
+   * provides details like update type/dirty region for rendering/listeners to subscribe selectively.
    */
   public readonly updatedWithDetail = new GenericEvent<{
     entity: T;
@@ -40,12 +40,12 @@ export class EntityEventManager<T = unknown> extends EventManager<T> {
     super();
   }
 
-  // ===== 实体事件特有的方法 =====
+  // ===== Entity event-specific methods =====
 
   /**
-   * 链式注册生命周期监听器
-   * @param handlers - 生命周期事件处理器对象
-   * @returns this 支持链式调用
+   * Chain-register lifecycle listeners
+   * @param handlers - Lifecycle event handler object
+   * @returns this Supports chaining
    */
   registerLifecycle(handlers: {
     onAdded?: IEventListener<T>;
@@ -59,9 +59,9 @@ export class EntityEventManager<T = unknown> extends EventManager<T> {
   }
 
   /**
-   * 注册通用生命周期监听器（所有事件都会触发）
-   * @param listener - 监听器函数
-   * @returns this 支持链式调用
+   * Register generic lifecycle listener (triggers on all events)
+   * @param listener - Listener function
+   * @returns this Supports chaining
    */
   registerAnyLifecycle(listener: IEventListener<T>): this {
     this.added.addEventListener(listener);
@@ -71,8 +71,8 @@ export class EntityEventManager<T = unknown> extends EventManager<T> {
   }
 
   /**
-   * 快速配置高性能模式（适合高频事件）
-   * @returns this 支持链式调用
+   * Quick setup for high-performance mode (suitable for high-frequency events)
+   * @returns this Supports chaining
    */
   setupForPerformance(): this {
     return this.configureAll({
@@ -83,8 +83,8 @@ export class EntityEventManager<T = unknown> extends EventManager<T> {
   }
 
   /**
-   * 快速配置调试模式（适合开发和测试）
-   * @returns this 支持链式调用
+   * Quick setup for debug mode (suitable for development and testing)
+   * @returns this Supports chaining
    */
   setupForDebugging(): this {
     return this.setDebugMode(true).configureAll({
@@ -92,12 +92,12 @@ export class EntityEventManager<T = unknown> extends EventManager<T> {
     });
   }
 
-  // ===== 简洁API设计 =====
+  // ===== Concise API design =====
 
   /**
-   * 监听实体添加事件 - 简洁API
-   * @param listener 监听器函数
-   * @returns this 支持链式调用
+   * Listen to entity add event - Concise API
+   * @param listener Listener function
+   * @returns this Supports chaining
    */
   onAdd(listener: IEventListener<T>): this {
     this.added.addEventListener(listener);
@@ -105,9 +105,9 @@ export class EntityEventManager<T = unknown> extends EventManager<T> {
   }
 
   /**
-   * 监听实体移除事件 - 简洁API
-   * @param listener 监听器函数
-   * @returns this 支持链式调用
+   * Listen to entity remove event - Concise API
+   * @param listener Listener function
+   * @returns this Supports chaining
    */
   onRemove(listener: IEventListener<T>): this {
     this.removed.addEventListener(listener);
@@ -115,9 +115,9 @@ export class EntityEventManager<T = unknown> extends EventManager<T> {
   }
 
   /**
-   * 监听实体更新事件 - 简洁API
-   * @param listener 监听器函数
-   * @returns this 支持链式调用
+   * Listen to entity update event - Concise API
+   * @param listener Listener function
+   * @returns this Supports chaining
    */
   onUpdate(listener: IEventListener<T>): this {
     this.updated.addEventListener(listener);
@@ -125,7 +125,7 @@ export class EntityEventManager<T = unknown> extends EventManager<T> {
   }
 
   /**
-   * 新增：监听带详情的更新事件
+   * New: listen to update event with details
    */
   onUpdateDetail(listener: (payload: { entity: T; detail?: EntityUpdateDetail }) => void): this {
     this.updatedWithDetail.addEventListener(listener);
@@ -133,9 +133,9 @@ export class EntityEventManager<T = unknown> extends EventManager<T> {
   }
 
   /**
-   * 触发添加事件 - 简洁API
-   * @param data 事件数据
-   * @returns this 支持链式调用
+   * Fire add event - Concise API
+   * @param data Event data
+   * @returns this Supports chaining
    */
   fireAdd(data: T): this {
     this.added.fire(data);
@@ -143,9 +143,9 @@ export class EntityEventManager<T = unknown> extends EventManager<T> {
   }
 
   /**
-   * 触发移除事件 - 简洁API
-   * @param data 事件数据
-   * @returns this 支持链式调用
+   * Fire remove event - Concise API
+   * @param data Event data
+   * @returns this Supports chaining
    */
   fireRemove(data: T): this {
     this.removed.fire(data);
@@ -153,9 +153,9 @@ export class EntityEventManager<T = unknown> extends EventManager<T> {
   }
 
   /**
-   * 触发更新事件 - 简洁API
-   * @param data 事件数据
-   * @returns this 支持链式调用
+   * Fire update event - Concise API
+   * @param data Event data
+   * @returns this Supports chaining
    */
   fireUpdate(data: T): this {
     this.updated.fire(data);
@@ -163,7 +163,7 @@ export class EntityEventManager<T = unknown> extends EventManager<T> {
   }
 
   /**
-   * 新增：触发带详情的更新事件（同步触发 updated 以保持兼容）
+   * New: fire update event with details (fires updated synchronously for compatibility)
    */
   fireUpdateWithDetail(entity: T, detail?: EntityUpdateDetail): this {
     this.updated.fire(entity);
@@ -173,9 +173,9 @@ export class EntityEventManager<T = unknown> extends EventManager<T> {
   }
 
   /**
-   * 监听所有类型的事件
-   * @param listener 监听器函数
-   * @returns this 支持链式调用
+   * Listen to all types of events
+   * @param listener Listener function
+   * @returns this Supports chaining
    */
   onAny(listener: IEventListener<T>): this {
     this.onAdd(listener).onRemove(listener).onUpdate(listener);
@@ -183,10 +183,10 @@ export class EntityEventManager<T = unknown> extends EventManager<T> {
   }
 
   /**
-   * 批量触发事件
-   * @param type 事件类型
-   * @param dataArray 事件数据数组
-   * @returns this 支持链式调用
+   * Batch fire events
+   * @param type Event type
+   * @param dataArray Event data array
+   * @returns this Supports chaining
    */
   fireBatch(type: "add" | "remove" | "update", dataArray: T[]): this {
     const eventMap = {
@@ -201,9 +201,9 @@ export class EntityEventManager<T = unknown> extends EventManager<T> {
   }
 
   /**
-   * 桥接所有事件到另一个实体事件管理器
-   * @param target 目标实体事件管理器
-   * @returns this 支持链式调用
+   * Bridge all events to another entity event manager
+   * @param target Target entity event manager
+   * @returns this Supports chaining
    */
   bridgeAllTo(target: EntityEventManager<T>): this {
     this.onAdd((data) => target.fireAdd(data))

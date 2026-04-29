@@ -1,6 +1,6 @@
 /**
  * In-Memory Metrics Provider tests
- * 测试内存metrics provider的功能
+ * Tests the functionality of the in-memory metrics provider
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
@@ -12,7 +12,7 @@ describe("InMemoryMetricsProvider", () => {
   let provider: InMemoryMetricsProvider;
 
   beforeEach(() => {
-    // 重置配置
+    // Reset configuration
     configureMetrics({
       governance: {
         seriesLimitPerMetric: undefined,
@@ -26,11 +26,11 @@ describe("InMemoryMetricsProvider", () => {
   });
 
   describe("Provider Management", () => {
-    it("应该创建InMemoryMetricsProvider实例", () => {
+    it("should create InMemoryMetricsProvider instance", () => {
       expect(provider).toBeInstanceOf(InMemoryMetricsProvider);
     });
 
-    it("应该支持getMeter", () => {
+    it("should support getMeter", () => {
       const meter = provider.getMeter("test-scope");
       expect(meter).toBeDefined();
       expect(typeof meter.counter).toBe("function");
@@ -38,27 +38,27 @@ describe("InMemoryMetricsProvider", () => {
       expect(typeof meter.histogram).toBe("function");
     });
 
-    it("应该为相同scope返回相同meter", () => {
+    it("should return the same meter for the same scope", () => {
       const meter1 = provider.getMeter("same-scope");
       const meter2 = provider.getMeter("same-scope");
       expect(meter1).toBe(meter2);
     });
 
-    it("应该为不同scope返回不同meter", () => {
+    it("should return different meters for different scopes", () => {
       const meter1 = provider.getMeter("scope-1");
       const meter2 = provider.getMeter("scope-2");
       expect(meter1).not.toBe(meter2);
     });
 
-    it("应该支持collect", () => {
+    it("should support collect", () => {
       expect(() => provider.collect()).not.toThrow();
     });
 
-    it("应该支持collect", () => {
+    it("should support collect", () => {
       expect(() => provider.collect()).not.toThrow();
     });
 
-    it("应该支持snapshot", () => {
+    it("should support snapshot", () => {
       const snapshot = provider.snapshot();
       expect(snapshot).toBeDefined();
       expect(Array.isArray(snapshot.meters)).toBe(true);
@@ -66,7 +66,7 @@ describe("InMemoryMetricsProvider", () => {
   });
 
   describe("Counter", () => {
-    it("应该创建和使用counter", () => {
+    it("should create and use counter", () => {
       const meter = provider.getMeter("counter-test");
       const counter = meter.counter("test_counter");
 
@@ -83,7 +83,7 @@ describe("InMemoryMetricsProvider", () => {
       expect(Object.keys(counterData.points)).toHaveLength(2);
     });
 
-    it("应该累积counter值", () => {
+    it("should accumulate counter values", () => {
       const meter = provider.getMeter("accumulate-test");
       const counter = meter.counter("accumulating_counter");
 
@@ -96,7 +96,7 @@ describe("InMemoryMetricsProvider", () => {
       expect(counterData.points[""]).toEqual({ value: 35 });
     });
 
-    it("应该处理counter的属性", () => {
+    it("should handle counter attributes", () => {
       const meter = provider.getMeter("attrs-test");
       const counter = meter.counter("attributed_counter");
 
@@ -114,7 +114,7 @@ describe("InMemoryMetricsProvider", () => {
       });
     });
 
-    it("应该支持counter选项", () => {
+    it("should support counter options", () => {
       const meter = provider.getMeter("options-test");
       const counter = meter.counter("described_counter", {
         description: "A test counter",
@@ -131,7 +131,7 @@ describe("InMemoryMetricsProvider", () => {
   });
 
   describe("UpDownCounter", () => {
-    it("应该创建和使用upDownCounter", () => {
+    it("should create and use upDownCounter", () => {
       const meter = provider.getMeter("updown-test");
       const upDownCounter = meter.upDownCounter("test_updown");
 
@@ -144,7 +144,7 @@ describe("InMemoryMetricsProvider", () => {
       expect(upDownData.points[""]).toEqual({ value: 6 });
     });
 
-    it("应该处理负值", () => {
+    it("should handle negative values", () => {
       const meter = provider.getMeter("negative-test");
       const upDownCounter = meter.upDownCounter("negative_counter");
 
@@ -156,7 +156,7 @@ describe("InMemoryMetricsProvider", () => {
       expect(upDownData.points[""]).toEqual({ value: -15 });
     });
 
-    it("应该处理零值", () => {
+    it("should handle zero values", () => {
       const meter = provider.getMeter("zero-test");
       const upDownCounter = meter.upDownCounter("zero_counter");
 
@@ -171,19 +171,19 @@ describe("InMemoryMetricsProvider", () => {
   });
 
   describe("Gauge", () => {
-    it("应该创建和使用gauge", () => {
+    it("should create and use gauge", () => {
       const meter = provider.getMeter("gauge-test");
       const gauge = meter.gauge("test_gauge");
 
       gauge.set(42);
-      gauge.set(36); // 应该覆盖之前的值
+      gauge.set(36); // should override the previous value
 
       const snapshot = provider.snapshot();
       const gaugeData = snapshot.meters[0].gauges[0];
       expect(gaugeData.points[""]).toEqual({ value: 36 });
     });
 
-    it("应该处理浮点值", () => {
+    it("should handle floating point values", () => {
       const meter = provider.getMeter("float-test");
       const gauge = meter.gauge("float_gauge");
 
@@ -194,7 +194,7 @@ describe("InMemoryMetricsProvider", () => {
       expect(gaugeData.points[""]).toEqual({ value: 3.14159 });
     });
 
-    it("应该处理负值", () => {
+    it("should handle negative values", () => {
       const meter = provider.getMeter("negative-gauge-test");
       const gauge = meter.gauge("negative_gauge");
 
@@ -207,7 +207,7 @@ describe("InMemoryMetricsProvider", () => {
   });
 
   describe("Histogram", () => {
-    it("应该创建和使用histogram", () => {
+    it("should create and use histogram", () => {
       const meter = provider.getMeter("histogram-test");
       const histogram = meter.histogram("test_histogram");
 
@@ -225,7 +225,7 @@ describe("InMemoryMetricsProvider", () => {
       });
     });
 
-    it("应该使用默认边界", () => {
+    it("should use default boundaries", () => {
       const meter = provider.getMeter("default-bounds-test");
       const histogram = meter.histogram("default_histogram");
 
@@ -239,7 +239,7 @@ describe("InMemoryMetricsProvider", () => {
       expect(histData.points[""].buckets).toHaveLength(13); // boundaries.length + 1
     });
 
-    it("应该支持自定义边界", () => {
+    it("should support custom boundaries", () => {
       const meter = provider.getMeter("custom-bounds-test");
       const histogram = meter.histogram("custom_histogram", {
         boundaries: [10, 50, 100],
@@ -252,25 +252,25 @@ describe("InMemoryMetricsProvider", () => {
       const snapshot = provider.snapshot();
       const histData = snapshot.meters[0].histograms[0];
       expect(histData.points[""].boundaries).toEqual([10, 50, 100]);
-      expect(histData.points[""].buckets).toEqual([0, 1, 2, 3]); // 累积计数
+      expect(histData.points[""].buckets).toEqual([0, 1, 2, 3]); // cumulative counts
     });
 
-    it("应该正确计算累积桶", () => {
+    it("should correctly calculate cumulative buckets", () => {
       const meter = provider.getMeter("cumulative-test");
       const histogram = meter.histogram("cumulative_histogram", {
         boundaries: [5, 10, 20],
       });
 
-      // 记录一些值：3, 7, 15, 25
-      histogram.record(3); // 在桶 [0, 5]
-      histogram.record(7); // 在桶 (5, 10]
-      histogram.record(15); // 在桶 (10, 20]
-      histogram.record(25); // 在桶 (20, +Inf]
+      // Record some values: 3, 7, 15, 25
+      histogram.record(3); // in bucket [0, 5]
+      histogram.record(7); // in bucket (5, 10]
+      histogram.record(15); // in bucket (10, 20]
+      histogram.record(25); // in bucket (20, +Inf]
 
       const snapshot = provider.snapshot();
       const histData = snapshot.meters[0].histograms[0];
 
-      // 累积桶：[<=5, <=10, <=20, <=+Inf]
+      // Cumulative buckets: [<=5, <=10, <=20, <=+Inf]
       expect(histData.points[""].buckets).toEqual([1, 2, 3, 4]);
       expect(histData.points[""].count).toBe(4);
       expect(histData.points[""].sum).toBe(50);
@@ -278,7 +278,7 @@ describe("InMemoryMetricsProvider", () => {
   });
 
   describe("ObservableGauge", () => {
-    it("应该创建observableGauge", () => {
+    it("should create observableGauge", () => {
       const meter = provider.getMeter("observable-test");
       const observableGauge = meter.observableGauge("test_observable");
 
@@ -287,7 +287,7 @@ describe("InMemoryMetricsProvider", () => {
       expect(typeof observableGauge.removeCallback).toBe("function");
     });
 
-    it("应该支持添加和移除回调", () => {
+    it("should support adding and removing callbacks", () => {
       const meter = provider.getMeter("callback-test");
       const observableGauge = meter.observableGauge("callback_observable");
 
@@ -297,13 +297,13 @@ describe("InMemoryMetricsProvider", () => {
       observableGauge.addCallback(callback1);
       observableGauge.addCallback(callback2);
 
-      // collect应该触发回调
+      // collect should trigger callbacks
       meter.collect?.();
 
       expect(callback1).toHaveBeenCalled();
       expect(callback2).toHaveBeenCalled();
 
-      // 移除回调
+      // Remove callback
       observableGauge.removeCallback(callback1);
       callback1.mockClear();
       callback2.mockClear();
@@ -314,14 +314,14 @@ describe("InMemoryMetricsProvider", () => {
       expect(callback2).toHaveBeenCalled();
     });
 
-    it("应该支持observe功能", () => {
+    it("should support observe functionality", () => {
       const meter = provider.getMeter("observe-test");
       const observableGauge = meter.observableGauge("observe_gauge");
 
       observableGauge.addCallback((observe) => {
         observe({ value: 100, attributes: { type: "cpu" } });
         observe({ value: 80, attributes: { type: "memory" } });
-        observe({ value: 90 }); // 无属性
+        observe({ value: 90 }); // no attributes
       });
 
       meter.collect?.();
@@ -340,7 +340,7 @@ describe("InMemoryMetricsProvider", () => {
   });
 
   describe("Time Helper", () => {
-    it("应该支持同步函数计时", async () => {
+    it("should support synchronous function timing", async () => {
       const meter = provider.getMeter("time-sync-test");
 
       const result = await meter.time("sync_operation", () => {
@@ -358,7 +358,7 @@ describe("InMemoryMetricsProvider", () => {
       expect(histData!.points[""].count).toBe(1);
     });
 
-    it("应该支持异步函数计时", async () => {
+    it("should support asynchronous function timing", async () => {
       const meter = provider.getMeter("time-async-test");
 
       const result = await meter.time("async_operation", async () => {
@@ -377,7 +377,7 @@ describe("InMemoryMetricsProvider", () => {
       expect(histData!.points[""].sum).toBeGreaterThan(0);
     });
 
-    it("应该支持带属性的计时", async () => {
+    it("should support timing with attributes", async () => {
       const meter = provider.getMeter("time-attrs-test");
 
       await meter.time("operation_with_attrs", () => "done", {
@@ -387,10 +387,10 @@ describe("InMemoryMetricsProvider", () => {
 
       const snapshot = provider.snapshot();
       const histData = snapshot.meters[0].histograms[0];
-      expect(histData.points["method=GET|service=api"]).toBeDefined(); // 属性键按字母顺序排序
+      expect(histData.points["method=GET|service=api"]).toBeDefined(); // attribute keys sorted alphabetically
     });
 
-    it("应该处理计时中的错误", async () => {
+    it("should handle errors during timing", async () => {
       const meter = provider.getMeter("time-error-test");
 
       await expect(
@@ -399,7 +399,7 @@ describe("InMemoryMetricsProvider", () => {
         })
       ).rejects.toThrow("Test error");
 
-      // 即使出错，也应该记录时间
+      // Even if an error occurs, the time should be recorded
       const snapshot = provider.snapshot();
       const histData = snapshot.meters[0].histograms[0];
       expect(histData.points[""]).toBeDefined();
@@ -408,19 +408,19 @@ describe("InMemoryMetricsProvider", () => {
   });
 
   describe("Sampling", () => {
-    it("应该支持采样配置", () => {
-      // 重置配置为只有采样率为0
+    it("should support sampling configuration", () => {
+      // Reset configuration to sampling rate 0 only
       configureMetrics({
         governance: {
           seriesLimitPerMetric: undefined,
           seriesTTLms: undefined,
-          samplingRate: 0.0, // 不采样任何数据
+          samplingRate: 0.0, // do not sample any data
           labelWhitelist: undefined,
           labelBlacklist: undefined,
         },
       });
 
-      // 创建新的provider来使用新配置
+      // Create new provider to use the new configuration
       const samplingProvider = new InMemoryMetricsProvider();
       const meter = samplingProvider.getMeter("sampling-test");
       const counter = meter.counter("sampled_counter");
@@ -429,7 +429,7 @@ describe("InMemoryMetricsProvider", () => {
       counter.add(20);
 
       const snapshot = samplingProvider.snapshot();
-      // 由于采样率为0，meters会存在但不应该有实际数据
+      // With sampling rate 0, meters exist but should not have actual data
       expect(snapshot.meters).toHaveLength(1);
       expect(snapshot.meters[0].counters).toHaveLength(1);
       expect(Object.keys(snapshot.meters[0].counters[0].points)).toHaveLength(
@@ -437,8 +437,8 @@ describe("InMemoryMetricsProvider", () => {
       );
     });
 
-    it("应该在采样率为1时记录所有数据", () => {
-      // 重置配置为采样率1.0
+    it("should record all data when sampling rate is 1", () => {
+      // Reset configuration to sampling rate 1.0
       configureMetrics({
         governance: {
           seriesLimitPerMetric: undefined,
@@ -449,7 +449,7 @@ describe("InMemoryMetricsProvider", () => {
         },
       });
 
-      // 创建新的provider来使用新配置
+      // Create new provider to use the new configuration
       const fullSamplingProvider = new InMemoryMetricsProvider();
       const meter = fullSamplingProvider.getMeter("full-sampling-test");
       const counter = meter.counter("full_sampled_counter");
@@ -464,7 +464,7 @@ describe("InMemoryMetricsProvider", () => {
   });
 
   describe("Label Filtering", () => {
-    it("应该支持白名单过滤", () => {
+    it("should support whitelist filtering", () => {
       configureMetrics({
         governance: {
           labelWhitelist: ["service", "method"],
@@ -477,8 +477,8 @@ describe("InMemoryMetricsProvider", () => {
       counter.add(1, {
         service: "api",
         method: "GET",
-        internal: "debug", // 应该被过滤掉
-        user: "test", // 应该被过滤掉
+        internal: "debug", // should be filtered out
+        user: "test", // should be filtered out
       });
 
       const snapshot = provider.snapshot();
@@ -488,7 +488,7 @@ describe("InMemoryMetricsProvider", () => {
       expect(keys[0]).toBe("method=GET|service=api");
     });
 
-    it("应该支持黑名单过滤", () => {
+    it("should support blacklist filtering", () => {
       configureMetrics({
         governance: {
           labelBlacklist: ["internal", "debug"],
@@ -501,8 +501,8 @@ describe("InMemoryMetricsProvider", () => {
       counter.add(1, {
         service: "api",
         method: "GET",
-        internal: "value", // 应该被过滤掉
-        debug: "info", // 应该被过滤掉
+        internal: "value", // should be filtered out
+        debug: "info", // should be filtered out
       });
 
       const snapshot = provider.snapshot();
@@ -514,7 +514,7 @@ describe("InMemoryMetricsProvider", () => {
   });
 
   describe("Series Management", () => {
-    it("应该支持系列限制", () => {
+    it("should support series limit", () => {
       configureMetrics({
         governance: {
           seriesLimitPerMetric: 2,
@@ -524,17 +524,17 @@ describe("InMemoryMetricsProvider", () => {
       const meter = provider.getMeter("limit-test");
       const counter = meter.counter("limited_counter");
 
-      // 添加3个不同的系列，但只应该保留2个
+      // Add 3 different series, but only 2 should be retained
       counter.add(1, { series: "1" });
       counter.add(1, { series: "2" });
-      counter.add(1, { series: "3" }); // 这个应该触发LRU淘汰
+      counter.add(1, { series: "3" }); // this should trigger LRU eviction
 
       const snapshot = provider.snapshot();
       const counterData = snapshot.meters[0].counters[0];
       expect(Object.keys(counterData.points)).toHaveLength(2);
     });
 
-    it("应该支持TTL清理", async () => {
+    it("should support TTL cleanup", async () => {
       configureMetrics({
         governance: {
           seriesTTLms: 50, // 50ms TTL
@@ -546,23 +546,23 @@ describe("InMemoryMetricsProvider", () => {
 
       counter.add(1, { series: "short-lived" });
 
-      // 等待TTL过期
+      // Wait for TTL to expire
       await new Promise((resolve) => setTimeout(resolve, 60));
 
-      // 触发清理（通过添加新数据）
+      // Trigger cleanup (by adding new data)
       counter.add(1, { series: "new" });
 
       const snapshot = provider.snapshot();
       const counterData = snapshot.meters[0].counters[0];
 
-      // 应该只有新数据，旧数据应该被清理
+      // Should only have new data, old data should be cleaned up
       expect(Object.keys(counterData.points)).toHaveLength(1);
       expect(counterData.points["series=new"]).toBeDefined();
     });
   });
 
   describe("Integration", () => {
-    it("应该支持复杂的metrics组合", () => {
+    it("should support complex metrics combinations", () => {
       const apiMeter = provider.getMeter("api");
       const dbMeter = provider.getMeter("database");
 
@@ -575,7 +575,7 @@ describe("InMemoryMetricsProvider", () => {
       const queries = dbMeter.counter("queries_total");
       const connectionPool = dbMeter.gauge("connection_pool_size");
 
-      // 记录一些数据
+      // Record some data
       requests.add(10, { method: "GET", status: "200" });
       requests.add(5, { method: "POST", status: "201" });
       responseTime.record(125);
@@ -601,7 +601,7 @@ describe("InMemoryMetricsProvider", () => {
       expect(dbMeterData?.gauges).toHaveLength(1);
     });
 
-    it("应该正确处理快照", () => {
+    it("should correctly handle snapshot", () => {
       const meter = provider.getMeter("snapshot-test");
 
       const counter = meter.counter("test_counter", {

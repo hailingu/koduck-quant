@@ -1,16 +1,16 @@
 /**
- * KoduckFlowRuntime 集成测试
+ * KoduckFlowRuntime Integration Tests
  *
- * 测试目标：验证各模块协同工作正确性
+ * Test Objective: Verify correct collaboration between modules
  *
- * 测试场景：
- * 1. 完整 Runtime 初始化流程
- * 2. Manager 注册 + 租户上下文 + 配额联动
- * 3. 特性开关与 Rollout 集成
- * 4. 多租户隔离
- * 5. 作用域 Runtime 创建
- * 6. 优雅关闭流程
- * 7. API 行为快照测试
+ * Test Scenarios:
+ * 1. Full Runtime initialization flow
+ * 2. Manager registration + tenant context + quota linkage
+ * 3. Feature flag and Rollout integration
+ * 4. Multi-tenant isolation
+ * 5. Scoped Runtime creation
+ * 6. Graceful shutdown flow
+ * 7. API behavior snapshot tests
  */
 
 import { describe, it, expect, afterEach, vi } from "vitest";
@@ -26,10 +26,10 @@ import { TOKENS } from "../../../src/common/di/tokens";
 import { registerCoreServices } from "../../../src/common/di/bootstrap";
 import { TENANT_ENTITY_QUOTA_KEY } from "../../../src/common/runtime/types";
 
-// ==================== 测试辅助工具 ====================
+// ==================== Test Helpers ====================
 
 /**
- * 创建模拟 Manager
+ * Create mock Manager
  */
 function createMockManager(name: string, initDelay = 0): IManager {
   return {
@@ -47,7 +47,7 @@ function createMockManager(name: string, initDelay = 0): IManager {
 }
 
 /**
- * 创建测试用租户上下文
+ * Create test tenant context
  */
 function createTestTenantContext(
   tenantId: string,
@@ -82,9 +82,9 @@ function createTestTenantContext(
   };
 }
 
-// ==================== 测试套件 ====================
+// ==================== Test Suite ====================
 
-describe("KoduckFlowRuntime - 集成测试", () => {
+describe("KoduckFlowRuntime - Integration Tests", () => {
   let runtime: KoduckFlowRuntime;
 
   afterEach(() => {
@@ -93,14 +93,14 @@ describe("KoduckFlowRuntime - 集成测试", () => {
     }
   });
 
-  // ==================== 场景 1: 完整初始化流程 ====================
+  // ==================== Scenario 1: Full Initialization Flow ====================
 
-  describe("场景 1: 完整 Runtime 初始化流程", () => {
-    it("应该成功初始化 Runtime 并访问所有核心服务", () => {
-      // 创建 Runtime
+  describe("Scenario 1: Full Runtime Initialization Flow", () => {
+    it("should successfully initialize Runtime and access all core services", () => {
+      // Create Runtime
       runtime = createKoduckFlowRuntime();
 
-      // 验证核心服务可访问
+      // Verify core services are accessible
       expect(runtime.EntityManager).toBeDefined();
       expect(runtime.RenderManager).toBeDefined();
       expect(runtime.RegistryManager).toBeDefined();
@@ -108,46 +108,46 @@ describe("KoduckFlowRuntime - 集成测试", () => {
       expect(runtime.RenderEvents).toBeDefined();
       expect(runtime.EntityEvents).toBeDefined();
 
-      // 验证核心服务来自同一容器
+      // Verify core services come from the same container
       const entityManager1 = runtime.EntityManager;
       const entityManager2 = runtime.EntityManager;
       expect(entityManager1).toBe(entityManager2);
     });
 
-    it("应该正确初始化 DI 容器并解析服务", () => {
+    it("should correctly initialize DI container and resolve services", () => {
       runtime = createKoduckFlowRuntime();
 
-      // 验证可以解析核心服务（使用 Symbol token）
+      // Verify core services can be resolved (using Symbol token)
       expect(runtime.has(TOKENS.entityManager)).toBe(true);
       expect(runtime.has(TOKENS.renderManager)).toBe(true);
       expect(runtime.has(TOKENS.registryManager)).toBe(true);
 
-      // 验证可以通过 token 解析
+      // Verify can resolve via token
       const entityManager = runtime.resolve(TOKENS.entityManager);
       expect(entityManager).toBe(runtime.EntityManager);
     });
 
-    it("应该支持自定义 DI 容器初始化", () => {
+    it("should support custom DI container initialization", () => {
       const customContainer = new DefaultDependencyContainer();
 
-      // 必须先注册核心服务
+      // Must register core services first
       registerCoreServices(customContainer);
 
-      // 再注册自定义服务
+      // Then register custom services
       const testService = { name: "TestService" };
       customContainer.registerInstance("TestService", testService);
 
       runtime = createKoduckFlowRuntime({ container: customContainer });
 
-      // 验证自定义服务可访问
+      // Verify custom services are accessible
       expect(runtime.has("TestService")).toBe(true);
       expect(runtime.resolve("TestService")).toBe(testService);
 
-      // 验证核心服务仍然可用
+      // Verify core services are still available
       expect(runtime.EntityManager).toBeDefined();
     });
 
-    it("应该正确处理 Manager 初始化配置", () => {
+    it("should correctly handle Manager initialization config", () => {
       runtime = createKoduckFlowRuntime({
         managerInitialization: {
           timeoutMs: 10000,
@@ -167,37 +167,37 @@ describe("KoduckFlowRuntime - 集成测试", () => {
     });
   });
 
-  // ==================== 场景 2: Manager + 租户 + 配额联动 ====================
+  // ==================== Scenario 2: Manager + Tenant + Quota Linkage ====================
 
-  describe("场景 2: Manager 注册 + 租户上下文 + 配额联动", () => {
-    it("应该正确处理 Manager 注册、租户上下文设置和配额管理的联动", () => {
+  describe("Scenario 2: Manager Registration + Tenant Context + Quota Linkage", () => {
+    it("should correctly handle the linkage of Manager registration, tenant context setting, and quota management", () => {
       runtime = createKoduckFlowRuntime();
 
-      // 1. 注册自定义 Manager
+      // 1. Register custom Manager
       const customManager = createMockManager("CustomManager");
       runtime.registerManager("CustomManager", customManager);
       expect(runtime.hasManager("CustomManager")).toBe(true);
 
-      // 2. 设置租户上下文
+      // 2. Set tenant context
       const tenantContext = createTestTenantContext("tenant-123");
       runtime.setTenantContext(tenantContext);
       expect(runtime.getTenantContext()).toEqual(tenantContext);
 
-      // 3. 验证配额管理（使用正确的 entity quota key）
+      // 3. Verify quota management (using correct entity quota key)
       const snapshot = runtime.getTenantQuotaSnapshot(TENANT_ENTITY_QUOTA_KEY);
       expect(snapshot).toBeDefined();
-      expect(snapshot?.limit).toBe(1000); // 来自 quotas.maxEntities
-      expect(snapshot?.usage).toBe(0); // 当前实体数量
+      expect(snapshot?.limit).toBe(1000); // From quotas.maxEntities
+      expect(snapshot?.usage).toBe(0); // Current entity count
 
-      // 4. 申请配额（entity quota 使用实际实体数量，不是手动计数）
+      // 4. Claim quota (entity quota uses actual entity count, not manual counting)
       const claimed = runtime.claimTenantQuota(TENANT_ENTITY_QUOTA_KEY);
-      expect(claimed).toBe(true); // 检查是否可以添加实体
+      expect(claimed).toBe(true); // Check if entity can be added
 
-      // 5. Entity quota usage 基于实际实体数，不会因为 claim 而增加
+      // 5. Entity quota usage is based on actual entity count, won't increase due to claim
       const updatedSnapshot = runtime.getTenantQuotaSnapshot(TENANT_ENTITY_QUOTA_KEY);
-      expect(updatedSnapshot?.usage).toBe(0); // 仍然是 0，因为没有实际创建实体
+      expect(updatedSnapshot?.usage).toBe(0); // Still 0 because no actual entity was created
 
-      // 6. 使用自定义配额桶测试申请/释放
+      // 6. Test claim/release using custom quota bucket
       runtime.claimTenantQuota("api-calls", 100);
       const apiSnapshot = runtime.getTenantQuotaSnapshot("api-calls");
       expect(apiSnapshot?.usage).toBe(100);
@@ -207,10 +207,10 @@ describe("KoduckFlowRuntime - 集成测试", () => {
       expect(apiSnapshot2?.usage).toBe(50);
     });
 
-    it("应该在切换租户时正确重置配额", () => {
+    it("should correctly reset quotas when switching tenants", () => {
       runtime = createKoduckFlowRuntime();
 
-      // 租户 A - 使用自定义配额桶（entity quota 基于实际实体数）
+      // Tenant A - Use custom quota bucket (entity quota is based on actual entity count)
       const tenantA = createTestTenantContext("tenant-a");
       runtime.setTenantContext(tenantA);
       runtime.claimTenantQuota("api-calls", 200);
@@ -218,56 +218,56 @@ describe("KoduckFlowRuntime - 集成测试", () => {
       const snapshotA = runtime.getTenantQuotaSnapshot("api-calls");
       expect(snapshotA?.usage).toBe(200);
 
-      // 切换到租户 B
+      // Switch to tenant B
       const tenantB = createTestTenantContext("tenant-b");
       runtime.setTenantContext(tenantB);
 
-      // 验证配额已重置（切换租户后重置计数）
+      // Verify quotas are reset (count resets after tenant switch)
       const snapshotB = runtime.getTenantQuotaSnapshot("api-calls");
       expect(snapshotB?.usage).toBe(0);
-      expect(snapshotB?.limit).toBe(5000); // 来自 quotas.custom["api-calls"]
+      expect(snapshotB?.limit).toBe(5000); // From quotas.custom["api-calls"]
 
-      // 租户 B 申请配额
+      // Tenant B claims quota
       runtime.claimTenantQuota("api-calls", 300);
       const snapshotB2 = runtime.getTenantQuotaSnapshot("api-calls");
       expect(snapshotB2?.usage).toBe(300);
     });
 
-    it("应该在没有租户上下文时允许配额申请（无限制）", () => {
+    it("should allow quota claims without tenant context (no limit)", () => {
       runtime = createKoduckFlowRuntime();
 
-      // 未设置租户上下文时，claimQuota 返回 true（无限制）
+      // When tenant context is not set, claimQuota returns true (no limit)
       const claimed = runtime.claimTenantQuota(TENANT_ENTITY_QUOTA_KEY, 100);
       expect(claimed).toBe(true);
 
-      // 但 snapshot 仍然是 undefined（因为没有租户上下文）
+      // But snapshot is still undefined (because there's no tenant context)
       const snapshot = runtime.getTenantQuotaSnapshot(TENANT_ENTITY_QUOTA_KEY);
       expect(snapshot).toBeUndefined();
     });
 
-    it("应该在超过配额限制时拒绝申请", () => {
+    it("should reject claims when quota limit is exceeded", () => {
       runtime = createKoduckFlowRuntime();
 
       const tenantContext = createTestTenantContext("tenant-123", {
         quotas: {
           maxEntities: 100,
           custom: {
-            "api-calls": 50, // 自定义配额桶
+            "api-calls": 50, // Custom quota bucket
           },
         },
       });
       runtime.setTenantContext(tenantContext);
 
-      // 测试自定义配额桶（entity quota 使用实体数量，测试起来比较复杂）
-      // 申请超过限制的配额
+      // Test custom quota bucket (entity quota uses entity count, more complex to test)
+      // Claim quota exceeding limit
       const claimed = runtime.claimTenantQuota("api-calls", 60);
       expect(claimed).toBe(false);
 
-      // 验证配额未变化
+      // Verify quota unchanged
       const snapshot = runtime.getTenantQuotaSnapshot("api-calls");
       expect(snapshot?.usage).toBe(0);
 
-      // 申请合理配额
+      // Claim reasonable quota
       const claimed2 = runtime.claimTenantQuota("api-calls", 30);
       expect(claimed2).toBe(true);
 
@@ -276,10 +276,10 @@ describe("KoduckFlowRuntime - 集成测试", () => {
     });
   });
 
-  // ==================== 场景 3: 特性开关与 Rollout 集成 ====================
+  // ==================== Scenario 3: Feature Flag and Rollout Integration ====================
 
-  describe("场景 3: 特性开关与 Rollout 集成", () => {
-    it("应该正确读取租户特性开关", () => {
+  describe("Scenario 3: Feature Flag and Rollout Integration", () => {
+    it("should correctly read tenant feature flags", () => {
       runtime = createKoduckFlowRuntime();
 
       const tenantContext = createTestTenantContext("tenant-123", {
@@ -292,13 +292,13 @@ describe("KoduckFlowRuntime - 集成测试", () => {
       });
       runtime.setTenantContext(tenantContext);
 
-      // 验证特性开关
+      // Verify feature flags
       expect(runtime.isTenantFeatureEnabled("experimentalFeature")).toBe(true);
       expect(runtime.isTenantFeatureEnabled("betaFeature")).toBe(false);
       expect(runtime.isTenantFeatureEnabled("unknownFeature", false)).toBe(false);
     });
 
-    it("应该正确处理 Rollout 配置", () => {
+    it("should correctly handle Rollout config", () => {
       runtime = createKoduckFlowRuntime();
 
       const tenantContext = createTestTenantContext("tenant-123", {
@@ -310,12 +310,12 @@ describe("KoduckFlowRuntime - 集成测试", () => {
       });
       runtime.setTenantContext(tenantContext);
 
-      // 验证 Rollout 信息
+      // Verify Rollout info
       expect(runtime.getTenantRolloutCohort()).toBe("beta");
       expect(runtime.getTenantRolloutVariant()).toBe("v3");
     });
 
-    it("应该根据租户 ID 和 Rollout 百分比判断是否在灰度中", () => {
+    it("should determine if in gray release based on tenant ID and Rollout percentage", () => {
       runtime = createKoduckFlowRuntime();
 
       const tenantContext = createTestTenantContext("tenant-123", {
@@ -327,23 +327,23 @@ describe("KoduckFlowRuntime - 集成测试", () => {
       });
       runtime.setTenantContext(tenantContext);
 
-      // 使用确定性种子
+      // Use deterministic seed
       const inRollout = runtime.isTenantInRollout("test-seed");
       expect(typeof inRollout).toBe("boolean");
 
-      // 验证相同种子返回相同结果
+      // Verify same seed returns same result
       const inRollout2 = runtime.isTenantInRollout("test-seed");
       expect(inRollout2).toBe(inRollout);
 
-      // 验证不同种子可能返回不同结果
+      // Verify different seeds may return different results
       const inRollout3 = runtime.isTenantInRollout("different-seed");
       expect(typeof inRollout3).toBe("boolean");
     });
 
-    it("应该在没有租户上下文时返回默认值", () => {
+    it("should return default values when no tenant context", () => {
       runtime = createKoduckFlowRuntime();
 
-      // 未设置租户上下文
+      // Tenant context not set
       expect(runtime.isTenantFeatureEnabled("anyFeature", true)).toBe(true);
       expect(runtime.isTenantFeatureEnabled("anyFeature", false)).toBe(false);
       expect(runtime.getTenantRolloutCohort()).toBeUndefined();
@@ -351,13 +351,13 @@ describe("KoduckFlowRuntime - 集成测试", () => {
     });
   });
 
-  // ==================== 场景 4: 多租户隔离 ====================
+  // ==================== Scenario 4: Multi-tenant Isolation ====================
 
-  describe("场景 4: 多租户隔离", () => {
-    it("应该在不同租户之间隔离配额使用", () => {
+  describe("Scenario 4: Multi-tenant Isolation", () => {
+    it("should isolate quota usage between different tenants", () => {
       runtime = createKoduckFlowRuntime();
 
-      // 租户 A
+      // Tenant A
       const tenantA = createTestTenantContext("tenant-a");
       runtime.setTenantContext(tenantA);
       runtime.claimTenantQuota("entity", 100);
@@ -365,7 +365,7 @@ describe("KoduckFlowRuntime - 集成测试", () => {
       const snapshotA = runtime.getTenantQuotaSnapshot("entity");
       expect(snapshotA?.usage).toBe(100);
 
-      // 切换到租户 B
+      // Switch to tenant B
       const tenantB = createTestTenantContext("tenant-b");
       runtime.setTenantContext(tenantB);
       runtime.claimTenantQuota("entity", 200);
@@ -373,16 +373,16 @@ describe("KoduckFlowRuntime - 集成测试", () => {
       const snapshotB = runtime.getTenantQuotaSnapshot("entity");
       expect(snapshotB?.usage).toBe(200);
 
-      // 切换回租户 A，验证配额独立
+      // Switch back to tenant A, verify quota independence
       runtime.setTenantContext(tenantA);
       const snapshotA2 = runtime.getTenantQuotaSnapshot("entity");
-      expect(snapshotA2?.usage).toBe(0); // 重新设置上下文会清空配额跟踪
+      expect(snapshotA2?.usage).toBe(0); // Re-setting context clears quota tracking
     });
 
-    it("应该在不同租户之间隔离特性开关", () => {
+    it("should isolate feature flags between different tenants", () => {
       runtime = createKoduckFlowRuntime();
 
-      // 租户 A: 特性启用
+      // Tenant A: Feature enabled
       const tenantA = createTestTenantContext("tenant-a", {
         rollout: {
           features: {
@@ -393,7 +393,7 @@ describe("KoduckFlowRuntime - 集成测试", () => {
       runtime.setTenantContext(tenantA);
       expect(runtime.isTenantFeatureEnabled("experimentalFeature")).toBe(true);
 
-      // 租户 B: 特性禁用
+      // Tenant B: Feature disabled
       const tenantB = createTestTenantContext("tenant-b", {
         rollout: {
           features: {
@@ -404,15 +404,15 @@ describe("KoduckFlowRuntime - 集成测试", () => {
       runtime.setTenantContext(tenantB);
       expect(runtime.isTenantFeatureEnabled("experimentalFeature")).toBe(false);
 
-      // 切换回租户 A
+      // Switch back to tenant A
       runtime.setTenantContext(tenantA);
       expect(runtime.isTenantFeatureEnabled("experimentalFeature")).toBe(true);
     });
 
-    it("应该在不同租户之间隔离 Rollout 配置", () => {
+    it("should isolate Rollout config between different tenants", () => {
       runtime = createKoduckFlowRuntime();
 
-      // 租户 A
+      // Tenant A
       const tenantA = createTestTenantContext("tenant-a", {
         rollout: {
           cohort: "alpha",
@@ -424,7 +424,7 @@ describe("KoduckFlowRuntime - 集成测试", () => {
       expect(runtime.getTenantRolloutCohort()).toBe("alpha");
       expect(runtime.getTenantRolloutVariant()).toBe("v1");
 
-      // 租户 B
+      // Tenant B
       const tenantB = createTestTenantContext("tenant-b", {
         rollout: {
           cohort: "beta",
@@ -438,82 +438,82 @@ describe("KoduckFlowRuntime - 集成测试", () => {
     });
   });
 
-  // ==================== 场景 5: 作用域 Runtime 创建 ====================
+  // ==================== Scenario 5: Scoped Runtime Creation ====================
 
-  describe("场景 5: 作用域 Runtime 创建", () => {
-    it("应该创建隔离的子 Runtime", () => {
+  describe("Scenario 5: Scoped Runtime Creation", () => {
+    it("should create an isolated child Runtime", () => {
       const parentRuntime = createKoduckFlowRuntime();
       const childRuntime = createScopedRuntime(parentRuntime);
 
-      // 验证子 Runtime 有独立容器
+      // Verify child Runtime has independent container
       expect(childRuntime.container).not.toBe(parentRuntime.container);
 
-      // 验证核心服务独立
+      // Verify core services are independent
       expect(childRuntime.EntityManager).toBeDefined();
       expect(childRuntime.EntityManager).not.toBe(parentRuntime.EntityManager);
 
-      // 清理
+      // Cleanup
       childRuntime.dispose();
       parentRuntime.dispose();
     });
 
-    it("应该支持手动设置子 Runtime 的租户上下文", () => {
+    it("should support manually setting child Runtime's tenant context", () => {
       const parentRuntime = createKoduckFlowRuntime();
       const tenantContext = createTestTenantContext("tenant-123");
       parentRuntime.setTenantContext(tenantContext);
 
       const childRuntime = createScopedRuntime(parentRuntime);
 
-      // createScopedRuntime 不会自动继承租户上下文，需要手动设置
+      // createScopedRuntime does not automatically inherit tenant context, needs manual setup
       expect(childRuntime.getTenantContext()).toBeUndefined();
 
-      // 手动设置租户上下文
+      // Manually set tenant context
       childRuntime.setTenantContext(tenantContext);
       expect(childRuntime.getTenantContext()).toEqual(tenantContext);
 
-      // 清理
+      // Cleanup
       childRuntime.dispose();
       parentRuntime.dispose();
     });
 
-    it("应该在子 Runtime 中隔离配额使用", () => {
+    it("should isolate quota usage in child Runtime", () => {
       const parentRuntime = createKoduckFlowRuntime();
       const tenantContext = createTestTenantContext("tenant-123");
       parentRuntime.setTenantContext(tenantContext);
       parentRuntime.claimTenantQuota("api-calls", 100);
 
       const childRuntime = createScopedRuntime(parentRuntime);
-      // 子 Runtime 需要手动设置租户上下文
+      // Child Runtime needs manual tenant context setup
       childRuntime.setTenantContext(tenantContext);
 
-      // 子 Runtime 有独立的配额跟踪
+      // Child Runtime has independent quota tracking
       const childSnapshot = childRuntime.getTenantQuotaSnapshot("api-calls");
-      expect(childSnapshot?.usage).toBe(0); // 子 Runtime 从 0 开始
+      expect(childSnapshot?.usage).toBe(0); // Child Runtime starts from 0
 
       childRuntime.claimTenantQuota("api-calls", 200);
       const childSnapshot2 = childRuntime.getTenantQuotaSnapshot("api-calls");
       expect(childSnapshot2?.usage).toBe(200);
 
-      // 父 Runtime 配额不受影响
+      // Parent Runtime quota is not affected
       const parentSnapshot = parentRuntime.getTenantQuotaSnapshot("api-calls");
       expect(parentSnapshot?.usage).toBe(100);
 
-      // 清理
+      // Cleanup
       childRuntime.dispose();
       parentRuntime.dispose();
     });
 
-    it("应该支持子 Runtime 覆盖父 Runtime 的配置", () => {
+    it("should support child Runtime overriding parent Runtime config", () => {
       const parentRuntime = createKoduckFlowRuntime({
         managerInitialization: {
           timeoutMs: 5000,
         },
       });
 
-      // createScopedRuntime 的第三个参数是 options，用于 managerInitialization
+      // The third parameter of createScopedRuntime is options, used for managerInitialization
       const childRuntime = createScopedRuntime(
         parentRuntime,
-        undefined, // 第二个参数是 CoreServiceOverrides
+        undefined, // Second parameter is CoreServiceOverrides
         {
           managerInitialization: {
             timeoutMs: 10000,
@@ -521,95 +521,95 @@ describe("KoduckFlowRuntime - 集成测试", () => {
         }
       );
 
-      // 验证子 Runtime 使用自己的配置
+      // Verify child Runtime uses its own config
       const childDefaults = childRuntime.getManagerInitializationDefaults();
       expect(childDefaults.timeoutMs).toBe(10000);
 
-      // 验证父 Runtime 配置未变化
+      // Verify parent Runtime config is unchanged
       const parentDefaults = parentRuntime.getManagerInitializationDefaults();
       expect(parentDefaults.timeoutMs).toBe(5000);
 
-      // 清理
+      // Cleanup
       childRuntime.dispose();
       parentRuntime.dispose();
     });
   });
 
-  // ==================== 场景 6: 优雅关闭流程 ====================
+  // ==================== Scenario 6: Graceful Shutdown Flow ====================
 
-  describe("场景 6: 优雅关闭流程", () => {
-    it("应该正确清理所有资源", () => {
+  describe("Scenario 6: Graceful Shutdown Flow", () => {
+    it("should correctly clean up all resources", () => {
       runtime = createKoduckFlowRuntime();
 
-      // 注册多个 Manager
+      // Register multiple Managers
       const manager1 = createMockManager("Manager1");
       const manager2 = createMockManager("Manager2");
       runtime.registerManager("Manager1", manager1);
       runtime.registerManager("Manager2", manager2);
 
-      // 设置租户上下文
+      // Set tenant context
       const tenantContext = createTestTenantContext("tenant-123");
       runtime.setTenantContext(tenantContext);
 
-      // 申请配额
+      // Claim quota
       runtime.claimTenantQuota("entity", 100);
 
-      // 关闭 Runtime
+      // Shutdown Runtime
       runtime.dispose();
 
-      // 验证 Manager dispose 被调用
+      // Verify Manager dispose is called
       expect(manager1.dispose).toHaveBeenCalled();
       expect(manager2.dispose).toHaveBeenCalled();
 
-      // 验证状态已清理
+      // Verify state is cleaned up
       expect(runtime["disposed"]).toBe(true);
     });
 
-    it("应该在 dispose 后标记为已销毁", () => {
+    it("should mark as disposed after dispose", () => {
       runtime = createKoduckFlowRuntime();
       expect(runtime["disposed"]).toBe(false);
 
       runtime.dispose();
 
-      // 验证 disposed 状态
+      // Verify disposed state
       expect(runtime["disposed"]).toBe(true);
 
-      // 注意：当前实现不会抛出错误，但 Manager 操作可能会失败或产生未定义行为
-      // 这是一个潜在的改进点，但不是本次测试的重点
+      // Note: Current implementation does not throw errors, but Manager operations may fail or produce undefined behavior
+      // This is a potential improvement point, but not the focus of this test
     });
 
-    it("应该支持多次调用 dispose（幂等性）", () => {
+    it("should support multiple dispose calls (idempotency)", () => {
       runtime = createKoduckFlowRuntime();
 
       runtime.dispose();
-      runtime.dispose(); // 第二次调用不应抛出错误
-      runtime.dispose(); // 第三次调用不应抛出错误
+      runtime.dispose(); // Second call should not throw
+      runtime.dispose(); // Third call should not throw
 
       expect(runtime["disposed"]).toBe(true);
     });
 
-    it("应该在子 Runtime dispose 后不影响父 Runtime", () => {
+    it("should not affect parent Runtime after child Runtime dispose", () => {
       const parentRuntime = createKoduckFlowRuntime();
       const childRuntime = createScopedRuntime(parentRuntime);
 
       childRuntime.dispose();
 
-      // 验证父 Runtime 仍然可用
+      // Verify parent Runtime is still usable
       expect(parentRuntime.EntityManager).toBeDefined();
       expect(() => parentRuntime.registerManager("Test", createMockManager("Test"))).not.toThrow();
 
-      // 清理
+      // Cleanup
       parentRuntime.dispose();
     });
   });
 
-  // ==================== 场景 7: API 行为快照测试 ====================
+  // ==================== Scenario 7: API Behavior Snapshot Tests ====================
 
-  describe("场景 7: API 行为快照测试", () => {
-    it("应该保持核心 API 方法签名一致", () => {
+  describe("Scenario 7: API Behavior Snapshot Tests", () => {
+    it("should maintain consistent core API method signatures", () => {
       runtime = createKoduckFlowRuntime();
 
-      // 验证所有关键 API 方法存在
+      // Verify all key API methods exist
       const apiMethods = [
         "resolve",
         "has",
@@ -650,10 +650,10 @@ describe("KoduckFlowRuntime - 集成测试", () => {
       });
     });
 
-    it("应该保持核心 getter 属性一致", () => {
+    it("should maintain consistent core getter properties", () => {
       runtime = createKoduckFlowRuntime();
 
-      // 验证所有 getter 属性存在
+      // Verify all getter properties exist
       const getters = [
         "EntityManager",
         "RenderManager",
@@ -669,21 +669,21 @@ describe("KoduckFlowRuntime - 集成测试", () => {
       });
     });
 
-    it("应该保持工厂函数行为一致", () => {
-      // 测试 createKoduckFlowRuntime
+    it("should maintain consistent factory function behavior", () => {
+      // Test createKoduckFlowRuntime
       const runtime1 = createKoduckFlowRuntime();
       expect(runtime1).toBeInstanceOf(KoduckFlowRuntime);
       expect(runtime1.EntityManager).toBeDefined();
       runtime1.dispose();
 
-      // 测试带选项的 createKoduckFlowRuntime
+      // Test createKoduckFlowRuntime with options
       const runtime2 = createKoduckFlowRuntime({
         managerInitialization: { timeoutMs: 8000 },
       });
       expect(runtime2.getManagerInitializationDefaults().timeoutMs).toBe(8000);
       runtime2.dispose();
 
-      // 测试 createScopedRuntime
+      // Test createScopedRuntime
       const parent = createKoduckFlowRuntime();
       const child = createScopedRuntime(parent);
       expect(child).toBeInstanceOf(KoduckFlowRuntime);
@@ -693,13 +693,13 @@ describe("KoduckFlowRuntime - 集成测试", () => {
     });
   });
 
-  // ==================== 额外场景: 调试配置集成 ====================
+  // ==================== Additional Scenario: Debug Config Integration ====================
 
-  describe("额外场景: 调试配置集成", () => {
-    it("应该正确配置和获取调试选项", () => {
+  describe("Additional Scenario: Debug Config Integration", () => {
+    it("should correctly configure and retrieve debug options", () => {
       runtime = createKoduckFlowRuntime();
 
-      // 配置调试选项（使用正确的 DebugOptions 属性）
+      // Configure debug options (using correct DebugOptions properties)
       const debugOptions = {
         enabled: true,
         logLevel: "debug" as const,
@@ -708,15 +708,15 @@ describe("KoduckFlowRuntime - 集成测试", () => {
       };
       runtime.configureDebug(debugOptions);
 
-      // 验证调试选项已保存
+      // Verify debug options are saved
       const retrievedOptions = runtime.getDebugOptions();
       expect(retrievedOptions).toEqual(debugOptions);
     });
 
-    it("应该支持部分更新调试配置", () => {
+    it("should support partial update of debug config", () => {
       runtime = createKoduckFlowRuntime();
 
-      // 配置调试选项
+      // Configure debug options
       runtime.configureDebug({
         enabled: true,
         logLevel: "debug" as const,
@@ -725,7 +725,7 @@ describe("KoduckFlowRuntime - 集成测试", () => {
       expect(options1?.enabled).toBe(true);
       expect(options1?.logLevel).toBe("debug");
 
-      // 部分更新配置
+      // Partially update config
       runtime.configureDebug({
         eventTracking: true,
       });
@@ -734,14 +734,14 @@ describe("KoduckFlowRuntime - 集成测试", () => {
     });
   });
 
-  // ==================== 额外场景: 实体操作集成 ====================
+  // ==================== Additional Scenario: Entity Operation Integration ====================
 
-  describe("额外场景: 实体操作集成", () => {
-    it("应该通过 Runtime 快捷方法创建和管理实体", () => {
+  describe("Additional Scenario: Entity Operation Integration", () => {
+    it("should create and manage entities through Runtime shortcut methods", () => {
       runtime = createKoduckFlowRuntime();
 
-      // 验证快捷方法委托到 EntityManager
-      // 注意：实际测试需要 mock EntityManager 或使用真实实体类型
+      // Verify shortcut methods delegate to EntityManager
+      // Note: Actual tests require mock EntityManager or real entity types
       expect(typeof runtime.createEntity).toBe("function");
       expect(typeof runtime.getEntity).toBe("function");
       expect(typeof runtime.removeEntity).toBe("function");

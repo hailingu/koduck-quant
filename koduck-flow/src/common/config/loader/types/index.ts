@@ -1,5 +1,5 @@
 /**
- * 配置加载器类型定义统一导出
+ * Unified exports of config loader type definitions
  */
 
 export * from "./config-provider.interface";

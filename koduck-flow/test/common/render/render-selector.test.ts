@@ -7,7 +7,7 @@ import type { ReactRender } from "../../../src/common/render/react-render";
 import type { WebGPURender } from "../../../src/common/render/webgpu-render";
 import type { IEntity } from "../../../src/common/entity/types";
 
-// Mock 依赖
+// Mock dependencies
 vi.mock("../../../src/common/render/canvas-render");
 vi.mock("../../../src/common/render/react-render");
 vi.mock("../../../src/common/render/webgpu-render");
@@ -81,13 +81,13 @@ describe("RenderSelector", () => {
     vi.clearAllMocks();
   });
 
-  describe("构造函数和初始化", () => {
-    test("应该正确初始化 RenderSelector", () => {
+  describe("Constructor and Initialization", () => {
+    test("should correctly initialize RenderSelector", () => {
       expect(renderSelector).toBeDefined();
       expect(renderSelector.getStrategyName()).toBe("RenderSelector");
     });
 
-    test("应该处理没有 WebGPU 渲染器的情况", () => {
+    test("should handle the case without WebGPU renderer", () => {
       const selectorWithoutWebGPU = new RenderSelector({
         canvas: mockCanvasRender,
         react: mockReactRender,
@@ -96,7 +96,7 @@ describe("RenderSelector", () => {
       expect(selectorWithoutWebGPU).toBeDefined();
     });
 
-    test("应该处理只有 React 渲染器的情况", () => {
+    test("should handle the case with only React renderer", () => {
       const selectorOnlyReact = new RenderSelector({
         react: mockReactRender,
       });
@@ -105,10 +105,10 @@ describe("RenderSelector", () => {
     });
   });
 
-  describe("渲染器选择逻辑", () => {
+  describe("Renderer Selection Logic", () => {
     const mockEntity = { id: "test-entity" } as IEntity;
 
-    test("selectOptimalRenderer 应该返回有效的选择结果", () => {
+    test("selectOptimalRenderer should return a valid selection result", () => {
       const result = renderSelector.selectOptimalRenderer(mockEntity, mockContext);
 
       expect(result).toHaveProperty("renderer");
@@ -120,14 +120,14 @@ describe("RenderSelector", () => {
       expect(result.confidence).toBeLessThanOrEqual(1);
     });
 
-    test("selectOptimalRenderer 应该为简单实体选择 React 渲染器", () => {
+    test("selectOptimalRenderer should select React renderer for simple entities", () => {
       const result = renderSelector.selectOptimalRenderer(mockEntity, mockContext);
 
       expect(result.renderer).toBeDefined();
       expect(["react", "canvas", "webgpu"]).toContain(result.mode);
     });
 
-    test("selectForBatch 应该返回按渲染器分组的实体映射", () => {
+    test("selectForBatch should return an entity map grouped by renderer", () => {
       const entities = [
         { id: "entity1" } as IEntity,
         { id: "entity2" } as IEntity,
@@ -139,7 +139,7 @@ describe("RenderSelector", () => {
       expect(result).toBeInstanceOf(Map);
       expect(result.size).toBeGreaterThan(0);
 
-      // 验证所有实体都被分配到某个渲染器
+      // Verify all entities are assigned to some renderer
       const totalEntities = Array.from(result.values()).reduce(
         (sum, entityList) => sum + entityList.length,
         0
@@ -147,7 +147,7 @@ describe("RenderSelector", () => {
       expect(totalEntities).toBe(entities.length);
     });
 
-    test("selectForBatch 应该处理空实体列表", () => {
+    test("selectForBatch should handle empty entity list", () => {
       const result = renderSelector.selectForBatch([]);
 
       expect(result).toBeInstanceOf(Map);
@@ -155,37 +155,37 @@ describe("RenderSelector", () => {
     });
   });
 
-  describe("缓存管理", () => {
-    test("应该使用缓存来优化重复的选择", () => {
+  describe("Cache Management", () => {
+    test("should use cache to optimize repeated selections", () => {
       const entity1 = { id: "entity1" } as IEntity;
 
-      // 第一次选择
+      // First selection
       const result1 = renderSelector.selectOptimalRenderer(entity1, mockContext);
-      // 第二次选择相同实体
+      // Second selection of the same entity
       const result2 = renderSelector.selectOptimalRenderer(entity1, mockContext);
 
       expect(result1).toEqual(result2);
     });
 
-    test("应该为不同实体返回不同的选择", () => {
+    test("should return different selections for different entities", () => {
       const entity1 = { id: "entity1", type: "simple" } as IEntity;
 
       const result1 = renderSelector.selectOptimalRenderer(entity1, mockContext);
       const result2 = renderSelector.selectOptimalRenderer(entity1, mockContext);
 
-      // 相同实体应该返回相同结果
+      // Same entity should return the same result
       expect(result1).toEqual(result2);
     });
   });
 
-  describe("设备能力检测", () => {
-    test("应该初始化设备能力检测", () => {
-      // 验证初始化调用
+  describe("Device Capability Detection", () => {
+    test("should initialize device capability detection", () => {
+      // Verify initialization call
       expect(renderSelector).toBeDefined();
     });
 
-    test("应该处理设备能力检测失败", () => {
-      // 即使设备检测失败，选择器也应该能正常工作
+    test("should handle device capability detection failure", () => {
+      // Even if device detection fails, the selector should still work
       const result = renderSelector.selectOptimalRenderer(
         {
           id: "test",
@@ -196,8 +196,8 @@ describe("RenderSelector", () => {
     });
   });
 
-  describe("渲染器更新", () => {
-    test("updateRenderers 应该更新渲染器引用", () => {
+  describe("Renderer Update", () => {
+    test("updateRenderers should update renderer references", () => {
       const newCanvasRender = {
         getName: vi.fn().mockReturnValue("CanvasRender"),
         getType: vi.fn().mockReturnValue("canvas"),
@@ -214,7 +214,7 @@ describe("RenderSelector", () => {
         react: newReactRender,
       });
 
-      // 验证更新后的选择器仍然工作
+      // Verify the updated selector still works
       const result = renderSelector.selectOptimalRenderer(
         {
           id: "test",
@@ -224,7 +224,7 @@ describe("RenderSelector", () => {
       expect(result).toBeDefined();
     });
 
-    test("updateRenderers 应该处理部分更新", () => {
+    test("updateRenderers should handle partial updates", () => {
       const newReactRender = {
         getName: vi.fn().mockReturnValue("ReactRender"),
         getType: vi.fn().mockReturnValue("react"),
@@ -245,14 +245,14 @@ describe("RenderSelector", () => {
     });
   });
 
-  describe("策略名称", () => {
-    test("getStrategyName 应该返回正确的策略名称", () => {
+  describe("Strategy Name", () => {
+    test("getStrategyName should return the correct strategy name", () => {
       expect(renderSelector.getStrategyName()).toBe("RenderSelector");
     });
   });
 
-  describe("边界情况", () => {
-    test("应该处理没有可用渲染器的情况", () => {
+  describe("Edge Cases", () => {
+    test("should handle the case with no available renderers", () => {
       const emptySelector = new RenderSelector({});
 
       expect(() => {
@@ -260,7 +260,7 @@ describe("RenderSelector", () => {
       }).not.toThrow();
     });
 
-    test("应该处理无效的实体输入", () => {
+    test("should handle invalid entity input", () => {
       const invalidEntity = null as unknown as IEntity;
 
       expect(() => {
@@ -268,7 +268,7 @@ describe("RenderSelector", () => {
       }).toThrow("Entity cannot be null or undefined");
     });
 
-    test("应该处理包含 undefined 属性的实体", () => {
+    test("should handle entities with undefined properties", () => {
       const entityWithUndefined = {
         id: "test",
         type: undefined,
@@ -281,13 +281,13 @@ describe("RenderSelector", () => {
     });
   });
 
-  describe("高级边界情况", () => {
-    test("应该处理没有 toJSON 方法的实体数据", () => {
+  describe("Advanced Edge Cases", () => {
+    test("should handle entity data without toJSON method", () => {
       const entityWithoutToJSON = {
         id: "no-tojson",
         type: "test",
         data: {
-          toJSON: () => ({}), // 提供 toJSON 方法但返回空对象
+          toJSON: () => ({}), // Provide toJSON method but return empty object
           someProp: "value",
         },
         dispose: vi.fn(),
@@ -298,7 +298,7 @@ describe("RenderSelector", () => {
       }).not.toThrow();
     });
 
-    test("应该处理 null 或 undefined 实体数据", () => {
+    test("should handle null or undefined entity data", () => {
       const entityWithNullData = {
         id: "null-data",
         type: "test",
@@ -311,7 +311,7 @@ describe("RenderSelector", () => {
       }).not.toThrow();
     });
 
-    test("应该处理并发选择请求", () => {
+    test("should handle concurrent selection requests", () => {
       const entities = [
         { id: "concurrent1", type: "test1" } as IEntity,
         { id: "concurrent2", type: "test2" } as IEntity,

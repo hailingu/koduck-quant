@@ -1,17 +1,17 @@
 /**
- * RegistryCapabilityUtils (精简版)
- * 目标: 统一三种能力来源, 降低分支复杂度, 避免再次出现漏检导致的渲染 fallback。
- * 能力来源优先级 (短路策略) - 统一后语义：
- * 1. 显式接口: hasCapability / executeCapability / listCapabilities / getCapabilities
- * 2. meta.extras.capabilities (唯一的规范存储位置，可能为 string[] 或 ICapability[])
- * 根因记录: 曾因只读旧结构导致动态 registry 能力漏检，本次彻底规范化为 extras.capabilities。
+ * RegistryCapabilityUtils (lite version)
+ * Goal: unify three capability sources, reduce branch complexity, avoid rendering fallback caused by missed detection.
+ * Capability source priority (short-circuit strategy) - unified semantics:
+ * 1. Explicit interface: hasCapability / executeCapability / listCapabilities / getCapabilities
+ * 2. meta.extras.capabilities (the canonical storage location, may be string[] or ICapability[])
+ * Root cause record: dynamic registry capabilities were previously missed due to reading only the old structure; now fully normalized to extras.capabilities.
  */
 
 import type { ICapability } from "../../utils";
 import type { IEntity } from "../entity";
 import type { IRegistry } from "./types";
 
-// ---- 类型守卫 ----
+// ---- Type guards ----
 interface LegacyCapabilityLike extends ICapability {
   name: string;
 }
@@ -22,8 +22,8 @@ interface CapabilityAwareLike {
     entity: IEntity,
     ...args: unknown[]
   ) => unknown;
-  listCapabilities?: () => string[]; // 可选增强
-  getCapabilities?: () => string[]; // 兼容之前尝试
+  listCapabilities?: () => string[]; // Optional enhancement
+  getCapabilities?: () => string[]; // Compatibility with previous attempt
   meta?: {
     capabilities?: string[];
     extras?: { capabilities?: unknown };
@@ -39,9 +39,9 @@ function isCapabilityAware(registry: unknown): registry is CapabilityAwareLike {
   );
 }
 
-// 统一获取名称 (不做缓存 — 渲染频率可控, 若需可后续加入 WeakMap 缓存)
+// Unified name retrieval (no caching — rendering frequency is controllable; WeakMap cache can be added later if needed)
 function collectCapabilityNames(registry: CapabilityAwareLike): string[] {
-  // 1. 显式列出
+  // 1. Explicit listing
   if (typeof registry.listCapabilities === "function") {
     try {
       const listed = registry.listCapabilities();
@@ -58,7 +58,7 @@ function collectCapabilityNames(registry: CapabilityAwareLike): string[] {
       /* ignore */
     }
   }
-  // 2. meta.extras.capabilities (规范位置)
+  // 2. meta.extras.capabilities (canonical location)
   const extrasAny = registry.meta?.extras as
     | { capabilities?: unknown }
     | undefined;
@@ -77,9 +77,9 @@ function collectCapabilityNames(registry: CapabilityAwareLike): string[] {
   return [];
 }
 
-// 为了兼容旧调用 (期望 ICapability[])，把纯字符串映射成最小 ICapability。
+// For backward compatibility with old calls (expecting ICapability[]), map plain strings to minimal ICapability.
 function materializeCapabilities(registry: CapabilityAwareLike): ICapability[] {
-  // 从规范位置读取 extras.capabilities (如果是 ICapability[] 则直接返回)
+  // Read extras.capabilities from canonical location (return directly if already ICapability[])
   const extrasAny = registry.meta?.extras as
     | { capabilities?: unknown }
     | undefined;
@@ -96,7 +96,7 @@ function materializeCapabilities(registry: CapabilityAwareLike): ICapability[] {
       }
     }
   }
-  // 否则用名称构造虚拟能力对象（名称来源已按新优先级统一）
+  // Otherwise construct virtual capability objects from names (name source already unified by new priority)
   return collectCapabilityNames(registry).map((name) => ({
     name,
     canHandle: () => true,
@@ -106,7 +106,7 @@ function materializeCapabilities(registry: CapabilityAwareLike): ICapability[] {
 
 export class RegistryCapabilityUtils {
   /**
-   * 返回 ICapability[] (可能是虚拟包装)
+   * Returns ICapability[] (may be virtual wrapper)
    */
   static getCapabilities(registry: IRegistry<IEntity>): ICapability[] {
     return materializeCapabilities(registry as CapabilityAwareLike);

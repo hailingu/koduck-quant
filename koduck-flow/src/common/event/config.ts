@@ -2,23 +2,23 @@ import type { EventConfiguration, PayloadDedupeConfig } from "./types";
 import { logger as globalLogger } from "../logger/logger";
 
 /**
- * 事件预设配置
+ * Event preset configurations
  */
 export const EventPreset = {
-  /** 默认配置：平衡性能和功能 */
+  /** Default config: balanced performance and functionality */
   Default: "default" as const,
-  /** 高性能配置：优化大量事件处理 */
+  /** High-performance config: optimized for high-volume event processing */
   HighPerformance: "high-performance" as const,
-  /** 低延迟配置：最小化处理延迟 */
+  /** Low-latency config: minimizes processing latency */
   LowLatency: "low-latency" as const,
-  /** 调试配置：开启详细日志和验证 */
+  /** Debug config: enables detailed logging and validation */
   Debug: "debug" as const,
 } as const;
 
 export type EventPreset = (typeof EventPreset)[keyof typeof EventPreset];
 
 /**
- * 预定义的事件配置方案
+ * Predefined event configuration schemes
  */
 export const EVENT_PRESETS: Record<EventPreset, EventConfiguration> = {
   [EventPreset.Default]: {
@@ -71,24 +71,24 @@ export const EVENT_PRESETS: Record<EventPreset, EventConfiguration> = {
 };
 
 /**
- * 事件配置验证器
+ * Event configuration validator
  */
 export class EventConfigValidator {
   /**
-   * 验证和标准化事件配置
-   * @param config - 部分配置对象
-   * @returns 完整的验证后配置
+   * Validate and normalize event configuration
+   * @param config - Partial configuration object
+   * @returns Complete validated configuration
    */
   static validate(config: Partial<EventConfiguration>): EventConfiguration {
     const validated = { ...EVENT_PRESETS[EventPreset.Default], ...config };
 
-    // 数值范围验证
+    // Numeric range validation
     validated.batchSize = Math.max(1, Math.min(validated.batchSize, 1000));
     validated.batchInterval = Math.max(0, Math.min(validated.batchInterval, 1000));
     validated.maxListeners = Math.max(1, Math.min(validated.maxListeners, 10000));
     validated.autoOptimizeThreshold = Math.max(1, validated.autoOptimizeThreshold);
 
-    // 逻辑一致性验证
+    // Logical consistency validation
     if (!validated.enableBatching) {
       validated.batchSize = 1;
       validated.batchInterval = 0;
@@ -98,7 +98,7 @@ export class EventConfigValidator {
       validated.autoOptimizeThreshold = Infinity;
     }
 
-    // 并发参数范围与一致性
+    // Concurrency parameter range and consistency
     if (
       validated.concurrencyMode !== "series" &&
       validated.concurrencyMode !== "parallel" &&
@@ -108,13 +108,13 @@ export class EventConfigValidator {
     }
     validated.concurrencyLimit = Math.max(1, Math.min(validated.concurrencyLimit ?? 4, 1000));
 
-    // 监听器超时规范化（仅作为软限制）
+    // Listener timeout normalization (soft limit only)
     if (validated.listenerTimeout !== undefined) {
       const t = Math.max(0, Math.min(Math.floor(validated.listenerTimeout), 60_000));
       validated.listenerTimeout = t;
     }
 
-    // 配置冲突检查
+    // Configuration conflict check
     if (validated.autoOptimizeThreshold > validated.maxListeners) {
       globalLogger.warn(
         `[EventConfig] autoOptimizeThreshold (${validated.autoOptimizeThreshold}) ` +
@@ -123,7 +123,7 @@ export class EventConfigValidator {
       validated.autoOptimizeThreshold = validated.maxListeners;
     }
 
-    // 负载去重规范化
+    // Payload deduplication normalization
     if (validated.payloadDedupe) {
       const d = validated.payloadDedupe;
       const enabled = !!d.enabled;

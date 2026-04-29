@@ -10,15 +10,15 @@ export function formatValidationIssueForLog(issue: ValidationIssue): string {
   const segments: string[] = [`${issue.path}: ${issue.message}`];
 
   if (issue.expected) {
-    segments.push(`期望 ${issue.expected}`);
+    segments.push(`expected ${issue.expected}`);
   }
 
   if (issue.received !== undefined) {
-    segments.push(`实际 ${JSON.stringify(issue.received)}`);
+    segments.push(`received ${JSON.stringify(issue.received)}`);
   }
 
   if (issue.hint) {
-    segments.push(`提示 ${issue.hint}`);
+    segments.push(`hint ${issue.hint}`);
   }
 
   return segments.join(" | ");

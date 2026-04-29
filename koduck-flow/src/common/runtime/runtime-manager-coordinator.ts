@@ -1,13 +1,13 @@
 /**
  * @file RuntimeManagerCoordinator
- * 提供 Manager 协调管理功能
+ * Provides Manager coordination functionality
  *
- * 职责:
- * - 管理自定义 Manager 的注册与卸载
- * - 处理 Manager 初始化逻辑（依赖解析、重试、超时）
- * - 管理 Manager 生命周期状态机
+ * Responsibilities:
+ * - Manage custom Manager registration and unregistration
+ * - Handle Manager initialization logic (dependency resolution, retry, timeout)
+ * - Manage Manager lifecycle state machine
  *
- * 使用场景:
+ * Usage scenarios:
  * ```typescript
  * const coordinator = new RuntimeManagerCoordinator({
  *   retries: { attempts: 3, delayMs: 100 },
@@ -43,8 +43,8 @@ import {
 } from "./types";
 
 /**
- * RuntimeManagerCoordinator 类
- * 负责 Manager 的注册、初始化和生命周期管理
+ * RuntimeManagerCoordinator class
+ * Responsible for Manager registration, initialization, and lifecycle management
  *
  * @example
  * ```typescript
@@ -54,76 +54,76 @@ import {
  *   warnOnRetry: true
  * }, ['entity', 'render', 'registry']);
  *
- * // 注册 Manager
+ * // Register Manager
  * coordinator.registerManager('spatial', spatialManager, {
  *   dependencies: ['entity'],
  *   lazy: false
  * });
  *
- * // 初始化 Manager
+ * // Initialize Manager
  * await coordinator.initializeManager('spatial');
  *
- * // 获取 Manager
+ * // Get Manager
  * const spatial = coordinator.getManager('spatial');
  *
- * // 卸载 Manager
+ * // Unregister Manager
  * coordinator.unregisterManager('spatial');
  * ```
  */
 export class RuntimeManagerCoordinator implements IDisposable {
   /**
-   * 已注册的 Manager 映射
+   * Registered Manager mapping
    * @private
    */
   private readonly managers = new Map<string, IManager>();
 
   /**
-   * Manager 注册选项映射
+   * Manager registration options mapping
    * @private
    */
   private readonly managerOptions = new Map<string, ManagerRegistrationOptions>();
 
   /**
-   * 已初始化的 Manager 集合
+   * Initialized Manager set
    * @private
    */
   private readonly initializedManagers = new Set<string>();
 
   /**
-   * Manager 生命周期状态映射
+   * Manager lifecycle state mapping
    * @private
    */
   private readonly managerStates = new Map<string, ManagerLifecycleState>();
 
   /**
-   * Manager 依赖关系映射
+   * Manager dependency mapping
    * @private
    */
   private readonly dependencies = new Map<string, string[]>();
 
   /**
-   * Manager 初始化默认配置
+   * Manager initialization default config
    * @private
    */
   private readonly initializationDefaults: NormalizedManagerInitializationConfig;
 
   /**
-   * 核心 Manager 键集合（不可卸载）
+   * Core Manager key set (cannot be unregistered)
    * @private
    */
   private readonly coreManagerKeys: Set<string>;
 
   /**
-   * 是否已释放
+   * Whether disposed
    * @private
    */
   private disposed = false;
 
   /**
-   * 创建 RuntimeManagerCoordinator 实例
+   * Create RuntimeManagerCoordinator instance
    *
-   * @param initializationOptions - Manager 初始化选项
-   * @param coreManagerKeys - 核心 Manager 键列表（这些 Manager 不可被卸载）
+   * @param initializationOptions - Manager initialization options
+   * @param coreManagerKeys - Core Manager key list (these Managers cannot be unregistered)
    *
    * @example
    * ```typescript
@@ -143,18 +143,18 @@ export class RuntimeManagerCoordinator implements IDisposable {
   }
 
   /**
-   * 注册一个 Manager
+   * Register a Manager
    *
-   * 此方法会:
-   * 1. 验证 Manager 名称不是核心 Manager
-   * 2. 检查 Manager 是否已注册
-   * 3. 注册 Manager 并设置状态为 Registered
-   * 4. 记录依赖关系
-   * 5. 如果不是懒加载，立即初始化 Manager
+   * This method will:
+   * 1. Verify Manager name is not a core Manager
+   * 2. Check if Manager is already registered
+   * 3. Register Manager and set status to Registered
+   * 4. Record dependency relationships
+   * 5. If not lazy-loaded, initialize Manager immediately
    *
-   * @param name - Manager 名称
-   * @param manager - Manager 实例
-   * @param options - 注册选项
+   * @param name - Manager name
+   * @param manager - Manager instance
+   * @param options - Registration options
    *
    * @example
    * ```typescript
@@ -179,7 +179,7 @@ export class RuntimeManagerCoordinator implements IDisposable {
       return;
     }
 
-    // 如果不是 lazy 模式，立即验证依赖是否存在
+    // If not lazy mode, validate dependencies immediately
     if (!options.lazy && options.dependencies) {
       for (const dependency of options.dependencies) {
         if (!this.managers.has(dependency) && !this.coreManagerKeys.has(dependency)) {
@@ -216,14 +216,14 @@ export class RuntimeManagerCoordinator implements IDisposable {
   }
 
   /**
-   * 卸载一个 Manager
+   * Unregister a Manager
    *
-   * 此方法会:
-   * 1. 验证 Manager 不是核心 Manager
-   * 2. 调用 Manager 的 dispose 方法
-   * 3. 从所有映射表中移除 Manager
+   * This method will:
+   * 1. Verify Manager is not a core Manager
+   * 2. Call Manager's dispose method
+   * 3. Remove Manager from all mappings
    *
-   * @param name - Manager 名称
+   * @param name - Manager name
    *
    * @example
    * ```typescript
@@ -250,14 +250,14 @@ export class RuntimeManagerCoordinator implements IDisposable {
   }
 
   /**
-   * 获取指定名称的 Manager
+   * Get Manager by specified name
    *
-   * 如果 Manager 未初始化，会触发初始化（异步）
-   * 如果初始化曾经失败，会抛出 ManagerInitializationError
+   * If Manager is not initialized, triggers initialization (async)
+   * If initialization previously failed, throws ManagerInitializationError
    *
-   * @param name - Manager 名称
-   * @returns Manager 实例，如果不存在则返回 undefined
-   * @throws {ManagerInitializationError} 如果 Manager 初始化失败
+   * @param name - Manager name
+   * @returns Manager instance, or undefined if not found
+   * @throws {ManagerInitializationError} If Manager initialization fails
    *
    * @example
    * ```typescript
@@ -273,7 +273,7 @@ export class RuntimeManagerCoordinator implements IDisposable {
       return undefined;
     }
 
-    // 检查是否初始化失败
+    // Check if initialization failed
     const state = this.managerStates.get(name);
     if (state?.status === MANAGER_LIFECYCLE_STATUS.Failed) {
       const error = state.error;
@@ -293,10 +293,10 @@ export class RuntimeManagerCoordinator implements IDisposable {
   }
 
   /**
-   * 检查指定名称的 Manager 是否已注册
+   * Check if Manager with specified name is registered
    *
-   * @param name - Manager 名称
-   * @returns 如果已注册返回 true，否则返回 false
+   * @param name - Manager name
+   * @returns true if registered, false otherwise
    *
    * @example
    * ```typescript
@@ -310,9 +310,9 @@ export class RuntimeManagerCoordinator implements IDisposable {
   }
 
   /**
-   * 获取所有已注册的 Manager 名称列表
+   * Get list of all registered Manager names
    *
-   * @returns Manager 名称数组
+   * @returns Array of Manager names
    *
    * @example
    * ```typescript
@@ -325,9 +325,9 @@ export class RuntimeManagerCoordinator implements IDisposable {
   }
 
   /**
-   * 获取所有已初始化的 Manager 名称列表
+   * Get list of all initialized Manager names
    *
-   * @returns 已初始化 Manager 名称数组
+   * @returns Array of initialized Manager names
    *
    * @example
    * ```typescript
@@ -340,19 +340,19 @@ export class RuntimeManagerCoordinator implements IDisposable {
   }
 
   /**
-   * 初始化指定名称的 Manager
+   * Initialize Manager with specified name
    *
-   * 此方法会:
-   * 1. 检查 Manager 是否已初始化
-   * 2. 检查 Manager 当前状态
-   * 3. 解析并初始化依赖
-   * 4. 调用 Manager 的 initialize 方法（如果存在）
-   * 5. 处理重试和超时逻辑
-   * 6. 更新 Manager 状态
+   * This method will:
+   * 1. Check if Manager is already initialized
+   * 2. Check Manager current status
+   * 3. Resolve and initialize dependencies
+   * 4. Call Manager's initialize method (if exists)
+   * 5. Handle retry and timeout logic
+   * 6. Update Manager status
    *
-   * @param name - Manager 名称
-   * @returns Promise，初始化完成后 resolve
-   * @throws {ManagerInitializationError} 如果初始化失败
+   * @param name - Manager name
+   * @returns Promise that resolves when initialization completes
+   * @throws {ManagerInitializationError} If initialization fails
    *
    * @example
    * ```typescript
@@ -369,9 +369,9 @@ export class RuntimeManagerCoordinator implements IDisposable {
   }
 
   /**
-   * 获取 Manager 初始化默认配置
+   * Get Manager initialization default config
    *
-   * @returns Manager 初始化选项
+   * @returns Manager initialization options
    *
    * @example
    * ```typescript
@@ -396,7 +396,7 @@ export class RuntimeManagerCoordinator implements IDisposable {
   }
 
   /**
-   * 释放 RuntimeManagerCoordinator 及其管理的所有 Manager
+   * Dispose RuntimeManagerCoordinator and all managed Managers
    *
    * @example
    * ```typescript
@@ -421,12 +421,12 @@ export class RuntimeManagerCoordinator implements IDisposable {
   }
 
   /**
-   * 初始化 Manager 的内部实现（支持依赖路径跟踪）
+   * Internal implementation of Manager initialization (supports dependency path tracking)
    *
-   * @param name - Manager 名称
-   * @param path - 依赖路径（用于检测循环依赖）
-   * @returns Promise，初始化完成后 resolve
-   * @throws {ManagerInitializationError} 如果初始化失败
+   * @param name - Manager name
+   * @param path - Dependency path (used for circular dependency detection)
+   * @returns Promise that resolves when initialization completes
+   * @throws {ManagerInitializationError} If initialization fails
    * @private
    */
   private initializeManagerInternal(name: string, path: string[]): Promise<void> {
@@ -497,7 +497,7 @@ export class RuntimeManagerCoordinator implements IDisposable {
   }
 
   /**
-   * 处理已存在的 Manager 状态
+   * Handle existing Manager state
    * @private
    */
   private handleExistingManagerState(name: string, path: string[]): Promise<void> | null {
@@ -526,7 +526,7 @@ export class RuntimeManagerCoordinator implements IDisposable {
   }
 
   /**
-   * 验证 Manager 依赖
+   * Validate Manager dependencies
    * @private
    */
   private validateDependencies(name: string, path: string[], dependencies: string[]): void {
@@ -548,14 +548,14 @@ export class RuntimeManagerCoordinator implements IDisposable {
   }
 
   /**
-   * 运行 Manager 初始化流程
+   * Run Manager initialization flow
    *
-   * @param manager - Manager 实例
-   * @param name - Manager 名称
-   * @param path - 依赖路径
-   * @param dependencies - 依赖列表
-   * @returns Promise，初始化完成后 resolve
-   * @throws {ManagerInitializationError} 如果初始化失败
+   * @param manager - Manager instance
+   * @param name - Manager name
+   * @param path - Dependency path
+   * @param dependencies - Dependency list
+   * @returns Promise that resolves when initialization completes
+   * @throws {ManagerInitializationError} If initialization fails
    * @private
    */
   private async runManagerInitialization(
@@ -594,10 +594,10 @@ export class RuntimeManagerCoordinator implements IDisposable {
   }
 
   /**
-   * 解析 Manager 初始化配置
+   * Resolve Manager initialization config
    *
-   * @param name - Manager 名称
-   * @returns 标准化的初始化配置
+   * @param name - Manager name
+   * @returns Normalized initialization config
    * @private
    */
   private resolveInitializationConfig(name: string): NormalizedManagerInitializationConfig {
@@ -630,14 +630,14 @@ export class RuntimeManagerCoordinator implements IDisposable {
   }
 
   /**
-   * 调用 Manager 的 initialize 方法（支持重试）
+   * Invoke Manager's initialize method (with retry support)
    *
-   * @param manager - Manager 实例
-   * @param name - Manager 名称
-   * @param path - 依赖路径
-   * @param config - 初始化配置
-   * @returns Promise，初始化完成后 resolve
-   * @throws {ManagerInitializationError} 如果初始化失败
+   * @param manager - Manager instance
+   * @param name - Manager name
+   * @param path - Dependency path
+   * @param config - Initialization config
+   * @returns Promise that resolves when initialization completes
+   * @throws {ManagerInitializationError} If initialization fails
    * @private
    */
   private async invokeManagerInitialize(
@@ -654,13 +654,13 @@ export class RuntimeManagerCoordinator implements IDisposable {
   }
 
   /**
-   * 封装 Manager 初始化重试逻辑，降低 invokeManagerInitialize 的复杂度
+   * Encapsulates Manager initialization retry logic to reduce complexity of invokeManagerInitialize
    *
-   * @param initialize - 初始化函数
-   * @param config - 初始化配置
-   * @param name - Manager 名称
-   * @param path - 依赖路径
-   * @param attempts - 总尝试次数
+   * @param initialize - Initialization function
+   * @param config - Initialization config
+   * @param name - Manager name
+   * @param path - Dependency path
+   * @param attempts - Total attempt count
    * @private
    */
   private async retryManagerInitialization(
@@ -699,7 +699,7 @@ export class RuntimeManagerCoordinator implements IDisposable {
   }
 
   /**
-   * 处理失败的初始化尝试
+   * Handle failed initialization attempt
    * @private
    */
   private async handleFailedInitializationAttempt(
@@ -728,16 +728,16 @@ export class RuntimeManagerCoordinator implements IDisposable {
   }
 
   /**
-   * 执行单次初始化尝试（支持超时）
+   * Execute single initialization attempt (with timeout support)
    *
-   * @param task - 初始化任务
-   * @param config - 初始化配置
-   * @param name - Manager 名称
-   * @param path - 依赖路径
-   * @param attempt - 当前尝试次数
-   * @param attempts - 总尝试次数
-   * @returns Promise，初始化完成后 resolve
-   * @throws {Error} 如果初始化超时或失败
+   * @param task - Initialization task
+   * @param config - Initialization config
+   * @param name - Manager name
+   * @param path - Dependency path
+   * @param attempt - Current attempt number
+   * @param attempts - Total attempt count
+   * @returns Promise that resolves when initialization completes
+   * @throws {Error} If initialization times out or fails
    * @private
    */
   private async executeInitializationAttempt(
@@ -795,10 +795,10 @@ export class RuntimeManagerCoordinator implements IDisposable {
   }
 
   /**
-   * 检查错误是否为初始化超时错误
+   * Check if error is an initialization timeout error
    *
-   * @param error - 错误对象
-   * @returns 如果是超时错误返回 true，否则返回 false
+   * @param error - Error object
+   * @returns true if timeout error, false otherwise
    * @private
    */
   private isInitializationTimeoutError(error: unknown): boolean {
@@ -806,10 +806,10 @@ export class RuntimeManagerCoordinator implements IDisposable {
   }
 
   /**
-   * 标准化初始化选项
+   * Normalize initialization options
    *
-   * @param options - 初始化选项
-   * @returns 标准化的初始化配置
+   * @param options - Initialization options
+   * @returns Normalized initialization config
    * @private
    */
   private normalizeInitializationOptions(
@@ -841,10 +841,10 @@ export class RuntimeManagerCoordinator implements IDisposable {
   }
 
   /**
-   * 休眠指定毫秒数
+   * Sleep for specified milliseconds
    *
-   * @param delayMs - 延迟毫秒数
-   * @returns Promise，延迟完成后 resolve
+   * @param delayMs - Delay in milliseconds
+   * @returns Promise that resolves after delay
    * @private
    */
   private async sleep(delayMs: number): Promise<void> {

@@ -2,41 +2,41 @@ import type { GPUTier } from "./render-constants";
 import { DEVICE_DETECTION, GPU_TIERS } from "./render-constants";
 
 /**
- * 设备能力接口
- * 描述当前运行环境的硬件和浏览器能力
+ * Device capability interface
+ * Describes hardware and browser capabilities of the current runtime environment
  */
 export interface DeviceCapabilities {
-  /** 是否支持 WebGPU */
+  /** Whether WebGPU is supported */
   hasWebGPU: boolean;
-  /** 是否支持 OffscreenCanvas */
+  /** Whether OffscreenCanvas is supported */
   hasOffscreenCanvas: boolean;
-  /** 最大内存（字节），0 表示未知 */
+  /** Max memory (bytes), 0 means unknown */
   maxMemory: number;
-  /** GPU 层级 */
+  /** GPU tier */
   gpuTier: GPUTier;
-  /** 硬件并发数（CPU 核心数） */
+  /** Hardware concurrency (CPU core count) */
   hardwareConcurrency: number;
-  /** 设备像素比 */
+  /** Device pixel ratio */
   devicePixelRatio: number;
-  /** 是否已初始化 */
+  /** Whether initialized */
   initialized: boolean;
 }
 
 /**
- * 设备能力检测器
- * 单例模式，统一管理设备能力检测逻辑
+ * Device capability detector
+ * Singleton pattern, unified management of device capability detection logic
  *
  * @example
  * ```typescript
  * import { deviceCapabilities } from './device-capabilities';
  *
- * // 异步检测（推荐）
+ * // Async detection (recommended)
  * const caps = await deviceCapabilities.detect();
  * if (caps.hasWebGPU) {
- *   // 使用 WebGPU 渲染器
+ *   // Use WebGPU renderer
  * }
  *
- * // 同步获取（如果已初始化）
+ * // Sync access (if already initialized)
  * const caps = deviceCapabilities.getSync();
  * ```
  */
@@ -47,7 +47,7 @@ export class DeviceCapabilityDetector {
   private constructor() {}
 
   /**
-   * 获取单例实例
+   * Get singleton instance
    */
   static getInstance(): DeviceCapabilityDetector {
     if (!DeviceCapabilityDetector.instance) {
@@ -57,8 +57,8 @@ export class DeviceCapabilityDetector {
   }
 
   /**
-   * 异步检测设备能力
-   * @returns Promise<DeviceCapabilities> 完整的设备能力信息
+   * Async detect device capabilities
+   * @returns Promise<DeviceCapabilities> Complete device capability information
    */
   async detect(): Promise<DeviceCapabilities> {
     if (this.capabilities?.initialized) {
@@ -80,13 +80,13 @@ export class DeviceCapabilityDetector {
   }
 
   /**
-   * 同步获取设备能力
-   * 如果未初始化，将执行快速同步检测（不含异步 GPU 层级检测）
-   * @returns DeviceCapabilities 设备能力信息
+   * Sync get device capabilities
+   * If not initialized, will perform fast sync detection (without async GPU tier detection)
+   * @returns DeviceCapabilities Device capability information
    */
   getSync(): DeviceCapabilities {
     if (!this.capabilities) {
-      // 快速同步初始化，使用默认 GPU 层级
+      // Fast sync initialization, using default GPU tier
       this.capabilities = {
         hasWebGPU: this.detectWebGPU(),
         hasOffscreenCanvas: this.detectOffscreenCanvas(),
@@ -97,7 +97,7 @@ export class DeviceCapabilityDetector {
         initialized: true,
       };
     } else {
-      // 确保实时能力反映最新环境
+      // Ensure real-time capabilities reflect latest environment
       this.capabilities = {
         ...this.capabilities,
         hasWebGPU: this.detectWebGPU(),
@@ -110,7 +110,7 @@ export class DeviceCapabilityDetector {
   }
 
   /**
-   * 检测 WebGPU 支持
+   * Detect WebGPU support
    */
   private detectWebGPU(): boolean {
     if (typeof navigator === "undefined") {
@@ -120,15 +120,15 @@ export class DeviceCapabilityDetector {
   }
 
   /**
-   * 检测 OffscreenCanvas 支持
+   * Detect OffscreenCanvas support
    */
   private detectOffscreenCanvas(): boolean {
     return typeof OffscreenCanvas !== "undefined";
   }
 
   /**
-   * 检测可用内存
-   * @returns 内存大小（字节），0 表示未知
+   * Detect available memory
+   * @returns Memory size (bytes), 0 means unknown
    */
   private detectMemory(): number {
     if (typeof performance === "undefined" || !("memory" in performance)) {
@@ -139,29 +139,29 @@ export class DeviceCapabilityDetector {
   }
 
   /**
-   * 异步检测 GPU 层级
-   * 通过 WebGL 或 WebGPU 信息判断 GPU 性能
+   * Async detect GPU tier
+   * Determine GPU performance via WebGL or WebGPU information
    */
   private async detectGPUTier(): Promise<GPUTier> {
-    // 优先使用 WebGPU 检测
+    // Prefer WebGPU detection
     if (this.detectWebGPU()) {
       try {
         const adapter = await navigator.gpu.requestAdapter();
         if (adapter) {
-          // WebGPU adapter 信息较为有限，主要通过 WebGL 检测
+          // WebGPU adapter info is limited, mainly detect via WebGL
           return this.detectGPUTierFromWebGL();
         }
       } catch {
-        // WebGPU 检测失败，降级到 WebGL
+        // WebGPU detection failed, fallback to WebGL
       }
     }
 
-    // 降级使用 WebGL 检测
+    // Fallback to WebGL detection
     return this.detectGPUTierFromWebGL();
   }
 
   /**
-   * 通过 WebGL 检测 GPU 层级
+   * Detect GPU tier via WebGL
    */
   private detectGPUTierFromWebGL(): GPUTier {
     if (typeof document === "undefined") {
@@ -197,12 +197,12 @@ export class DeviceCapabilityDetector {
   }
 
   /**
-   * 根据 WebGL 渲染器字符串分类 GPU 层级
+   * Classify GPU tier by WebGL renderer string
    */
   private classifyGPUTierByRenderer(renderer: string): GPUTier {
     const rendererLower = renderer.toLowerCase();
 
-    // 高端 GPU 特征
+    // High-end GPU characteristics
     if (
       rendererLower.includes("nvidia") &&
       (rendererLower.includes("rtx") || rendererLower.includes("gtx"))
@@ -210,22 +210,22 @@ export class DeviceCapabilityDetector {
       return GPU_TIERS.HIGH_END;
     }
 
-    // 中端 GPU 特征
+    // Mid-range GPU characteristics
     if (rendererLower.includes("amd") && rendererLower.includes("radeon")) {
       return GPU_TIERS.MIDRANGE;
     }
 
-    // 集成显卡特征
+    // Integrated GPU characteristics
     if (rendererLower.includes("intel")) {
       return GPU_TIERS.INTEGRATED;
     }
 
-    // 默认为集成显卡
+    // Default to integrated GPU
     return GPU_TIERS.INTEGRATED;
   }
 
   /**
-   * 检测硬件并发数（CPU 核心数）
+   * Detect hardware concurrency (CPU core count)
    */
   private detectHardwareConcurrency(): number {
     if (typeof navigator === "undefined" || !("hardwareConcurrency" in navigator)) {
@@ -235,7 +235,7 @@ export class DeviceCapabilityDetector {
   }
 
   /**
-   * 检测设备像素比
+   * Detect device pixel ratio
    */
   private detectDevicePixelRatio(): number {
     if (typeof globalThis === "undefined" || !("devicePixelRatio" in globalThis)) {
@@ -245,7 +245,7 @@ export class DeviceCapabilityDetector {
   }
 
   /**
-   * 重置检测结果（用于测试或强制重新检测）
+   * Reset detection results (for testing or forced re-detection)
    */
   reset(): void {
     this.capabilities = null;
@@ -253,7 +253,7 @@ export class DeviceCapabilityDetector {
 }
 
 /**
- * 导出单例实例
+ * Export singleton instance
  * @example
  * ```typescript
  * import { deviceCapabilities } from './device-capabilities';

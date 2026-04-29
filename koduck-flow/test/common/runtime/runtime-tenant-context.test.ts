@@ -1,16 +1,16 @@
 /**
- * RuntimeTenantContext 单元测试
+ * RuntimeTenantContext Unit Tests
  *
  * @description
- * 测试租户上下文管理器的所有功能，确保上下文设置、获取、同步和清空正常工作。
+ * Test all functions of the tenant context manager to ensure context setting, getting, syncing, and clearing work correctly.
  *
  * @coverage
- * - 构造函数和初始化
- * - 上下文设置 (setTenantContext)
- * - 上下文获取 (getTenantContext)
- * - 上下文检查 (hasTenantContext)
- * - DI 容器同步
- * - 边界条件和错误处理
+ * - Constructor and initialization
+ * - Context setting (setTenantContext)
+ * - Context getting (getTenantContext)
+ * - Context checking (hasTenantContext)
+ * - DI container sync
+ * - Boundary conditions and error handling
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
@@ -21,7 +21,7 @@ import { TOKENS } from "../../../src/common/di/tokens";
 import type { ResolvedTenantContext } from "../../../src/common/runtime/tenant-context";
 
 /**
- * 创建测试用的完整租户上下文
+ * Create a complete test tenant context
  */
 function createTestContext(overrides?: Partial<ResolvedTenantContext>): ResolvedTenantContext {
   return {
@@ -45,29 +45,29 @@ describe("RuntimeTenantContext", () => {
     tenantContext = new RuntimeTenantContext(container);
   });
 
-  describe("构造函数和初始化", () => {
-    it("应该成功创建实例", () => {
+  describe("Constructor and Initialization", () => {
+    it("should successfully create an instance", () => {
       expect(tenantContext).toBeDefined();
     });
 
-    it("应该在容器为 null 时抛出错误", () => {
+    it("should throw an error when container is null", () => {
       const fn = () => new RuntimeTenantContext(null as unknown as IDependencyContainer);
       expect(fn).toThrow("Container cannot be null or undefined");
     });
 
-    it("应该在容器为 undefined 时抛出错误", () => {
+    it("should throw an error when container is undefined", () => {
       const fn = () => new RuntimeTenantContext(undefined as unknown as IDependencyContainer);
       expect(fn).toThrow("Container cannot be null or undefined");
     });
 
-    it("应该初始化时没有租户上下文", () => {
+    it("should have no tenant context on initialization", () => {
       expect(tenantContext.hasTenantContext()).toBe(false);
       expect(tenantContext.getTenantContext()).toBeUndefined();
     });
   });
 
-  describe("setTenantContext() - 设置租户上下文", () => {
-    it("应该成功设置租户上下文", () => {
+  describe("setTenantContext() - Set Tenant Context", () => {
+    it("should successfully set tenant context", () => {
       const context = createTestContext({
         tenantId: "tenant-123",
         environment: "production",
@@ -82,7 +82,7 @@ describe("RuntimeTenantContext", () => {
       expect(retrieved?.environment).toBe("production");
     });
 
-    it("应该对租户上下文进行深拷贝，而非引用", () => {
+    it("should deep clone tenant context instead of referencing", () => {
       const context = createTestContext({
         tenantId: "tenant-123",
         environment: "production",
@@ -91,15 +91,15 @@ describe("RuntimeTenantContext", () => {
 
       tenantContext.setTenantContext(context);
 
-      // 修改原始对象
+      // Modify original object
       context.quotas!.maxEntities = 999;
 
-      // 内部状态不应受影响
+      // Internal state should not be affected
       const retrieved = tenantContext.getTenantContext();
       expect(retrieved?.quotas?.maxEntities).toBe(1000);
     });
 
-    it("应该同步租户上下文到 DI 容器", () => {
+    it("should sync tenant context to DI container", () => {
       const context = createTestContext({
         tenantId: "tenant-456",
         environment: "staging",
@@ -112,7 +112,7 @@ describe("RuntimeTenantContext", () => {
       expect(registered.tenantId).toBe("tenant-456");
     });
 
-    it("应该同步租户配额到 DI 容器", () => {
+    it("should sync tenant quotas to DI container", () => {
       const context = createTestContext({
         tenantId: "tenant-789",
         environment: "production",
@@ -129,7 +129,7 @@ describe("RuntimeTenantContext", () => {
       expect(quotas.maxEntities).toBe(500);
     });
 
-    it("应该同步租户 Rollout 配置到 DI 容器", () => {
+    it("should sync tenant Rollout config to DI container", () => {
       const context = createTestContext({
         tenantId: "tenant-rollout",
         environment: "production",
@@ -148,11 +148,11 @@ describe("RuntimeTenantContext", () => {
       expect(rollout.variant).toBe("beta");
     });
 
-    it("应该在配额不存在时将 DI 容器中的配额设置为 null", () => {
+    it("should set quota in DI container to null when quota does not exist", () => {
       const context = createTestContext({
         tenantId: "tenant-no-quota",
         environment: "production",
-        // 没有 quotas 字段
+        // No quotas field
       });
 
       tenantContext.setTenantContext(context);
@@ -161,11 +161,11 @@ describe("RuntimeTenantContext", () => {
       expect(quotas).toBeNull();
     });
 
-    it("应该在 Rollout 不存在时将 DI 容器中的 Rollout 设置为 null", () => {
+    it("should set Rollout in DI container to null when Rollout does not exist", () => {
       const context = createTestContext({
         tenantId: "tenant-no-rollout",
         environment: "production",
-        // 没有 rollout 字段
+        // No rollout field
       });
 
       tenantContext.setTenantContext(context);
@@ -174,8 +174,8 @@ describe("RuntimeTenantContext", () => {
       expect(rollout).toBeNull();
     });
 
-    it("应该支持传入 null 清空租户上下文", () => {
-      // 先设置上下文
+    it("should support passing null to clear tenant context", () => {
+      // First set context
       const context = createTestContext({
         tenantId: "tenant-123",
         environment: "production",
@@ -183,15 +183,15 @@ describe("RuntimeTenantContext", () => {
       tenantContext.setTenantContext(context);
       expect(tenantContext.hasTenantContext()).toBe(true);
 
-      // 清空上下文
+      // Clear context
       tenantContext.setTenantContext(null);
 
       expect(tenantContext.hasTenantContext()).toBe(false);
       expect(tenantContext.getTenantContext()).toBeUndefined();
     });
 
-    it("应该支持传入 undefined 清空租户上下文", () => {
-      // 先设置上下文
+    it("should support passing undefined to clear tenant context", () => {
+      // First set context
       const context = createTestContext({
         tenantId: "tenant-123",
         environment: "production",
@@ -199,15 +199,15 @@ describe("RuntimeTenantContext", () => {
       tenantContext.setTenantContext(context);
       expect(tenantContext.hasTenantContext()).toBe(true);
 
-      // 清空上下文
+      // Clear context
       tenantContext.setTenantContext(undefined);
 
       expect(tenantContext.hasTenantContext()).toBe(false);
       expect(tenantContext.getTenantContext()).toBeUndefined();
     });
 
-    it("应该在清空上下文时清理 DI 容器", () => {
-      // 先设置上下文
+    it("should clean up DI container when clearing context", () => {
+      // First set context
       const context = createTestContext({
         tenantId: "tenant-123",
         environment: "production",
@@ -216,16 +216,16 @@ describe("RuntimeTenantContext", () => {
       });
       tenantContext.setTenantContext(context);
 
-      // 清空上下文
+      // Clear context
       tenantContext.setTenantContext(null);
 
-      // 验证 DI 容器中的值被清空
+      // Verify values in DI container are cleared
       expect(container.resolve(TOKENS.tenantContext)).toBeNull();
       expect(container.resolve(TOKENS.tenantQuota)).toBeNull();
       expect(container.resolve(TOKENS.tenantRollout)).toBeNull();
     });
 
-    it("应该支持替换现有的租户上下文", () => {
+    it("should support replacing existing tenant context", () => {
       const context1 = createTestContext({
         tenantId: "tenant-old",
         environment: "staging",
@@ -243,8 +243,8 @@ describe("RuntimeTenantContext", () => {
     });
   });
 
-  describe("getTenantContext() - 获取租户上下文", () => {
-    it("应该返回租户上下文的深拷贝", () => {
+  describe("getTenantContext() - Get Tenant Context", () => {
+    it("should return a deep clone of tenant context", () => {
       const context = createTestContext({
         tenantId: "tenant-123",
         environment: "production",
@@ -258,7 +258,7 @@ describe("RuntimeTenantContext", () => {
       const retrieved = tenantContext.getTenantContext();
       expect(retrieved).toBeDefined();
 
-      // 修改返回的对象不应影响内部状态
+      // Modifying returned object should not affect internal state
       retrieved!.tenantId = "tenant-modified";
       retrieved!.quotas!.maxEntities = 9999;
 
@@ -267,11 +267,11 @@ describe("RuntimeTenantContext", () => {
       expect(retrieved2?.quotas?.maxEntities).toBe(1000);
     });
 
-    it("应该在没有租户上下文时返回 undefined", () => {
+    it("should return undefined when no tenant context", () => {
       expect(tenantContext.getTenantContext()).toBeUndefined();
     });
 
-    it("应该每次返回新的副本", () => {
+    it("should return a new copy each time", () => {
       const context = createTestContext({
         tenantId: "tenant-123",
         environment: "production",
@@ -282,19 +282,19 @@ describe("RuntimeTenantContext", () => {
       const copy1 = tenantContext.getTenantContext();
       const copy2 = tenantContext.getTenantContext();
 
-      // 应该是不同的对象引用
+      // Should be different object references
       expect(copy1).not.toBe(copy2);
-      // 但内容应该相同
+      // But content should be the same
       expect(copy1).toEqual(copy2);
     });
   });
 
-  describe("hasTenantContext() - 检查租户上下文是否存在", () => {
-    it("应该在没有租户上下文时返回 false", () => {
+  describe("hasTenantContext() - Check if Tenant Context Exists", () => {
+    it("should return false when no tenant context", () => {
       expect(tenantContext.hasTenantContext()).toBe(false);
     });
 
-    it("应该在有租户上下文时返回 true", () => {
+    it("should return true when tenant context exists", () => {
       const context = createTestContext({
         tenantId: "tenant-123",
         environment: "production",
@@ -305,7 +305,7 @@ describe("RuntimeTenantContext", () => {
       expect(tenantContext.hasTenantContext()).toBe(true);
     });
 
-    it("应该在清空租户上下文后返回 false", () => {
+    it("should return false after clearing tenant context", () => {
       const context = createTestContext({
         tenantId: "tenant-123",
         environment: "production",
@@ -319,8 +319,8 @@ describe("RuntimeTenantContext", () => {
     });
   });
 
-  describe("边界条件和错误处理", () => {
-    it("应该处理包含所有字段的完整租户上下文", () => {
+  describe("Boundary Conditions and Error Handling", () => {
+    it("should handle complete tenant context with all fields", () => {
       const context = createTestContext({
         tenantId: "tenant-full",
         environment: "production",
@@ -354,7 +354,7 @@ describe("RuntimeTenantContext", () => {
       expect(retrieved?.rollout?.features?.newFeature).toBe(true);
     });
 
-    it("应该处理最小化的租户上下文（只有必填字段）", () => {
+    it("should handle minimal tenant context (only required fields)", () => {
       const context = createTestContext({
         tenantId: "tenant-minimal",
         environment: "production",
@@ -369,7 +369,7 @@ describe("RuntimeTenantContext", () => {
       expect(retrieved?.rollout).toBeUndefined();
     });
 
-    it("应该正确处理多次设置和清空的交替操作", () => {
+    it("should correctly handle alternating set and clear operations", () => {
       const context1 = createTestContext({
         tenantId: "tenant-1",
         environment: "staging",

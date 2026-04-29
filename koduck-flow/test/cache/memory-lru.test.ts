@@ -1,13 +1,13 @@
 /**
- * MemoryLRUCache 单元测试
- * 目标：达到85%+的代码覆盖率
+ * MemoryLRUCache unit tests
+ * Goal: achieve 85%+ code coverage
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { MemoryLRUCache } from "../../src/common/cache/memory-lru";
 import type { Clock, SchedulerLike } from "../../src/common/cache/types";
 
-// Mock 时钟
+// Mock clock
 class MockClock implements Clock {
   private time = 1000;
 
@@ -24,7 +24,7 @@ class MockClock implements Clock {
   }
 }
 
-// Mock 调度器
+// Mock scheduler
 class MockScheduler implements SchedulerLike {
   private timers = new Map<number, NodeJS.Timeout>();
   private nextId = 1;
@@ -65,14 +65,14 @@ describe("MemoryLRUCache", () => {
     mockScheduler.clearAll();
   });
 
-  describe("基础操作", () => {
-    it("应该能创建缓存实例", () => {
+  describe("Basic operations", () => {
+    it("should be able to create a cache instance", () => {
       const cache = new MemoryLRUCache<string, number>();
       expect(cache).toBeDefined();
       expect(cache.size()).toBe(0);
     });
 
-    it("应该能设置和获取值", () => {
+    it("should be able to set and get values", () => {
       const cache = new MemoryLRUCache<string, number>();
 
       cache.set("key1", 100);
@@ -80,12 +80,12 @@ describe("MemoryLRUCache", () => {
       expect(cache.size()).toBe(1);
     });
 
-    it("应该在键不存在时返回undefined", () => {
+    it("should return undefined when key does not exist", () => {
       const cache = new MemoryLRUCache<string, number>();
       expect(cache.get("nonexistent")).toBeUndefined();
     });
 
-    it("应该能检查键是否存在", () => {
+    it("should be able to check if a key exists", () => {
       const cache = new MemoryLRUCache<string, number>();
 
       expect(cache.has("key1")).toBe(false);
@@ -93,7 +93,7 @@ describe("MemoryLRUCache", () => {
       expect(cache.has("key1")).toBe(true);
     });
 
-    it("应该能删除键", () => {
+    it("should be able to delete keys", () => {
       const cache = new MemoryLRUCache<string, number>();
 
       cache.set("key1", 100);
@@ -102,7 +102,7 @@ describe("MemoryLRUCache", () => {
       expect(cache.delete("nonexistent")).toBe(false);
     });
 
-    it("应该能清空缓存", () => {
+    it("should be able to clear the cache", () => {
       const cache = new MemoryLRUCache<string, number>();
 
       cache.set("key1", 100);
@@ -116,45 +116,45 @@ describe("MemoryLRUCache", () => {
     });
   });
 
-  describe("LRU 行为", () => {
-    it("应该实现LRU淘汰策略", () => {
+  describe("LRU behavior", () => {
+    it("should implement LRU eviction policy", () => {
       const cache = new MemoryLRUCache<string, number>({
         maxEntries: 2,
       });
 
       cache.set("key1", 100);
       cache.set("key2", 200);
-      cache.set("key3", 300); // 应该淘汰 key1
+      cache.set("key3", 300); // should evict key1
 
       expect(cache.has("key1")).toBe(false);
       expect(cache.has("key2")).toBe(true);
       expect(cache.has("key3")).toBe(true);
     });
 
-    it("访问时应该更新LRU顺序", () => {
+    it("should update LRU order on access", () => {
       const cache = new MemoryLRUCache<string, number>({
         maxEntries: 2,
       });
 
       cache.set("key1", 100);
       cache.set("key2", 200);
-      cache.get("key1"); // 访问key1，使其变为最新
-      cache.set("key3", 300); // 应该淘汰 key2
+      cache.get("key1"); // access key1, making it the most recent
+      cache.set("key3", 300); // should evict key2
 
       expect(cache.has("key1")).toBe(true);
       expect(cache.has("key2")).toBe(false);
       expect(cache.has("key3")).toBe(true);
     });
 
-    it("替换已存在的键时应该保持LRU顺序", () => {
+    it("should maintain LRU order when replacing existing keys", () => {
       const cache = new MemoryLRUCache<string, number>({
         maxEntries: 2,
       });
 
       cache.set("key1", 100);
       cache.set("key2", 200);
-      cache.set("key1", 150); // 替换key1的值
-      cache.set("key3", 300); // 应该淘汰 key2
+      cache.set("key1", 150); // replace key1's value
+      cache.set("key3", 300); // should evict key2
 
       expect(cache.get("key1")).toBe(150);
       expect(cache.has("key2")).toBe(false);
@@ -162,8 +162,8 @@ describe("MemoryLRUCache", () => {
     });
   });
 
-  describe("TTL 功能", () => {
-    it("应该支持TTL过期", () => {
+  describe("TTL features", () => {
+    it("should support TTL expiration", () => {
       const cache = new MemoryLRUCache<string, number>({
         clock: mockClock,
       });
@@ -176,7 +176,7 @@ describe("MemoryLRUCache", () => {
       expect(cache.has("key1")).toBe(false);
     });
 
-    it("应该支持默认TTL", () => {
+    it("should support default TTL", () => {
       const cache = new MemoryLRUCache<string, number>({
         clock: mockClock,
         defaultTTL: 500,
@@ -189,7 +189,7 @@ describe("MemoryLRUCache", () => {
       expect(cache.get("key1")).toBeUndefined();
     });
 
-    it("显式TTL应该覆盖默认TTL", () => {
+    it("explicit TTL should override default TTL", () => {
       const cache = new MemoryLRUCache<string, number>({
         clock: mockClock,
         defaultTTL: 500,
@@ -197,21 +197,21 @@ describe("MemoryLRUCache", () => {
 
       cache.set("key1", 100, { ttl: 1000 });
       mockClock.advance(600);
-      expect(cache.get("key1")).toBe(100); // 应该还未过期
+      expect(cache.get("key1")).toBe(100); // should not have expired yet
 
       mockClock.advance(500);
-      expect(cache.get("key1")).toBeUndefined(); // 现在应该过期
+      expect(cache.get("key1")).toBeUndefined(); // should have expired now
     });
 
-    it("TTL为0或undefined应该表示不过期", () => {
+    it("TTL of 0 or undefined should mean no expiration", () => {
       const cache = new MemoryLRUCache<string, number>({
         clock: mockClock,
         defaultTTL: 500,
       });
 
       cache.set("key1", 100, { ttl: 0 });
-      // 对于undefined，不传ttl参数或显式传入undefined都会使用defaultTTL
-      // 要真正避免过期，需要传递0或负数
+      // For undefined, omitting ttl or explicitly passing undefined uses defaultTTL
+      // To truly avoid expiration, pass 0 or a negative number
       cache.set("key2", 200, { ttl: -1 });
 
       mockClock.advance(1000);
@@ -220,54 +220,54 @@ describe("MemoryLRUCache", () => {
     });
   });
 
-  describe("权重管理", () => {
-    it("应该支持基于权重的淘汰", () => {
+  describe("Weight management", () => {
+    it("should support weight-based eviction", () => {
       const cache = new MemoryLRUCache<string, string>({
         maxWeight: 10,
         weigh: (_, value) => value.length,
       });
 
-      cache.set("key1", "hello"); // 权重5
-      cache.set("key2", "world"); // 权重5，总权重10
-      cache.set("key3", "test"); // 权重4，应该触发淘汰
+      cache.set("key1", "hello"); // weight 5
+      cache.set("key2", "world"); // weight 5, total weight 10
+      cache.set("key3", "test"); // weight 4, should trigger eviction
 
-      expect(cache.has("key1")).toBe(false); // 最旧的被淘汰
+      expect(cache.has("key1")).toBe(false); // oldest evicted
       expect(cache.has("key2")).toBe(true);
       expect(cache.has("key3")).toBe(true);
     });
 
-    it("应该支持显式设置权重", () => {
+    it("should support explicit weight setting", () => {
       const cache = new MemoryLRUCache<string, string>({
         maxWeight: 10,
-        // 注意：权重淘汰需要配合weigh函数或显式weight，但代码中的逻辑要求weigh函数存在
-        weigh: () => 1, // 提供默认weigh函数
+        // Note: weight eviction requires a weigh function or explicit weight, but the code logic requires a weigh function to exist
+        weigh: () => 1, // provide default weigh function
       });
 
       cache.set("key1", "value1", { weight: 5 });
-      cache.set("key2", "value2", { weight: 6 }); // 应该触发淘汰
+      cache.set("key2", "value2", { weight: 6 }); // should trigger eviction
 
       expect(cache.has("key1")).toBe(false);
       expect(cache.has("key2")).toBe(true);
     });
 
-    it("替换条目时应该正确更新权重", () => {
+    it("should correctly update weight when replacing entries", () => {
       const cache = new MemoryLRUCache<string, string>({
         maxWeight: 10,
         weigh: (_, value) => value.length,
       });
 
-      cache.set("key1", "hello"); // 权重5
+      cache.set("key1", "hello"); // weight 5
       const info1 = cache.info();
       expect(info1.currentWeight).toBe(5);
 
-      cache.set("key1", "hi"); // 权重2，替换原值
+      cache.set("key1", "hi"); // weight 2, replacing original value
       const info2 = cache.info();
       expect(info2.currentWeight).toBe(2);
     });
   });
 
-  describe("标签化失效", () => {
-    it("应该支持按标签失效", () => {
+  describe("Tag-based invalidation", () => {
+    it("should support invalidation by tag", () => {
       const cache = new MemoryLRUCache<string, number>();
 
       cache.set("key1", 100, { tags: ["tag1", "tag2"] });
@@ -281,7 +281,7 @@ describe("MemoryLRUCache", () => {
       expect(cache.has("key3")).toBe(true);
     });
 
-    it("应该能添加标签到已存在的条目", () => {
+    it("should be able to add tags to existing entries", () => {
       const cache = new MemoryLRUCache<string, number>();
 
       cache.set("key1", 100, { tags: ["tag1"] });
@@ -291,13 +291,13 @@ describe("MemoryLRUCache", () => {
       expect(cache.has("key1")).toBe(false);
     });
 
-    it("对不存在的标签进行失效应该返回0", () => {
+    it("invalidating a non-existent tag should return 0", () => {
       const cache = new MemoryLRUCache<string, number>();
       const count = cache.invalidateByTag("nonexistent");
       expect(count).toBe(0);
     });
 
-    it("对不存在的键添加标签应该无操作", () => {
+    it("adding tags to a non-existent key should be a no-op", () => {
       const cache = new MemoryLRUCache<string, number>();
       cache.addTags("nonexistent", "tag1");
 
@@ -306,8 +306,8 @@ describe("MemoryLRUCache", () => {
     });
   });
 
-  describe("getOrSet 方法", () => {
-    it("缓存命中时应该返回缓存值", () => {
+  describe("getOrSet method", () => {
+    it("should return cached value on cache hit", () => {
       const cache = new MemoryLRUCache<string, number>();
       const producer = vi.fn(() => 200);
 
@@ -318,7 +318,7 @@ describe("MemoryLRUCache", () => {
       expect(producer).not.toHaveBeenCalled();
     });
 
-    it("缓存未命中时应该调用生产者", () => {
+    it("should call producer on cache miss", () => {
       const cache = new MemoryLRUCache<string, number>();
       const producer = vi.fn(() => 200);
 
@@ -330,8 +330,8 @@ describe("MemoryLRUCache", () => {
     });
   });
 
-  describe("getOrSetAsync 方法", () => {
-    it("缓存命中时应该返回resolved Promise", async () => {
+  describe("getOrSetAsync method", () => {
+    it("should return resolved Promise on cache hit", async () => {
       const cache = new MemoryLRUCache<string, number>();
       const producer = vi.fn(async () => 200);
 
@@ -342,7 +342,7 @@ describe("MemoryLRUCache", () => {
       expect(producer).not.toHaveBeenCalled();
     });
 
-    it("缓存未命中时应该调用异步生产者", async () => {
+    it("should call async producer on cache miss", async () => {
       const cache = new MemoryLRUCache<string, number>();
       const producer = vi.fn(async () => 200);
 
@@ -353,7 +353,7 @@ describe("MemoryLRUCache", () => {
       expect(cache.get("key1")).toBe(200);
     });
 
-    it("应该支持并发去重", async () => {
+    it("should support concurrent deduplication", async () => {
       const cache = new MemoryLRUCache<string, number>();
       let producerCallCount = 0;
       const producer = vi.fn(async () => {
@@ -362,7 +362,7 @@ describe("MemoryLRUCache", () => {
         return 200;
       });
 
-      // 同时发起多个相同键的请求
+      // Initiate multiple requests for the same key simultaneously
       const promises = [
         cache.getOrSetAsync("key1", producer),
         cache.getOrSetAsync("key1", producer),
@@ -372,10 +372,10 @@ describe("MemoryLRUCache", () => {
       const results = await Promise.all(promises);
 
       expect(results).toEqual([200, 200, 200]);
-      expect(producerCallCount).toBe(1); // 只调用一次生产者
+      expect(producerCallCount).toBe(1); // producer called only once
     });
 
-    it("可以禁用并发去重", async () => {
+    it("should be able to disable concurrent deduplication", async () => {
       const cache = new MemoryLRUCache<string, number>();
       let producerCallCount = 0;
       const producer = vi.fn(async () => {
@@ -384,17 +384,17 @@ describe("MemoryLRUCache", () => {
         return 200;
       });
 
-      // 禁用去重
+      // Disable deduplication
       const promises = [
         cache.getOrSetAsync("key1", producer, { dedupe: false }),
         cache.getOrSetAsync("key1", producer, { dedupe: false }),
       ];
 
       await Promise.all(promises);
-      expect(producerCallCount).toBe(2); // 调用两次生产者
+      expect(producerCallCount).toBe(2); // producer called twice
     });
 
-    it("应该支持超时", async () => {
+    it("should support timeout", async () => {
       const cache = new MemoryLRUCache<string, number>({
         scheduler: mockScheduler,
       });
@@ -410,8 +410,8 @@ describe("MemoryLRUCache", () => {
     });
   });
 
-  describe("统计信息", () => {
-    it("应该正确跟踪缓存统计", () => {
+  describe("Statistics", () => {
+    it("should correctly track cache statistics", () => {
       const cache = new MemoryLRUCache<string, number>({
         namespace: "test",
         maxEntries: 2,
@@ -419,10 +419,10 @@ describe("MemoryLRUCache", () => {
       });
 
       cache.set("key1", 100);
-      cache.get("key1"); // 命中
-      cache.get("key2"); // 未命中
+      cache.get("key1"); // hit
+      cache.get("key2"); // miss
       cache.set("key2", 200);
-      cache.set("key3", 300); // 触发淘汰
+      cache.set("key3", 300); // trigger eviction
 
       const info = cache.info();
       expect(info.namespace).toBe("test");
@@ -434,22 +434,22 @@ describe("MemoryLRUCache", () => {
       expect(info.evictions).toBe(1);
     });
 
-    it("应该跟踪过期统计", () => {
+    it("should track expiration statistics", () => {
       const cache = new MemoryLRUCache<string, number>({
         clock: mockClock,
       });
 
       cache.set("key1", 100, { ttl: 1000 });
       mockClock.advance(1001);
-      cache.get("key1"); // 触发过期
+      cache.get("key1"); // trigger expiration
 
       const info = cache.info();
       expect(info.expirations).toBe(1);
     });
   });
 
-  describe("回调和事件", () => {
-    it("应该在淘汰时调用回调", () => {
+  describe("Callbacks and events", () => {
+    it("should call callback on eviction", () => {
       const onEvict = vi.fn();
       const cache = new MemoryLRUCache<string, number>({
         maxEntries: 1,
@@ -457,7 +457,7 @@ describe("MemoryLRUCache", () => {
       });
 
       cache.set("key1", 100);
-      cache.set("key2", 200); // 触发淘汰
+      cache.set("key2", 200); // trigger eviction
 
       expect(onEvict).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -468,7 +468,7 @@ describe("MemoryLRUCache", () => {
       );
     });
 
-    it("应该在手动删除时调用回调", () => {
+    it("should call callback on manual deletion", () => {
       const onEvict = vi.fn();
       const cache = new MemoryLRUCache<string, number>({ onEvict });
 
@@ -484,7 +484,7 @@ describe("MemoryLRUCache", () => {
       );
     });
 
-    it("应该在清空时调用回调", () => {
+    it("should call callback on clear", () => {
       const onEvict = vi.fn();
       const cache = new MemoryLRUCache<string, number>({ onEvict });
 
@@ -503,7 +503,7 @@ describe("MemoryLRUCache", () => {
       );
     });
 
-    it("应该在过期时调用回调", () => {
+    it("should call callback on expiration", () => {
       const onEvict = vi.fn();
       const cache = new MemoryLRUCache<string, number>({
         clock: mockClock,
@@ -512,7 +512,7 @@ describe("MemoryLRUCache", () => {
 
       cache.set("key1", 100, { ttl: 1000 });
       mockClock.advance(1001);
-      cache.get("key1"); // 触发过期检查
+      cache.get("key1"); // trigger expiration check
 
       expect(onEvict).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -524,8 +524,8 @@ describe("MemoryLRUCache", () => {
     });
   });
 
-  describe("自定义键哈希", () => {
-    it("应该支持自定义键哈希函数", () => {
+  describe("Custom key hashing", () => {
+    it("should support custom key hash function", () => {
       interface ComplexKey {
         id: number;
         type: string;
@@ -535,75 +535,75 @@ describe("MemoryLRUCache", () => {
       const cache = new MemoryLRUCache<ComplexKey, string>({ keyHash });
 
       const key1 = { id: 1, type: "user" };
-      const key2 = { id: 1, type: "user" }; // 不同对象但相同内容
+      const key2 = { id: 1, type: "user" }; // different object but same content
 
       cache.set(key1, "value1");
-      expect(cache.get(key2)).toBe("value1"); // 应该能找到
+      expect(cache.get(key2)).toBe("value1"); // should be found
 
       expect(keyHash).toHaveBeenCalledWith(key1);
       expect(keyHash).toHaveBeenCalledWith(key2);
     });
   });
 
-  describe("边界情况", () => {
-    it("应该处理空的maxEntries", () => {
+  describe("Edge cases", () => {
+    it("should handle empty maxEntries", () => {
       const cache = new MemoryLRUCache<string, number>({
         maxEntries: 0,
       });
 
       cache.set("key1", 100);
-      expect(cache.size()).toBe(0); // 立即被淘汰
+      expect(cache.size()).toBe(0); // immediately evicted
     });
 
-    it("应该处理空的maxWeight", () => {
+    it("should handle empty maxWeight", () => {
       const cache = new MemoryLRUCache<string, string>({
         maxWeight: 0,
         weigh: (_, value) => value.length,
       });
 
       cache.set("key1", "a");
-      expect(cache.size()).toBe(0); // 立即被淘汰
+      expect(cache.size()).toBe(0); // immediately evicted
     });
 
-    it("应该正确处理标签清理", () => {
+    it("should correctly handle tag cleanup", () => {
       const cache = new MemoryLRUCache<string, number>();
 
       cache.set("key1", 100, { tags: ["tag1"] });
       cache.set("key2", 200, { tags: ["tag1"] });
 
-      // 删除一个条目后，标签映射应该正确更新
+      // After deleting an entry, the tag mapping should be correctly updated
       cache.delete("key1");
       const count = cache.invalidateByTag("tag1");
-      expect(count).toBe(1); // 只有key2被影响
+      expect(count).toBe(1); // only key2 is affected
     });
 
-    it("应该在替换时正确处理标签", () => {
+    it("should correctly handle tags on replacement", () => {
       const cache = new MemoryLRUCache<string, number>();
 
       cache.set("key1", 100, { tags: ["tag1", "tag2"] });
-      cache.set("key1", 200, { tags: ["tag3"] }); // 替换并更改标签
+      cache.set("key1", 200, { tags: ["tag3"] }); // replace and change tags
 
-      // 旧标签应该不再有效
+      // Old tags should no longer be valid
       expect(cache.invalidateByTag("tag1")).toBe(0);
       expect(cache.invalidateByTag("tag2")).toBe(0);
 
-      // 新标签应该有效
+      // New tags should be valid
       expect(cache.invalidateByTag("tag3")).toBe(1);
       expect(cache.has("key1")).toBe(false);
     });
 
-    it("应该处理重复的标签", () => {
+    it("should handle duplicate tags", () => {
       const cache = new MemoryLRUCache<string, number>();
 
       cache.set("key1", 100, { tags: ["tag1", "tag1", "tag2"] });
       cache.addTags("key1", "tag2", "tag3", "tag3");
 
-      // 验证标签去重
+      // Verify tag deduplication
       const count = cache.invalidateByTag("tag1");
       expect(count).toBe(1);
     });
 
-    it("应该在has()检查时处理过期条目", () => {
+    it("should handle expired entries during has() check", () => {
       const cache = new MemoryLRUCache<string, number>({
         clock: mockClock,
       });
@@ -612,34 +612,34 @@ describe("MemoryLRUCache", () => {
       expect(cache.has("key1")).toBe(true);
 
       mockClock.advance(1001);
-      expect(cache.has("key1")).toBe(false); // 应该触发过期并返回false
+      expect(cache.has("key1")).toBe(false); // should trigger expiration and return false
     });
 
-    it("应该处理标签映射中的孤立引用", () => {
+    it("should handle orphaned references in tag mapping", () => {
       const cache = new MemoryLRUCache<string, number>();
 
-      // 创建一个有问题的内部状态，模拟标签映射中存在但实际条目不存在的情况
+      // Create a problematic internal state, simulating a case where the tag mapping exists but the actual entry does not
       cache.set("key1", 100, { tags: ["tag1"] });
 
-      // 通过直接操作模拟孤立引用（这在正常使用中不会发生，但测试边界情况）
+      // Simulate orphaned references by direct manipulation (this won't happen in normal use, but tests edge cases)
       const key2Hash = JSON.stringify("key2");
 
-      // 获取内部标签映射并添加孤立引用
+      // Get internal tag mapping and add orphaned reference
        
       const tagsMap = (cache as any).tags;
       const tag1Set = tagsMap.get("tag1");
       if (tag1Set) {
-        tag1Set.add(key2Hash); // 添加一个不存在的条目引用
+        tag1Set.add(key2Hash); // add a reference to a non-existent entry
       }
 
-      // 失效时应该清理孤立引用
+      // Invalidation should clean up orphaned references
       const count = cache.invalidateByTag("tag1");
-      expect(count).toBe(1); // 只有key1被影响，key2的孤立引用被清理
+      expect(count).toBe(1); // only key1 is affected, key2's orphaned reference is cleaned up
     });
   });
 
-  describe("内存和性能", () => {
-    it("应该正确清理飞行中的Promise", async () => {
+  describe("Memory and performance", () => {
+    it("should correctly clean up in-flight Promises", async () => {
       const cache = new MemoryLRUCache<string, number>();
       let resolveProducer: (value: number) => void;
 
@@ -652,34 +652,34 @@ describe("MemoryLRUCache", () => {
 
       const promise = cache.getOrSetAsync("key1", producer);
 
-      // 解决Promise
+      // Resolve Promise
       resolveProducer!(100);
       await promise;
 
-      // 再次调用应该使用缓存值，而不是创建新的Promise
+      // Subsequent calls should use cached value instead of creating new Promises
       const result = await cache.getOrSetAsync("key1", producer);
       expect(result).toBe(100);
       expect(producer).toHaveBeenCalledOnce();
     });
 
-    it("大量操作后应该保持一致性", () => {
+    it("should remain consistent after a large number of operations", () => {
       const cache = new MemoryLRUCache<string, number>({
         maxEntries: 100,
       });
 
-      // 添加大量条目
+      // Add a large number of entries
       for (let i = 0; i < 1000; i++) {
         cache.set(`key${i}`, i);
       }
 
       expect(cache.size()).toBe(100);
 
-      // 验证最新的100个条目存在
+      // Verify the latest 100 entries exist
       for (let i = 900; i < 1000; i++) {
         expect(cache.has(`key${i}`)).toBe(true);
       }
 
-      // 验证最旧的条目不存在
+      // Verify the oldest entries do not exist
       for (let i = 0; i < 900; i++) {
         expect(cache.has(`key${i}`)).toBe(false);
       }

@@ -24,7 +24,7 @@ const reactRenderLogger = logger.withContext({
 import type { ObservableGauge } from "../metrics";
 
 /**
- * React 渲染缓存
+ * React render cache
  */
 interface ReactRenderCache {
   element: React.ReactElement;
@@ -34,7 +34,7 @@ interface ReactRenderCache {
 }
 
 /**
- * 异步渲染缓存
+ * Async render cache
  */
 interface AsyncRenderCache {
   promise: Promise<React.ReactElement>;
@@ -44,13 +44,13 @@ interface AsyncRenderCache {
 }
 
 /**
- * React 渲染器实现
- * 专门负责 React 组件的渲染逻辑
+ * React renderer implementation
+ * Dedicated to React component rendering logic
  *
- * 注：使用 WeakMap 作为缓存以便与 React 组件生命周期关联
+ * Note: Uses WeakMap for cache to associate with React component lifecycle
  */
 class ReactRender extends BaseRenderer implements IReactRenderer {
-  // React 特有：使用 WeakMap 以便自动垃圾回收
+  // React-specific: uses WeakMap for automatic garbage collection
   private entityRenderMap = new WeakMap<IEntity, ReactRenderCache>();
   private ogCacheGauge: ObservableGauge | undefined;
   private ogCacheCb:
@@ -98,7 +98,7 @@ class ReactRender extends BaseRenderer implements IReactRenderer {
     this.ogCacheGauge = g;
   }
   /**
-   * 渲染单个实体为 React 元素
+   * Render a single entity as a React element
    */
   render(entity: IEntity): React.ReactElement | null {
     reactRenderLogger.debug({
@@ -111,7 +111,7 @@ class ReactRender extends BaseRenderer implements IReactRenderer {
       details: entity,
     });
 
-    // 处理无效实体
+    // Handle invalid entity
     if (!entity?.id || !entity?.type) {
       reactRenderLogger.warn({
         event: ReactRenderEvent.InvalidEntity,
@@ -124,7 +124,7 @@ class ReactRender extends BaseRenderer implements IReactRenderer {
 
     const startTime = performance.now();
 
-    // 检查缓存
+    // Check cache
     const cached = this.entityRenderMap.get(entity);
     if (cached?.element) {
       this.recordCacheHit(entity.type || "unknown");
@@ -133,7 +133,7 @@ class ReactRender extends BaseRenderer implements IReactRenderer {
 
     this.recordCacheMiss(entity.type || "unknown");
 
-    // 创建新的 React 元素
+    // Create new React element
     const element = React.createElement(
       "div",
       {
@@ -144,7 +144,7 @@ class ReactRender extends BaseRenderer implements IReactRenderer {
       `Entity: ${entity.type}`
     );
 
-    // 缓存结果
+    // Cache result
     this.entityRenderMap.set(entity, {
       element,
       version: 1,
@@ -157,35 +157,35 @@ class ReactRender extends BaseRenderer implements IReactRenderer {
   }
 
   /**
-   * 获取渲染器类型
+   * Get renderer type
    */
   getType(): "react" {
     return "react";
   }
 
   /**
-   * 判断是否能处理当前渲染上下文
+   * Determine if it can handle the current render context
    */
   canHandle(context: IRenderContext): boolean {
     return !!(context?.nodes || context?.edges);
   }
 
   /**
-   * 获取渲染器优先级
+   * Get renderer priority
    */
   getPriority(): number {
-    return 100; // 高优先级
+    return 100; // High priority
   }
 
   /**
-   * 渲染上下文方法
+   * Render context method
    */
   renderContext(context: IRenderContext): void {
-    // React渲染通常在组件内部进行，这里主要做性能统计
+    // React rendering is usually done inside components; here we mainly do performance stats
     const startTime = performance.now();
 
     try {
-      // 实际的React渲染会在具体的组件中完成
+      // Actual React rendering will be done in specific components
       reactRenderLogger.debug({
         event: ReactRenderEvent.ContextHandled,
         message: "ReactRender processed render context",
@@ -204,7 +204,7 @@ class ReactRender extends BaseRenderer implements IReactRenderer {
     }
   }
 
-  // 批处理配置
+  // Batch configuration
   private batchConfig: IRenderConfig = {
     enableBatchRendering: true,
     batchSize: 100,
@@ -215,7 +215,7 @@ class ReactRender extends BaseRenderer implements IReactRenderer {
 
   private batchTimer: number | null = null;
 
-  // 异步渲染支持
+  // Async rendering support
   private readonly asyncRenderCache = new Map<string, AsyncRenderCache>();
 
   private readonly concurrentConfig = {
@@ -225,7 +225,7 @@ class ReactRender extends BaseRenderer implements IReactRenderer {
   };
 
   canRender(entity?: IEntity): boolean {
-    // React 渲染器可以渲染任何实体，只要实体存在
+    // React renderer can render any entity as long as it exists
     return !!entity;
   }
 
@@ -234,7 +234,7 @@ class ReactRender extends BaseRenderer implements IReactRenderer {
       return entities.map((entity) => this.render(entity) as React.ReactElement);
     }
 
-    // 如果启用了并发特性，使用 startTransition
+    // If concurrent features are enabled, use startTransition
     if (this.concurrentConfig.enableTransitions) {
       let results: React.ReactElement[] = [];
       const start = performance.now();
@@ -268,20 +268,20 @@ class ReactRender extends BaseRenderer implements IReactRenderer {
     };
   }
 
-  // 清理缓存
+  // Clear cache
   clearCache(): void {
     this.entityRenderMap = new WeakMap();
     this.asyncRenderCache.clear();
   }
 
-  // 资源清理
+  // Resource cleanup
   dispose(): void {
     this.clearCache();
     if (this.batchTimer) {
       clearTimeout(this.batchTimer);
       this.batchTimer = null;
     }
-    // 重置性能统计
+    // Reset performance statistics
     this.performanceStats.totalRenderTime = 0;
     this.performanceStats.renderCount = 0;
     this.performanceStats.cacheHitCount = 0;
@@ -296,7 +296,7 @@ class ReactRender extends BaseRenderer implements IReactRenderer {
   }
 
   /**
-   * React 19 并发渲染支持
+   * React 19 concurrent rendering support
    */
   renderEntityConcurrent(
     entity: IEntity,
@@ -313,14 +313,14 @@ class ReactRender extends BaseRenderer implements IReactRenderer {
   }
 
   /**
-   * 异步渲染支持
+   * Async rendering support
    */
   async renderEntityAsync(entity: IEntity): Promise<React.ReactElement | null> {
     return Promise.resolve(this.render(entity) as React.ReactElement);
   }
 
   /**
-   * 批量并发渲染
+   * Batch concurrent rendering
    */
   async batchRenderConcurrent(entities: IEntity[]): Promise<Map<string, React.ReactElement>> {
     const results = new Map<string, React.ReactElement>();

@@ -1,6 +1,6 @@
 /**
  * Scoped Meter tests
- * 测试作用域meter的功能
+ * Tests the functionality of the scoped meter
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
@@ -20,23 +20,23 @@ describe("ScopedMeter", () => {
   });
 
   describe("Construction", () => {
-    it("应该创建ScopedMeter实例", () => {
+    it("should create ScopedMeter instance", () => {
       expect(scopedMeter).toBeInstanceOf(ScopedMeter);
     });
 
-    it("应该支持无基础属性的构造", () => {
+    it("should support construction without base attributes", () => {
       const noAttrsMeter = new ScopedMeter(baseMeter);
       expect(noAttrsMeter).toBeInstanceOf(ScopedMeter);
     });
 
-    it("应该支持空属性的构造", () => {
+    it("should support construction with empty attributes", () => {
       const emptyAttrsMeter = new ScopedMeter(baseMeter, {});
       expect(emptyAttrsMeter).toBeInstanceOf(ScopedMeter);
     });
   });
 
   describe("Counter", () => {
-    it("应该创建counter并合并属性", () => {
+    it("should create counter and merge attributes", () => {
       const createCounterSpy = vi.spyOn(baseMeter, "counter");
       const counter = scopedMeter.counter("test_counter");
 
@@ -44,7 +44,7 @@ describe("ScopedMeter", () => {
       expect(counter).toBeDefined();
     });
 
-    it("应该传递counter选项", () => {
+    it("should pass counter options", () => {
       const createCounterSpy = vi.spyOn(baseMeter, "counter");
       const options = { description: "Test counter", unit: "count" };
 
@@ -53,7 +53,7 @@ describe("ScopedMeter", () => {
       expect(createCounterSpy).toHaveBeenCalledWith("test_counter", options);
     });
 
-    it("应该在counter操作中合并属性", () => {
+    it("should merge attributes in counter operation", () => {
       const mockCounter = {
         add: vi.fn(),
       };
@@ -69,7 +69,7 @@ describe("ScopedMeter", () => {
       });
     });
 
-    it("应该处理无额外属性的counter操作", () => {
+    it("should handle counter operation without extra attributes", () => {
       const mockCounter = {
         add: vi.fn(),
       };
@@ -84,7 +84,7 @@ describe("ScopedMeter", () => {
       });
     });
 
-    it("应该处理属性冲突（额外属性优先）", () => {
+    it("should handle attribute conflicts (extra attributes take priority)", () => {
       const mockCounter = {
         add: vi.fn(),
       };
@@ -94,7 +94,7 @@ describe("ScopedMeter", () => {
       counter.add(5, { service: "override", method: "POST" });
 
       expect(mockCounter.add).toHaveBeenCalledWith(5, {
-        service: "override", // 额外属性覆盖基础属性
+        service: "override", // extra attributes override base attributes
         version: "1.0",
         method: "POST",
       });
@@ -102,7 +102,7 @@ describe("ScopedMeter", () => {
   });
 
   describe("UpDownCounter", () => {
-    it("应该创建upDownCounter并合并属性", () => {
+    it("should create upDownCounter and merge attributes", () => {
       const createUpDownCounterSpy = vi.spyOn(baseMeter, "upDownCounter");
       const upDownCounter = scopedMeter.upDownCounter("test_updown");
 
@@ -113,7 +113,7 @@ describe("ScopedMeter", () => {
       expect(upDownCounter).toBeDefined();
     });
 
-    it("应该在upDownCounter操作中合并属性", () => {
+    it("should merge attributes in upDownCounter operation", () => {
       const mockUpDownCounter = {
         add: vi.fn(),
       };
@@ -131,7 +131,7 @@ describe("ScopedMeter", () => {
   });
 
   describe("Gauge", () => {
-    it("应该创建gauge并合并属性", () => {
+    it("should create gauge and merge attributes", () => {
       const createGaugeSpy = vi.spyOn(baseMeter, "gauge");
       const gauge = scopedMeter.gauge("test_gauge");
 
@@ -139,7 +139,7 @@ describe("ScopedMeter", () => {
       expect(gauge).toBeDefined();
     });
 
-    it("应该在gauge操作中合并属性", () => {
+    it("should merge attributes in gauge operation", () => {
       const mockGauge = {
         set: vi.fn(),
       };
@@ -157,7 +157,7 @@ describe("ScopedMeter", () => {
   });
 
   describe("Histogram", () => {
-    it("应该创建histogram并合并属性", () => {
+    it("should create histogram and merge attributes", () => {
       const createHistogramSpy = vi.spyOn(baseMeter, "histogram");
       const histogram = scopedMeter.histogram("test_histogram");
 
@@ -168,7 +168,7 @@ describe("ScopedMeter", () => {
       expect(histogram).toBeDefined();
     });
 
-    it("应该传递histogram选项", () => {
+    it("should pass histogram options", () => {
       const createHistogramSpy = vi.spyOn(baseMeter, "histogram");
       const options = {
         description: "Test histogram",
@@ -184,7 +184,7 @@ describe("ScopedMeter", () => {
       );
     });
 
-    it("应该在histogram操作中合并属性", () => {
+    it("should merge attributes in histogram operation", () => {
       const mockHistogram = {
         record: vi.fn(),
       };
@@ -202,7 +202,7 @@ describe("ScopedMeter", () => {
   });
 
   describe("ObservableGauge", () => {
-    it("应该创建observableGauge", () => {
+    it("should create observableGauge", () => {
       const createObservableGaugeSpy = vi.spyOn(baseMeter, "observableGauge");
       const observableGauge = scopedMeter.observableGauge("test_observable");
 
@@ -213,7 +213,7 @@ describe("ScopedMeter", () => {
       expect(observableGauge).toBeDefined();
     });
 
-    it("应该在observableGauge回调中合并属性", () => {
+    it("should merge attributes in observableGauge callback", () => {
       const mockObservableGauge = {
         addCallback: vi.fn(),
         removeCallback: vi.fn(),
@@ -229,18 +229,18 @@ describe("ScopedMeter", () => {
 
       expect(mockObservableGauge.addCallback).toHaveBeenCalled();
 
-      // 获取传递给底层observableGauge的wrapped callback
+      // Get the wrapped callback passed to the underlying observableGauge
       const wrappedCallback = mockObservableGauge.addCallback.mock.calls[0][0];
       const mockObserve = vi.fn();
 
-      // 执行wrapped callback
+      // Execute wrapped callback
       wrappedCallback(mockObserve);
 
-      // 验证原始callback被调用，并且observe函数被正确包装
+      // Verify original callback is called and observe function is correctly wrapped
       expect(callback).toHaveBeenCalled();
       const observeWrapper = callback.mock.calls[0][0];
 
-      // 测试observe wrapper
+      // Test observe wrapper
       observeWrapper({ value: 100, attributes: { cpu: "high" } });
 
       expect(mockObserve).toHaveBeenCalledWith({
@@ -253,7 +253,7 @@ describe("ScopedMeter", () => {
       });
     });
 
-    it("应该在observableGauge observe调用中处理无属性情况", () => {
+    it("should handle no-attribute case in observableGauge observe call", () => {
       const mockObservableGauge = {
         addCallback: vi.fn(),
         removeCallback: vi.fn(),
@@ -274,7 +274,7 @@ describe("ScopedMeter", () => {
 
       const observeWrapper = callback.mock.calls[0][0];
 
-      // 测试无属性的observe调用
+      // Test observe call without attributes
       observeWrapper({ value: 50 });
 
       expect(mockObserve).toHaveBeenCalledWith({
@@ -286,7 +286,7 @@ describe("ScopedMeter", () => {
       });
     });
 
-    it("应该支持removeCallback", () => {
+    it("should support removeCallback", () => {
       const mockObservableGauge = {
         addCallback: vi.fn(),
         removeCallback: vi.fn(),
@@ -306,7 +306,7 @@ describe("ScopedMeter", () => {
   });
 
   describe("Time Helper", () => {
-    it("应该支持time方法并合并属性", async () => {
+    it("should support time method and merge attributes", async () => {
       const mockTimeFn = vi.fn().mockResolvedValue("result");
       vi.spyOn(baseMeter, "time").mockImplementation(mockTimeFn);
 
@@ -326,7 +326,7 @@ describe("ScopedMeter", () => {
       );
     });
 
-    it("应该支持无属性的time方法", async () => {
+    it("should support time method without attributes", async () => {
       const mockTimeFn = vi.fn().mockResolvedValue("result");
       vi.spyOn(baseMeter, "time").mockImplementation(mockTimeFn);
 
@@ -344,7 +344,7 @@ describe("ScopedMeter", () => {
   });
 
   describe("Collect", () => {
-    it("应该委托collect调用给底层meter", () => {
+    it("should delegate collect calls to the underlying meter", () => {
       const mockCollect = vi.fn();
       baseMeter.collect = mockCollect;
 
@@ -353,7 +353,7 @@ describe("ScopedMeter", () => {
       expect(mockCollect).toHaveBeenCalled();
     });
 
-    it("应该处理底层meter没有collect方法的情况", () => {
+    it("should handle case where underlying meter has no collect method", () => {
       delete (baseMeter as unknown as { collect?: () => void }).collect;
 
       expect(() => scopedMeter.collect?.()).not.toThrow();
@@ -361,7 +361,7 @@ describe("ScopedMeter", () => {
   });
 
   describe("Attribute Merging", () => {
-    it("应该正确合并空基础属性", () => {
+    it("should correctly merge empty base attributes", () => {
       const noBaseMeter = new ScopedMeter(baseMeter, {});
       const mockCounter = {
         add: vi.fn(),
@@ -374,7 +374,7 @@ describe("ScopedMeter", () => {
       expect(mockCounter.add).toHaveBeenCalledWith(1, { key: "value" });
     });
 
-    it("应该正确合并undefined基础属性", () => {
+    it("should correctly merge undefined base attributes", () => {
       const noBaseMeter = new ScopedMeter(baseMeter);
       const mockCounter = {
         add: vi.fn(),
@@ -387,7 +387,7 @@ describe("ScopedMeter", () => {
       expect(mockCounter.add).toHaveBeenCalledWith(1, { key: "value" });
     });
 
-    it("应该处理复杂的属性合并", () => {
+    it("should handle complex attribute merging", () => {
       const complexBaseMeter = new ScopedMeter(baseMeter, {
         service: "test",
         environment: "prod",
@@ -402,13 +402,13 @@ describe("ScopedMeter", () => {
       const gauge = complexBaseMeter.gauge("complex_gauge");
       gauge.set(42, {
         instance: "i-123456",
-        environment: "staging", // 应该覆盖基础属性
+        environment: "staging", // should override base attribute
         metric_type: "cpu",
       });
 
       expect(mockGauge.set).toHaveBeenCalledWith(42, {
         service: "test",
-        environment: "staging", // 覆盖值
+        environment: "staging", // overridden value
         region: "us-east-1",
         instance: "i-123456",
         metric_type: "cpu",
@@ -417,7 +417,7 @@ describe("ScopedMeter", () => {
   });
 
   describe("Error Handling", () => {
-    it("应该处理底层meter方法调用中的错误", () => {
+    it("should handle errors in underlying meter method calls", () => {
       const errorMeter = {
         counter: vi.fn().mockImplementation(() => {
           throw new Error("Counter creation failed");
@@ -439,8 +439,8 @@ describe("ScopedMeter", () => {
       );
     });
 
-    it("应该处理属性合并中的错误", () => {
-      // 测试大量属性的情况
+    it("should handle errors in attribute merging", () => {
+      // Test case with a large number of attributes
       const manyAttributes: Attributes = {};
       for (let i = 0; i < 100; i++) {
         manyAttributes[`attr_${i}`] = `value_${i}`;
@@ -454,7 +454,7 @@ describe("ScopedMeter", () => {
 
       const counter = problematicMeter.counter("test");
 
-      // 应该能够正常调用，即使有大量属性
+      // Should be able to call normally even with a large number of attributes
       expect(() => counter.add(1, { normal: "value" })).not.toThrow();
       expect(mockCounter.add).toHaveBeenCalledWith(
         1,
@@ -468,15 +468,15 @@ describe("ScopedMeter", () => {
   });
 
   describe("Type Safety", () => {
-    it("应该保持类型安全", () => {
-      // 这是一个编译时测试，确保类型系统正确工作
+    it("should maintain type safety", () => {
+      // This is a compile-time test to ensure the type system works correctly
       const counter = scopedMeter.counter("typed_counter");
       const upDownCounter = scopedMeter.upDownCounter("typed_updown");
       const gauge = scopedMeter.gauge("typed_gauge");
       const histogram = scopedMeter.histogram("typed_histogram");
       const observableGauge = scopedMeter.observableGauge("typed_observable");
 
-      // 这些调用应该通过类型检查
+      // These calls should pass type checking
       counter.add(1, {
         string_attr: "value",
         number_attr: 42,

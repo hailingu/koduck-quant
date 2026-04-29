@@ -1,33 +1,33 @@
 /**
- * Flow 统一错误处理系统
+ * Flow unified error handling system
  *
- * 提供标准化的错误分类、错误码定义和错误处理机制
+ * Provides standardized error classification, error code definitions, and error handling mechanisms
  */
 import { logger } from "./logger";
 
 /**
- * 错误类别常量
+ * Error category constants
  */
 export const ErrorCategory = {
-  /** 实体相关错误 */
+  /** Entity-related errors */
   ENTITY: "ENTITY",
-  /** 注册表相关错误 */
+  /** Registry-related errors */
   REGISTRY: "REGISTRY",
-  /** 流程相关错误 */
+  /** Flow-related errors */
   FLOW: "FLOW",
-  /** 渲染相关错误 */
+  /** Rendering-related errors */
   RENDER: "RENDER",
-  /** 事件相关错误 */
+  /** Event-related errors */
   EVENT: "EVENT",
-  /** 验证相关错误 */
+  /** Validation-related errors */
   VALIDATION: "VALIDATION",
-  /** 序列化相关错误 */
+  /** Serialization-related errors */
   SERIALIZATION: "SERIALIZATION",
-  /** 网络相关错误 */
+  /** Network-related errors */
   NETWORK: "NETWORK",
-  /** 系统错误 */
+  /** System errors */
   SYSTEM: "SYSTEM",
-  /** 配置相关错误 */
+  /** Configuration-related errors */
   CONFIG: "CONFIG",
 } as const;
 
@@ -37,18 +37,18 @@ export const ErrorCategory = {
 export type ErrorCategory = (typeof ErrorCategory)[keyof typeof ErrorCategory];
 
 /**
- * 错误严重级别常量
+ * Error severity level constants
  */
 export const ErrorSeverity = {
-  /** 信息级别 */
+  /** Info level */
   INFO: "INFO",
-  /** 警告级别 */
+  /** Warning level */
   WARNING: "WARNING",
-  /** 错误级别 */
+  /** Error level */
   ERROR: "ERROR",
-  /** 严重错误级别 */
+  /** Critical error level */
   CRITICAL: "CRITICAL",
-  /** 致命错误级别 */
+  /** Fatal error level */
   FATAL: "FATAL",
 } as const;
 
@@ -58,22 +58,22 @@ export const ErrorSeverity = {
 export type ErrorSeverity = (typeof ErrorSeverity)[keyof typeof ErrorSeverity];
 
 /**
- * 错误码常量定义
- * 使用6位整数分段定义方式:
- * - 100000-101999: 实体相关错误 (ENTITY)
- * - 102000-103999: 注册表相关错误 (REGISTRY)
- * - 104000-105999: 流程相关错误 (FLOW)
- * - 106000-107999: 渲染相关错误 (RENDER)
- * - 108000-109999: 事件相关错误 (EVENT)
- * - 110000-111999: 验证相关错误 (VALIDATION)
- * - 112000-113999: 序列化相关错误 (SERIALIZATION)
- * - 114000-115999: 网络相关错误 (NETWORK)
- * - 116000-117999: 系统错误 (SYSTEM)
- * - 118000-119999: 配置相关错误 (CONFIG)
- * - 120000-199999: 预留给未来50类错误分类使用
+ * Error code constant definitions
+ * Uses 6-digit integer segmented definition:
+ * - 100000-101999: Entity-related errors (ENTITY)
+ * - 102000-103999: Registry-related errors (REGISTRY)
+ * - 104000-105999: Flow-related errors (FLOW)
+ * - 106000-107999: Rendering-related errors (RENDER)
+ * - 108000-109999: Event-related errors (EVENT)
+ * - 110000-111999: Validation-related errors (VALIDATION)
+ * - 112000-113999: Serialization-related errors (SERIALIZATION)
+ * - 114000-115999: Network-related errors (NETWORK)
+ * - 116000-117999: System errors (SYSTEM)
+ * - 118000-119999: Configuration-related errors (CONFIG)
+ * - 120000-199999: Reserved for 50 future error categories
  */
 export const ErrorCode = {
-  // 实体相关错误 (100000-101999)
+  // Entity-related errors (100000-101999)
   ENTITY_NOT_FOUND: 100001,
   ENTITY_ALREADY_EXISTS: 100002,
   ENTITY_INVALID_TYPE: 100003,
@@ -87,7 +87,7 @@ export const ErrorCode = {
   ENTITY_INVALID_ARGS: 100011,
   ENTITY_TYPE_MISMATCH: 100012,
 
-  // 注册表相关错误 (102000-103999)
+  // Registry-related errors (102000-103999)
   REGISTRY_TYPE_NOT_FOUND: 102001,
   REGISTRY_TYPE_ALREADY_EXISTS: 102002,
   REGISTRY_INVALID_METADATA: 102003,
@@ -97,82 +97,82 @@ export const ErrorCode = {
   REGISTRY_CONSTRUCTOR_INVALID: 102007,
   REGISTRY_DEFAULT_ARGS_INVALID: 102008,
 
-  // 流程相关错误 (104000-105999)
+  // Flow-related errors (104000-105999)
   FLOW_INVALID_CONFIGURATION: 104001,
   FLOW_EXECUTION_FAILED: 104002,
   FLOW_NODE_NOT_FOUND: 104003,
   FLOW_CONNECTION_INVALID: 104004,
   FLOW_CYCLE_DETECTED: 104005,
 
-  // 渲染相关错误 (106000-107999)
+  // Rendering-related errors (106000-107999)
   RENDER_COMPONENT_NOT_FOUND: 106001,
   RENDER_INVALID_PROPS: 106002,
   RENDER_MOUNT_FAILED: 106003,
 
-  // 事件相关错误 (108000-109999)
+  // Event-related errors (108000-109999)
   EVENT_LISTENER_NOT_FOUND: 108001,
   EVENT_DISPATCH_FAILED: 108002,
   EVENT_INVALID_TYPE: 108003,
   EVENT_LISTENER_ERROR: 108004,
 
-  // 验证相关错误 (110000-111999)
+  // Validation-related errors (110000-111999)
   VALIDATION_REQUIRED_FIELD: 110001,
   VALIDATION_INVALID_TYPE: 110002,
   VALIDATION_OUT_OF_RANGE: 110003,
   VALIDATION_INVALID_FORMAT: 110004,
 
-  // 序列化相关错误 (112000-113999)
+  // Serialization-related errors (112000-113999)
   SERIALIZATION_FAILED: 112001,
   DESERIALIZATION_FAILED: 112002,
   SERIALIZATION_INVALID_DATA: 112003,
   SERIALIZATION_UNSUPPORTED_TYPE: 112004,
 
-  // 网络相关错误 (114000-115999)
+  // Network-related errors (114000-115999)
   NETWORK_CONNECTION_FAILED: 114001,
   NETWORK_TIMEOUT: 114002,
   NETWORK_INVALID_RESPONSE: 114003,
 
-  // 系统错误 (116000-117999)
+  // System errors (116000-117999)
   SYSTEM_MEMORY_EXHAUSTED: 116001,
   SYSTEM_PERMISSION_DENIED: 116002,
   SYSTEM_RESOURCE_LOCKED: 116003,
   SYSTEM_UNEXPECTED_ERROR: 116004,
 
-  // 配置相关错误 (118000-119999)
+  // Configuration-related errors (118000-119999)
   CONFIG_INVALID_VALUE: 118001,
   CONFIG_MISSING_REQUIRED: 118002,
   CONFIG_PARSE_ERROR: 118003,
 } as const;
 
 /**
- * 所有已定义错误码的联合类型
+ * Union type of all defined error codes
  */
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 
 /**
- * 错误详情接口
+ * Error details interface
  */
 export interface ErrorDetails {
-  /** 错误码 */
+  /** Error code */
   code: ErrorCode;
-  /** 错误类别 */
+  /** Error category */
   category: ErrorCategory;
-  /** 错误严重级别 */
+  /** Error severity level */
   severity: ErrorSeverity;
-  /** 错误消息 */
+  /** Error message */
   message: string;
-  /** 上下文信息 */
+  /** Context information */
   context?: Record<string, unknown> | undefined;
-  /** 原始错误 */
+  /** Original error */
   cause?: Error | undefined;
-  /** 时间戳 */
+  /** Timestamp */
   timestamp: number;
-  /** 堆栈跟踪 */
+  /** Stack trace */
   stack?: string | undefined;
 }
 
 /**
- * Flow 标准错误类
+ * Flow standard error class
  */
 export class FlowError extends Error {
   public readonly code: ErrorCode;
@@ -182,8 +182,8 @@ export class FlowError extends Error {
   public readonly timestamp: number;
 
   /**
-   * 创建一个新的 FlowError 实例
-   * @param details 错误详情对象（不含自动生成的 timestamp 和 stack 字段）
+   * Creates a new FlowError instance
+   * @param details Error details object (excluding auto-generated timestamp and stack fields)
    */
   constructor(details: Omit<ErrorDetails, "timestamp" | "stack">) {
     super(details.message);
@@ -200,8 +200,8 @@ export class FlowError extends Error {
   }
 
   /**
-   * 获取完整的错误详情
-   * @returns 包含所有错误字段的 {@link ErrorDetails} 对象
+   * Gets complete error details
+   * @returns {@link ErrorDetails} object containing all error fields
    */
   getDetails(): ErrorDetails {
     return {
@@ -217,8 +217,8 @@ export class FlowError extends Error {
   }
 
   /**
-   * 转换为JSON格式
-   * @returns 包含错误所有可序列化字段的普通对象
+   * Converts to JSON format
+   * @returns Plain object containing all serializable error fields
    */
   toJSON(): Record<string, unknown> {
     return {
@@ -234,8 +234,8 @@ export class FlowError extends Error {
   }
 
   /**
-   * 格式化错误信息用于日志
-   * @returns 格式化后的错误字符串，包含类别、错误码、严重级别、消息及可选上下文
+   * Formats error information for logging
+   * @returns Formatted error string containing category, error code, severity, message, and optional context
    */
   format(): string {
     const contextStr = this.context ? ` | Context: ${JSON.stringify(this.context)}` : "";
@@ -244,22 +244,22 @@ export class FlowError extends Error {
 }
 
 /**
- * 错误处理器接口
+ * Error handler interface
  */
 export type ErrorHandler = (error: FlowError) => void;
 
 /**
- * 错误管理器
+ * Error manager
  */
 export class ErrorManager {
   private static readonly handlers: Map<ErrorCategory, ErrorHandler[]> = new Map();
   private static readonly globalHandlers: ErrorHandler[] = [];
 
   /**
-   * 注册错误处理器
-   * @param category 要监听的错误类别
-   * @param handler 错误处理回调函数
-   * @returns 取消注册的函数，调用后移除该处理器
+   * Registers an error handler
+   * @param category Error category to listen for
+   * @param handler Error handling callback function
+   * @returns Unregister function; calling it removes the handler
    */
   static registerHandler(category: ErrorCategory, handler: ErrorHandler): () => void {
     if (!this.handlers.has(category)) {
@@ -267,7 +267,7 @@ export class ErrorManager {
     }
     this.handlers.get(category)!.push(handler);
 
-    // 返回取消注册函数
+    // Return unregister function
     return () => {
       const handlers = this.handlers.get(category);
       if (handlers) {
@@ -280,14 +280,14 @@ export class ErrorManager {
   }
 
   /**
-   * 注册全局错误处理器
-   * @param handler 错误处理回调函数，对所有类别的错误均生效
-   * @returns 取消注册的函数，调用后移除该处理器
+   * Registers a global error handler
+   * @param handler Error handling callback function effective for all error categories
+   * @returns Unregister function; calling it removes the handler
    */
   static registerGlobalHandler(handler: ErrorHandler): () => void {
     this.globalHandlers.push(handler);
 
-    // 返回取消注册函数
+    // Return unregister function
     return () => {
       const index = this.globalHandlers.indexOf(handler);
       if (index > -1) {
@@ -297,11 +297,11 @@ export class ErrorManager {
   }
 
   /**
-   * 处理错误
-   * @param error 要处理的 FlowError 实例
+   * Handles an error
+   * @param error FlowError instance to handle
    */
   static handleError(error: FlowError): void {
-    // 执行分类处理器
+    // Execute category handlers
     const categoryHandlers = this.handlers.get(error.category) || [];
     categoryHandlers.forEach((handler) => {
       try {
@@ -311,7 +311,7 @@ export class ErrorManager {
       }
     });
 
-    // 执行全局处理器
+    // Execute global handlers
     this.globalHandlers.forEach((handler) => {
       try {
         handler(error);
@@ -320,18 +320,18 @@ export class ErrorManager {
       }
     });
 
-    // 默认控制台输出
+    // Default console output
     this.defaultConsoleHandler(error);
   }
 
   /**
-   * 默认控制台处理器
-   * @param error 要输出到控制台的 FlowError 实例
+   * Default console handler
+   * @param error FlowError instance to output to console
    */
   private static defaultConsoleHandler(error: FlowError): void {
     const formattedMessage = error.format();
 
-    // 高级错误处理（CRITICAL 和 FATAL 共用）
+    // Advanced error handling (shared by CRITICAL and FATAL)
     const handleSevereError = () => {
       logger.error(formattedMessage);
       if (error.cause) {
@@ -342,7 +342,7 @@ export class ErrorManager {
       }
     };
 
-    // 严重级别到处理函数的映射表
+    // Severity to handler function mapping table
     const severityHandlers = {
       [ErrorSeverity.INFO]: () => {},
       [ErrorSeverity.WARNING]: () => {},
@@ -356,13 +356,13 @@ export class ErrorManager {
       [ErrorSeverity.FATAL]: handleSevereError,
     };
 
-    // 执行对应的处理函数，如果没有找到则默认使用 error 级别处理
+    // Execute corresponding handler; if not found, default to error level handling
     const handler = severityHandlers[error.severity] || severityHandlers[ErrorSeverity.ERROR];
     handler();
   }
 
   /**
-   * 清理所有处理器
+   * Clears all handlers
    */
   static clearAll(): void {
     this.handlers.clear();
@@ -371,15 +371,15 @@ export class ErrorManager {
 }
 
 /**
- * 创建错误的便捷函数
- * @param code 错误码
- * @param message 错误消息
- * @param options 可选配置
- * @param options.category 错误类别（默认根据错误码自动推断）
- * @param options.severity 错误严重级别（默认为 ERROR）
- * @param options.context 附加上下文信息
- * @param options.cause 原始错误
- * @returns 构造好的 {@link FlowError} 实例
+ * Convenience function for creating errors
+ * @param code Error code
+ * @param message Error message
+ * @param options Optional configuration
+ * @param options.category Error category (auto-inferred from error code by default)
+ * @param options.severity Error severity level (defaults to ERROR)
+ * @param options.context Additional context information
+ * @param options.cause Original error
+ * @returns Constructed {@link FlowError} instance
  */
 export function createError(
   code: ErrorCode,
@@ -391,7 +391,7 @@ export function createError(
     cause?: Error;
   } = {}
 ): FlowError {
-  // 根据错误码自动推断类别
+  // Auto-infer category from error code
   const autoCategory = inferCategoryFromCode(code);
 
   return new FlowError({
@@ -405,18 +405,18 @@ export function createError(
 }
 
 /**
- * 根据错误码推断错误类别
- * 使用6位整数取模分段方式判断类别，支持50类错误分类
- * @param code 要推断类别的错误码
- * @returns 对应的 {@link ErrorCategory}，未知范围的码值返回 SYSTEM
+ * Infers error category from error code
+ * Uses 6-digit integer modulo segmentation to determine category, supports 50 error categories
+ * @param code Error code to infer category for
+ * @returns Corresponding {@link ErrorCategory}, returns SYSTEM for out-of-range codes
  */
 function inferCategoryFromCode(code: ErrorCode): ErrorCategory {
-  // 10万以下的整数作为保留
+  // Integers below 100000 are reserved
   if (code < 100000) {
     return ErrorCategory.SYSTEM;
   }
 
-  // 分段到类别的映射数组（更高效的访问）
+  // Segment to category mapping array (more efficient access)
   const segmentCategories: ErrorCategory[] = [
     ErrorCategory.ENTITY, // 0: 100000-101999
     ErrorCategory.REGISTRY, // 1: 102000-103999
@@ -430,22 +430,22 @@ function inferCategoryFromCode(code: ErrorCode): ErrorCategory {
     ErrorCategory.CONFIG, // 9: 118000-119999
   ];
 
-  // 计算所在的2千段 (从10万开始，每2千个为一段，支持50类)
+  // Calculate the 2k segment (starting from 100000, every 2k is a segment, supports 50 categories)
   const segment = Math.floor((code - 100000) / 2000);
 
-  // 返回对应类别，如果超出范围则默认为 SYSTEM
+  // Return corresponding category; default to SYSTEM if out of range
   return segmentCategories[segment] ?? ErrorCategory.SYSTEM;
 }
 /**
- * 抛出错误的便捷函数
- * @param code 错误码
- * @param message 错误消息
- * @param options 可选配置
- * @param options.category 错误类别（默认根据错误码自动推断）
- * @param options.severity 错误严重级别（默认为 ERROR）
- * @param options.context 附加上下文信息
- * @param options.cause 原始错误
- * @returns never — 始终抛出异常
+ * Convenience function for throwing errors
+ * @param code Error code
+ * @param message Error message
+ * @param options Optional configuration
+ * @param options.category Error category (auto-inferred from error code by default)
+ * @param options.severity Error severity level (defaults to ERROR)
+ * @param options.context Additional context information
+ * @param options.cause Original error
+ * @returns never — always throws
  */
 export function throwError(
   code: ErrorCode,
@@ -463,15 +463,15 @@ export function throwError(
 }
 
 /**
- * 记录错误但不抛出
- * @param code 错误码
- * @param message 错误消息
- * @param options 可选配置
- * @param options.category 错误类别（默认根据错误码自动推断）
- * @param options.severity 错误严重级别（默认为 ERROR）
- * @param options.context 附加上下文信息
- * @param options.cause 原始错误
- * @returns 已记录的 {@link FlowError} 实例
+ * Logs an error without throwing
+ * @param code Error code
+ * @param message Error message
+ * @param options Optional configuration
+ * @param options.category Error category (auto-inferred from error code by default)
+ * @param options.severity Error severity level (defaults to ERROR)
+ * @param options.context Additional context information
+ * @param options.cause Original error
+ * @returns Logged {@link FlowError} instance
  */
 export const logError = (
   code: ErrorCode,

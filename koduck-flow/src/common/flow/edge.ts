@@ -2,8 +2,8 @@ import type { IEdge, IEndpoint } from "./types";
 import { meter, ScopedMeter } from "../metrics";
 
 /**
- * Edge 的默认实现
- * 基于 IEdge 接口，实现支持多个源和目标端点的边管理。
+ * Default implementation of Edge
+ * Based on the IEdge interface, implements edge management supporting multiple source and target endpoints.
  */
 type EdgeData = {
   weight?: number;
@@ -34,15 +34,15 @@ export class Edge implements IEdge {
     this._targets = targets;
     this._edgeConfig = config;
 
-    // 验证边的有效性
+    // Validate edge validity
     this._validateEdge();
 
-    // 调用创建回调
+    // Call creation callback
     config?.onCreate?.(this);
     this.m.counter("edge.created").add(1);
   }
 
-  // 端点和节点
+  // Endpoints and nodes
   get sources(): IEndpoint[] {
     return [...this._sources];
   }
@@ -67,7 +67,7 @@ export class Edge implements IEdge {
     return this._targets.map((t) => t.port);
   }
 
-  // 状态
+  // State
   get isValid(): boolean {
     return this._isValid;
   }
@@ -92,7 +92,7 @@ export class Edge implements IEdge {
     this._edgeConfig = config;
   }
 
-  // 状态管理
+  // State management
   setState(state: "active" | "inactive" | "disabled"): void {
     this._state = state;
     this.m.counter("edge.state_changed").add(1, { state });
@@ -114,7 +114,7 @@ export class Edge implements IEdge {
     return this._state === "active";
   }
 
-  // 连接检查
+  // Connection checks
   connectsNode(nodeId: string): boolean {
     return this.sourceIds.includes(nodeId) || this.targetIds.includes(nodeId);
   }
@@ -136,14 +136,14 @@ export class Edge implements IEdge {
     if (this.targetIds.includes(nodeId)) {
       others.push(...this.sourceIds);
     }
-    return [...new Set(others)]; // 去重
+    return [...new Set(others)]; // Deduplicate
   }
 
   isSelfLoop(): boolean {
     return this.sourceIds.some((s) => this.targetIds.includes(s));
   }
 
-  // 更新和操作
+  // Updates and operations
   updateSources(sources: IEndpoint[]): void {
     const start = performance.now();
     this._sources = sources;
@@ -187,7 +187,7 @@ export class Edge implements IEdge {
     return cloned;
   }
 
-  // 数据操作
+  // Data operations
   getWeight(): number {
     return this._edgeData?.weight ?? 1;
   }
@@ -224,13 +224,13 @@ export class Edge implements IEdge {
     this._edgeData.enabled = enabled;
   }
 
-  // 生命周期
+  // Lifecycle
   dispose(): void {
     this._edgeConfig?.onDestroy?.(this);
     this.m.counter("edge.disposed").add(1);
   }
 
-  // 序列化
+  // Serialization
   toString(): string {
     const sourceIds = this.sourceIds.join(",");
     const targetIds = this.targetIds.join(",");
@@ -256,18 +256,18 @@ export class Edge implements IEdge {
     };
   }
 
-  // 私有方法
+  // Private methods
   private _validateEdge(): void {
     const config = this._edgeConfig;
 
-    // 检查是否允许自环
+    // Check if self-loop is allowed
     if (this.isSelfLoop() && config?.allowSelfLoop === false) {
       this._isValid = false;
       this.m.counter("edge.invalid").add(1, { reason: "self_loop" });
       return;
     }
 
-    // 检查端口连接是否合理（输出连输入）
+    // Check if port connections are reasonable (output to input)
     const hasInvalidPort =
       this._sources.some((s) => s.port === "input") ||
       this._targets.some((t) => t.port === "output");
@@ -277,7 +277,7 @@ export class Edge implements IEdge {
       return;
     }
 
-    // 运行自定义验证器（简化，假设验证所有源和目标）
+    // Run custom validator (simplified, assumes validating all sources and targets)
     if (config?.validator) {
       const valid = this._sources.every((s) => this._targets.every((t) => config.validator!(s, t)));
       this._isValid = valid;

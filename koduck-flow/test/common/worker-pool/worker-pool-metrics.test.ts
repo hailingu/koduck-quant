@@ -36,7 +36,7 @@ describe("WorkerPoolMetricsAdapter", () => {
     setMetricsProvider(new NoopMetricsProvider());
   });
 
-  it("记录任务完成与队列指标", async () => {
+  it("records task completion and queue metrics", async () => {
     const pool = new WorkerPoolRuntime({ workerCount: 2, retryDelay: 0 });
     const adapter = new WorkerPoolMetricsAdapter(pool, { poolId: "metrics-test" });
 
@@ -70,7 +70,7 @@ describe("WorkerPoolMetricsAdapter", () => {
     pool.dispose();
   });
 
-  it("在 worker 崩溃后上报恢复与崩溃计数", async () => {
+  it("reports recovery and crash counts after worker crash", async () => {
     const pool = new WorkerPoolRuntime({ workerCount: 1, retryDelay: 0, workerRecoveryDelay: 1 });
     const adapter = new WorkerPoolMetricsAdapter(pool, { poolId: "recovery-test" });
 
@@ -86,7 +86,7 @@ describe("WorkerPoolMetricsAdapter", () => {
     const result = await pool.execute({ type: "flaky", payload: null });
     expect(result).toBe("ok");
 
-    // 等待恢复定时器执行
+    // Wait for recovery timer to execute
     await new Promise((resolve) => setTimeout(resolve, 5));
 
     provider.collect();
@@ -108,7 +108,7 @@ describe("WorkerPoolMetricsAdapter", () => {
     pool.dispose();
   });
 
-  it("在回退执行时记录 fallback 计数", async () => {
+  it("records fallback count during fallback execution", async () => {
     const pool = new WorkerPoolRuntime({
       workerCount: 1,
       retryDelay: 0,

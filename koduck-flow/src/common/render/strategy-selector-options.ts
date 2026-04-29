@@ -1,11 +1,11 @@
 /**
- * RenderStrategySelector 可配置选项。
+ * RenderStrategySelector configurable options.
  */
 export interface RenderStrategySelectorOptions {
-  /** 允许覆盖同名策略 */
+  /** Allow overriding strategies with the same name */
   allowOverride?: boolean;
-  /** 自定义日志标签 */
+  /** Custom log tag */
   loggerTag?: string;
-  /** 注册完成后的默认策略顺序是否按 priority 降序排序（默认 true） */
+  /** Whether the default strategy order after registration is sorted by priority in descending order (default true) */
   autoSort?: boolean;
 }

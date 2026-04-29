@@ -1,34 +1,34 @@
 /**
- * 配置管理接口
+ * Configuration management interface
  *
- * 提供统一的配置管理能力，包括增删改查、验证、导入导出等功能。
- * 可被多个接口和类实现，用于管理各自的配置。
+ * Provides unified configuration management capabilities, including CRUD, validation, import/export, etc.
+ * Can be implemented by multiple interfaces and classes to manage their respective configurations.
  */
 export interface IConfig {
-  /** 获取默认配置 */
+  /** Get default configuration */
   getDefaultConfig(): Record<string, unknown>;
 
-  /** 获取指定类型的配置 */
+  /** Get configuration of specified type */
   getConfig(nodeType: string): Record<string, unknown> | undefined;
 
-  /** 注册新配置 */
+  /** Register new configuration */
   registerConfig(nodeType: string, config: Record<string, unknown>): void;
 
-  /** 注销配置 */
+  /** Unregister configuration */
   unregisterConfig(nodeType: string): void;
 
-  /** 获取所有可用配置 */
+  /** Get all available configurations */
   getAvailableConfigs(): Record<string, Record<string, unknown>>;
 
-  /** 验证配置 */
+  /** Validate configuration */
   validateConfig(config: Record<string, unknown>): boolean;
 
-  /** 获取配置模式 */
+  /** Get configuration schema */
   getConfigSchema(): Record<string, unknown>;
 
-  /** 导出配置 */
+  /** Export configuration */
   exportConfig(nodeType: string): string;
 
-  /** 导入配置 */
+  /** Import configuration */
   importConfig(configJson: string): void;
 }

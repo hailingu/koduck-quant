@@ -22,7 +22,7 @@ function getImportMetaEnv(): EnvRecord {
   try {
     return (import.meta as unknown as { env?: EnvRecord })?.env ?? undefined;
   } catch (error) {
-    logger.debug("无法访问 import.meta.env，已忽略", { error });
+    logger.debug("Unable to access import.meta.env, ignored", { error });
     return undefined;
   }
 }
@@ -83,7 +83,7 @@ export function getRuntimeForKey(
   key: RuntimeEnvironmentKey,
   options?: RuntimeCreationOptions
 ): KoduckFlowRuntime {
-  logger.debug("🔍 获取 KoduckFlowRuntime", {
+  logger.debug("🔍 Getting KoduckFlowRuntime", {
     key,
   });
   return runtimeFactory.getOrCreateRuntime(key, mergeMetadata(key, options));
@@ -121,12 +121,12 @@ export function disposeRuntimeForKey(key: RuntimeEnvironmentKey): void {
   runtimeFactory.disposeRuntime(key);
 }
 
-logger.info("🏛️ 创建默认环境的 KoduckFlowRuntime 实例", {
+logger.info("🏛️ Creating KoduckFlowRuntime instance for default environment", {
   environment: DEFAULT_ENVIRONMENT,
 });
 
 /**
- * 全局默认环境 runtime（兼容旧逻辑）
+ * Global default environment runtime (backward-compatible)
  */
 export const globalKoduckFlowRuntime: KoduckFlowRuntime = getRuntimeForEnvironment(
   DEFAULT_ENVIRONMENT,
@@ -137,14 +137,14 @@ export const globalKoduckFlowRuntime: KoduckFlowRuntime = getRuntimeForEnvironme
   }
 );
 
-logger.info("🏛️ 默认环境 KoduckFlowRuntime 实例创建完成", {
+logger.info("🏛️ KoduckFlowRuntime instance for default environment created", {
   environment: DEFAULT_ENVIRONMENT,
   normalizedKey: normalizeRuntimeKey({ environment: DEFAULT_ENVIRONMENT }),
   registryManager: globalKoduckFlowRuntime.RegistryManager?.constructor?.name,
 });
 
 /**
- * 全局运行时管理 - 替代原 deity 全局单例
+ * Global runtime management - replaces the original deity global singleton
  */
 let currentGlobalRuntime: KoduckFlowRuntime | null = globalKoduckFlowRuntime;
 
@@ -185,7 +185,7 @@ export function getGlobalRuntime(): KoduckFlowRuntime {
         source: "global-runtime",
       },
     });
-    logger.info("🏛️ 全局运行时已初始化", {
+    logger.info("🏛️ Global runtime initialized", {
       environment: DEFAULT_ENVIRONMENT,
       registryManager: currentGlobalRuntime.RegistryManager?.constructor?.name,
     });
@@ -223,7 +223,7 @@ export function setGlobalRuntime(
     try {
       previous.dispose();
     } catch (error) {
-      logger.warn("释放旧的全局运行时失败", { error });
+      logger.warn("Failed to dispose old global runtime", { error });
     }
   }
 
@@ -282,7 +282,7 @@ export function disposeGlobalRuntime(options?: DisposeGlobalRuntimeOptions): voi
   try {
     runtime.dispose();
   } catch (error) {
-    logger.warn("释放全局运行时失败", { error });
+    logger.warn("Failed to dispose global runtime", { error });
   }
 
   if (options?.releaseFromFactory) {

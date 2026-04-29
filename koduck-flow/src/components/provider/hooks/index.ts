@@ -76,7 +76,7 @@ export function useKoduckFlow(
     }),
   });
 
-  // 组合方法：添加流程节点并渲染
+  // Composite method: add flow node and render
   const addFlowNodeAndRender = async (config: {
     name: string;
     type: string;
@@ -89,20 +89,20 @@ export function useKoduckFlow(
   };
 
   return {
-    // 单独的 hooks
+    // Individual hooks
     entity,
     flow,
 
-    // 组合方法
+    // Composite methods
     addFlowNodeAndRender,
 
-    // 统一清理
+    // Unified cleanup
     cleanup: () => {
       entity.cleanup();
       flow.clear();
     },
 
-    // 统一状态
+    // Unified state
     loading: entity.loading || flow.loading,
     error: entity.error || flow.error,
   };

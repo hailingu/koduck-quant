@@ -16,7 +16,7 @@ export const CanvasElement = forwardRef<HTMLCanvasElement, CanvasElementProps>(
   ({ style, className, onMouseDown, onMouseMove, onMouseUp, onMouseLeave, onClick }, ref) => {
     const internalRef = useRef<HTMLCanvasElement | null>(null);
 
-    // 合并 ref
+    // Merge ref
     const setRefs = useCallback(
       (canvas: HTMLCanvasElement | null) => {
         internalRef.current = canvas;
@@ -29,7 +29,7 @@ export const CanvasElement = forwardRef<HTMLCanvasElement, CanvasElementProps>(
       [ref]
     );
 
-    // 初始化 canvas 尺寸
+    // Initialize canvas size
     useEffect(() => {
       const canvas = internalRef.current;
       if (!canvas) return;
@@ -38,12 +38,12 @@ export const CanvasElement = forwardRef<HTMLCanvasElement, CanvasElementProps>(
         const rect = canvas.getBoundingClientRect();
         const dpr = window.devicePixelRatio || 1;
 
-        // 只有当尺寸有效时才更新
+        // Only update when dimensions are valid
         if (rect.width > 0 && rect.height > 0) {
           const newWidth = Math.floor(rect.width * dpr);
           const newHeight = Math.floor(rect.height * dpr);
 
-          // 避免不必要的重绘
+          // Avoid unnecessary redraw
           if (canvas.width !== newWidth || canvas.height !== newHeight) {
             canvas.width = newWidth;
             canvas.height = newHeight;
@@ -51,10 +51,10 @@ export const CanvasElement = forwardRef<HTMLCanvasElement, CanvasElementProps>(
         }
       };
 
-      // 初始化尺寸
+      // Initialize size
       updateCanvasSize();
 
-      // 监听窗口大小变化
+      // Listen for window size changes
       const resizeObserver = new ResizeObserver(() => {
         updateCanvasSize();
       });

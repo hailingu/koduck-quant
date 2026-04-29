@@ -25,10 +25,10 @@ export const RenderSelectorEvent = {
 } as const;
 
 /**
- * 渲染器选择器
+ * Renderer selector
  *
- * 负责智能选择最优渲染器，支持多种渲染策略
- * 职责：根据实体特征、性能指标和设备能力选择最佳渲染器
+ * Responsible for intelligently selecting the optimal renderer, supporting multiple rendering strategies.
+ * Responsibility: select the best renderer based on entity characteristics, performance metrics, and device capabilities.
  */
 export class RenderSelector implements IRenderStrategy {
   private canvasRenderer: ICanvasRenderer | undefined;
@@ -36,12 +36,12 @@ export class RenderSelector implements IRenderStrategy {
   private webgpuRenderer: WebGPURender | undefined;
   readonly deviceCapabilities = deviceCapabilities;
 
-  // ✅ 缓存相关字段 (纯内部，不对外)
-  private renderManager?: { getVersion?: () => number }; // RenderManager引用
-  private managerVersion = 0; // 版本号
-  private readonly selectionCache = new Map<string, RenderSelection>(); // 选择缓存
+  // ✅ Cache-related fields (internal only, not exposed externally)
+  private renderManager?: { getVersion?: () => number }; // RenderManager reference
+  private managerVersion = 0; // Version number
+  private readonly selectionCache = new Map<string, RenderSelection>(); // Selection cache
 
-  // 性能监控
+  // Performance monitoring
   private readonly performanceMetrics: PerformanceMetrics = {
     fps: PERFORMANCE_THRESHOLDS.TARGET_FPS,
     memory: 0.5,
@@ -62,7 +62,7 @@ export class RenderSelector implements IRenderStrategy {
       },
     });
 
-    // 触发设备能力检测（异步，不阻塞构造函数）
+    // Trigger device capability detection (asynchronous, non-blocking in constructor)
     this.initializeDeviceCapabilities();
   }
 
@@ -71,22 +71,22 @@ export class RenderSelector implements IRenderStrategy {
   }
 
   /**
-   * 智能选择最优渲染器
+   * Intelligently select the optimal renderer
    */
   selectOptimalRenderer(entity: IEntity, context: IRenderContext): RenderSelection {
     const effectiveContext = context ?? this.createDefaultContext(entity);
-    // 检查实体是否有效
+    // Check if entity is valid
     if (!entity) {
       throw new Error("Entity cannot be null or undefined");
     }
 
-    // 获取设备能力（同步，如果未初始化会使用默认值）
+    // Get device capabilities (synchronous, uses defaults if not initialized)
     const caps = this.refreshCapabilities();
 
-    // ✅ 1. 内部版本检查
+    // ✅ 1. Internal version check
     this._checkVersionAndSync();
 
-    // ✅ 2. 内部缓存检查
+    // ✅ 2. Internal cache check
     const cacheKey = this._getCacheKey(entity);
     const cached = this.selectionCache.get(cacheKey);
     if (cached && this._isValidCached(cached)) {
@@ -103,16 +103,16 @@ export class RenderSelector implements IRenderStrategy {
       return cached;
     }
 
-    // ✅ 3. 基于多重条件选择渲染器
+    // ✅ 3. Select renderer based on multiple conditions
     let selection: RenderSelection;
 
     if (entity.type?.endsWith("canvas")) {
-      // Canvas 实体：优先考虑 WebGPU，其次 Canvas 2D
+      // Canvas entities: prefer WebGPU, fallback to Canvas 2D
       const shouldUseWebGPU =
-        caps.hasWebGPU && // WebGPU 支持
-        this.webgpuRenderer && // WebGPU 渲染器存在
-        entity.type?.endsWith("canvas") && // Canvas 实体
-        this.analyzeComplexity(entity) > 0.7; // 高复杂度实体
+        caps.hasWebGPU && // WebGPU support
+        this.webgpuRenderer && // WebGPU renderer exists
+        entity.type?.endsWith("canvas") && // Canvas entity
+        this.analyzeComplexity(entity) > 0.7; // High-complexity entity
 
       if (shouldUseWebGPU) {
         selection = {
@@ -130,7 +130,7 @@ export class RenderSelector implements IRenderStrategy {
         };
       }
     } else {
-      // 非 Canvas 实体：使用 React 渲染
+      // Non-Canvas entities: use React rendering
       selection = {
         renderer: this.reactRenderer!,
         mode: "react",
@@ -139,27 +139,27 @@ export class RenderSelector implements IRenderStrategy {
       };
     }
 
-    // ✅ 4. 缓存结果
+    // ✅ 4. Cache result
     this._cacheResult(cacheKey, selection);
 
     return selection;
   }
 
   /**
-   * 批量选择：按渲染器分组（使用共享工具）
+   * Batch selection: group by renderer (using shared utilities)
    */
   selectForBatch(entities: IEntity[]): Map<IRender, IEntity[]> {
-    // ✅ 内部版本检查
+    // ✅ Internal version check
     this._checkVersionAndSync();
 
-    // 使用 SelectionCore 的批量分组工具
+    // Use SelectionCore batch grouping utility
     return SelectionCore.groupEntitiesByRenderer(entities, (entity) =>
       this.selectOptimalRenderer(entity, this.createDefaultContext(entity))
     );
   }
 
   /**
-   * 分析实体复杂度（使用共享工具）
+   * Analyze entity complexity (using shared utilities)
    */
   private analyzeComplexity(entity: IEntity): number {
     return SelectionCore.analyzeComplexity(entity);
@@ -208,14 +208,14 @@ export class RenderSelector implements IRenderStrategy {
   }
 
   /**
-   * 更新渲染器引用
+   * Update renderer references
    */
   updateRenderers(renderers: {
     canvas?: ICanvasRenderer;
     react?: ReactRender;
     webgpu?: WebGPURender;
   }): void {
-    // ✅ 渲染器更新时自动清理缓存
+    // ✅ Automatically clear cache when renderers are updated
     this._clearCache();
 
     if (renderers.canvas) this.canvasRenderer = renderers.canvas;
@@ -224,7 +224,7 @@ export class RenderSelector implements IRenderStrategy {
   }
 
   /**
-   * ✅ 内部版本检查和同步
+   * ✅ Internal version check and sync
    */
   private _checkVersionAndSync(): void {
     if (!this.renderManager?.getVersion) return;
@@ -237,7 +237,7 @@ export class RenderSelector implements IRenderStrategy {
   }
 
   /**
-   * ✅ 内部生成缓存键
+   * ✅ Internal cache key generation
    */
   private _getCacheKey(entity: IEntity): string {
     const complexity = Math.floor(this.analyzeComplexity(entity) * 10);
@@ -250,7 +250,7 @@ export class RenderSelector implements IRenderStrategy {
   }
 
   /**
-   * ✅ 内部验证缓存有效性
+   * ✅ Internal cache validity verification
    */
   private _isValidCached(selection: RenderSelection): boolean {
     selectorLogger.debug({
@@ -263,7 +263,7 @@ export class RenderSelector implements IRenderStrategy {
       },
     });
 
-    // 检查渲染管理器版本是否改变
+    // Check if render manager version has changed
     if (this.renderManager?.getVersion?.() !== this.managerVersion) {
       selectorLogger.debug({
         event: RenderSelectorEvent.CacheValidation,
@@ -272,7 +272,7 @@ export class RenderSelector implements IRenderStrategy {
       return false;
     }
 
-    // 检查设备能力是否改变
+    // Check if device capabilities have changed
     const currentCaps = this.refreshCapabilities();
     if (
       currentCaps.hasWebGPU !==
@@ -286,7 +286,7 @@ export class RenderSelector implements IRenderStrategy {
       return false;
     }
 
-    // 检查性能指标是否显著变化
+    // Check if performance metrics have changed significantly
     const timeSinceUpdate = Date.now() - this.performanceMetrics.lastUpdateTime;
     if (timeSinceUpdate > CACHE_LIMITS.TTL_SECONDS * 1000) {
       selectorLogger.debug({
@@ -300,10 +300,10 @@ export class RenderSelector implements IRenderStrategy {
   }
 
   /**
-   * ✅ 内部缓存结果
+   * ✅ Internal cache result
    */
   private _cacheResult(key: string, selection: RenderSelection): void {
-    // 简单LRU：超过阈值时删除最旧的
+    // Simple LRU: remove oldest when threshold is exceeded
     if (this.selectionCache.size >= CACHE_LIMITS.SELECTION_CACHE_SIZE) {
       const firstKey = this.selectionCache.keys().next().value;
       if (firstKey) {
@@ -315,14 +315,14 @@ export class RenderSelector implements IRenderStrategy {
   }
 
   /**
-   * ✅ 内部清理缓存
+   * ✅ Internal cache cleanup
    */
   private _clearCache(): void {
     this.selectionCache.clear();
   }
 
   /**
-   * ✅ 内部设置RenderManager (供外部调用，如构造函数或其他地方)
+   * ✅ Internal RenderManager setter (for external calls, e.g., constructor or elsewhere)
    */
   setRenderManager(renderManager: { getVersion?: () => number }): void {
     this.renderManager = renderManager;

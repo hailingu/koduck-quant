@@ -1,15 +1,15 @@
 /**
- * @file EndNode - 结束节点示例
+ * @file EndNode - End node example
  * @description
- * 结束节点是流程图的终止点，表示流程的完成。
- * 该节点只有一个输入端口，没有输出端口。
+ * End node is the termination point of the flow diagram, indicating flow completion.
+ * This node has only one input port and no output ports.
  *
  * @example
  * ```tsx
  * import { EndNode, createEndNode } from './EndNode';
  *
  * const nodeEntity = createEndNode({
- *   label: '流程结束',
+ *   label: 'Flow End',
  *   endType: 'success'
  * });
  * ```
@@ -25,36 +25,36 @@ import type { FormSchema, PortDefinition, FlowNodeTheme } from "../types";
 // ============================================================================
 
 /**
- * 结束节点配置
+ * End node configuration
  */
 export interface EndNodeConfig {
-  /** 节点标签 */
+  /** Node label */
   label?: string;
-  /** 结束类型 */
+  /** End type */
   endType?: "success" | "failure" | "cancel" | "timeout";
-  /** 结束描述 */
+  /** End description */
   endDescription?: string;
-  /** 返回值 */
+  /** Return value */
   returnValue?: string;
-  /** 初始位置 */
+  /** Initial position */
   position?: { x: number; y: number };
 }
 
 /**
- * EndNode 组件的 Props
+ * EndNode component props
  */
 export interface EndNodeProps {
-  /** FlowNodeEntity 实例 */
+  /** FlowNodeEntity instance */
   entity: FlowNodeEntity;
-  /** 是否选中 */
+  /** Whether selected */
   selected?: boolean;
-  /** 选中回调 */
+  /** Select callback */
   onSelect?: (entity: FlowNodeEntity) => void;
-  /** 表单值变更回调 */
+  /** Form value change callback */
   onFormChange?: (entity: FlowNodeEntity, values: Record<string, unknown>) => void;
-  /** 额外 CSS 类 */
+  /** Extra CSS class */
   className?: string;
-  /** 测试 ID */
+  /** Test ID */
   testId?: string;
 }
 
@@ -63,7 +63,7 @@ export interface EndNodeProps {
 // ============================================================================
 
 /**
- * 结束类型选项
+ * End type options
  */
 const END_TYPES = [
   { value: "success", label: "成功" },
@@ -73,7 +73,7 @@ const END_TYPES = [
 ] as const;
 
 /**
- * 结束节点表单配置
+ * End node form configuration
  */
 export const END_FORM_SCHEMA: FormSchema = {
   type: "object",
@@ -110,7 +110,7 @@ export const END_FORM_SCHEMA: FormSchema = {
 };
 
 /**
- * 结束节点端口定义（只有输入）
+ * End node port definitions (input only)
  */
 const END_PORTS: PortDefinition[] = [
   {
@@ -122,14 +122,14 @@ const END_PORTS: PortDefinition[] = [
 ];
 
 /**
- * 结束节点主题（红色）
+ * End node theme (red)
  */
 const END_NODE_THEME: Partial<FlowNodeTheme> = {
   backgroundColor: "#FEE2E2",
   borderColor: "#EF4444",
   headerColor: "#EF4444",
   textColor: "#7F1D1D",
-  borderRadius: 50, // 圆形
+  borderRadius: 50, // Circle
 };
 
 // ============================================================================
@@ -137,15 +137,15 @@ const END_NODE_THEME: Partial<FlowNodeTheme> = {
 // ============================================================================
 
 /**
- * 创建结束节点实体
+ * Create end node entity
  *
- * @param config - 节点配置
- * @returns FlowNodeEntity 实例
+ * @param config - Node configuration
+ * @returns FlowNodeEntity instance
  *
  * @example
  * ```tsx
  * const entity = createEndNode({
- *   label: '完成',
+ *   label: 'Complete',
  *   endType: 'success',
  *   returnValue: 'result'
  * });
@@ -183,19 +183,19 @@ export function createEndNode(config?: EndNodeConfig): FlowNodeEntity {
 // ============================================================================
 
 /**
- * 结束节点组件
+ * End node component
  *
  * @description
- * 结束节点是流程图的终止点，使用红色圆形设计。
- * 只有一个输入端口，表示流程的终结。
+ * End node is the termination point of the flow diagram, designed with a red circle.
+ * Has only one input port, indicating the end of the flow.
  *
- * @param props - 组件属性
- * @returns JSX 元素
+ * @param props - Component props
+ * @returns JSX element
  *
  * @example
  * ```tsx
  * const endEntity = createEndNode({
- *   label: '结束',
+ *   label: 'End',
  *   endType: 'success'
  * });
  *

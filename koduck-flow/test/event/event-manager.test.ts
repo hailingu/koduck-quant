@@ -1,6 +1,6 @@
 /**
- * EventManager 和 EntityEventManager 单元测试
- * 测试事件管理器的功能，包括基础事件管理和实体特化管理
+ * EventManager and EntityEventManager unit tests
+ * Tests event manager functionality, including basic event management and entity-specific management
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -11,7 +11,7 @@ import {
 } from "../../src/common/event/entity-event-manager";
 import type { EventConfiguration } from "../../src/common/event/types";
 
-// 测试用的实体接口
+// Test entity interface
 interface TestEntity {
   id: string;
   name: string;
@@ -29,28 +29,28 @@ describe("EventManager", () => {
     eventManager.dispose();
   });
 
-  describe("基础功能", () => {
-    it("应该创建事件管理器实例", () => {
+  describe("Basic functionality", () => {
+    it("should create an event manager instance", () => {
       expect(eventManager).toBeInstanceOf(EventManager);
       expect(eventManager.added).toBeDefined();
       expect(eventManager.removed).toBeDefined();
       expect(eventManager.updated).toBeDefined();
     });
 
-    it("应该提供三种基础事件", () => {
+    it("should provide three basic events", () => {
       expect(eventManager.added).toBeDefined();
       expect(eventManager.removed).toBeDefined();
       expect(eventManager.updated).toBeDefined();
 
-      // 验证事件具有基本的监听功能
+      // Verify events have basic listening capabilities
       expect(typeof eventManager.added.addEventListener).toBe("function");
       expect(typeof eventManager.removed.addEventListener).toBe("function");
       expect(typeof eventManager.updated.addEventListener).toBe("function");
     });
   });
 
-  describe("事件触发和监听", () => {
-    it("应该能触发和监听添加事件", () => {
+  describe("Event firing and listening", () => {
+    it("should be able to fire and listen to add events", () => {
       const listener = vi.fn();
       eventManager.added.addEventListener(listener);
 
@@ -61,7 +61,7 @@ describe("EventManager", () => {
       expect(listener).toHaveBeenCalledWith(testEntity);
     });
 
-    it("应该能触发和监听移除事件", () => {
+    it("should be able to fire and listen to remove events", () => {
       const listener = vi.fn();
       eventManager.removed.addEventListener(listener);
 
@@ -72,7 +72,7 @@ describe("EventManager", () => {
       expect(listener).toHaveBeenCalledWith(testEntity);
     });
 
-    it("应该能触发和监听更新事件", () => {
+    it("should be able to fire and listen to update events", () => {
       const listener = vi.fn();
       eventManager.updated.addEventListener(listener);
 
@@ -83,7 +83,7 @@ describe("EventManager", () => {
       expect(listener).toHaveBeenCalledWith(testEntity);
     });
 
-    it("应该支持多个监听器", () => {
+    it("should support multiple listeners", () => {
       const listener1 = vi.fn();
       const listener2 = vi.fn();
       const listener3 = vi.fn();
@@ -101,16 +101,16 @@ describe("EventManager", () => {
     });
   });
 
-  describe("配置管理", () => {
-    it("应该能设置调试模式", () => {
+  describe("Configuration management", () => {
+    it("should be able to set debug mode", () => {
       const result = eventManager.setDebugMode(true);
-      expect(result).toBe(eventManager); // 支持链式调用
+      expect(result).toBe(eventManager); // Supports chaining
 
-      // 验证调试模式被应用（需要访问内部状态）
+      // Verify debug mode is applied (requires internal state access)
       eventManager.setDebugMode(false);
     });
 
-    it("应该能配置所有事件", () => {
+    it("should be able to configure all events", () => {
       const config: Partial<EventConfiguration> = {
         enableBatching: false,
         maxListeners: 50,
@@ -118,10 +118,10 @@ describe("EventManager", () => {
       };
 
       const result = eventManager.configureAll(config);
-      expect(result).toBe(eventManager); // 支持链式调用
+      expect(result).toBe(eventManager); // Supports chaining
     });
 
-    it("应该能配置批处理", () => {
+    it("should be able to configure batching", () => {
       const batchConfig = {
         enableBatching: true,
         batchSize: 20,
@@ -129,17 +129,17 @@ describe("EventManager", () => {
       };
 
       const result = eventManager.configureBatch(batchConfig);
-      expect(result).toBe(eventManager); // 支持链式调用
+      expect(result).toBe(eventManager); // Supports chaining
     });
   });
 
-  describe("批处理管理", () => {
-    it("应该能刷新所有批次", () => {
+  describe("Batch management", () => {
+    it("should be able to flush all batches", () => {
       expect(() => eventManager.flushAllBatches()).not.toThrow();
     });
 
-    it("应该能在批处理模式下工作", () => {
-      // 启用批处理
+    it("should work in batch processing mode", () => {
+      // Enable batching
       eventManager.configureBatch({
         enableBatching: true,
         batchSize: 3,
@@ -149,7 +149,7 @@ describe("EventManager", () => {
       const listener = vi.fn();
       eventManager.added.addEventListener(listener);
 
-      // 添加多个实体
+      // Add multiple entities
       const entities = [
         { id: "1", name: "batch1", value: 1 },
         { id: "2", name: "batch2", value: 2 },
@@ -158,16 +158,16 @@ describe("EventManager", () => {
 
       entities.forEach((entity) => eventManager.added.fire(entity));
 
-      // 手动刷新批次
+      // Manually flush batches
       eventManager.flushAllBatches();
 
-      // 监听器应该被调用
+      // Listener should be called
       expect(listener).toHaveBeenCalled();
     });
   });
 
-  describe("清理和重置", () => {
-    it("应该能清除所有事件的监听器", () => {
+  describe("Cleanup and reset", () => {
+    it("should be able to clear all event listeners", () => {
       const listener1 = vi.fn();
       const listener2 = vi.fn();
       const listener3 = vi.fn();
@@ -178,7 +178,7 @@ describe("EventManager", () => {
 
       eventManager.clearAll();
 
-      // 触发事件，监听器不应该被调用
+      // Firing events should not call listeners
       const testEntity: TestEntity = { id: "clear", name: "test", value: 0 };
       eventManager.added.fire(testEntity);
       eventManager.removed.fire(testEntity);
@@ -189,32 +189,32 @@ describe("EventManager", () => {
       expect(listener3).not.toHaveBeenCalled();
     });
 
-    it("应该能重置所有事件", () => {
+    it("should be able to reset all events", () => {
       const listener = vi.fn();
       eventManager.added.addEventListener(listener);
 
       eventManager.resetAll();
 
-      // 重置后应该能正常工作
+      // Should work normally after reset
       const testEntity: TestEntity = { id: "reset", name: "test", value: 0 };
       eventManager.added.fire(testEntity);
 
-      // 重置后监听器可能被清除，取决于reset的实现
-      // 这里主要测试不抛异常
+      // Listeners may be cleared after reset depending on implementation
+      // Mainly testing that it does not throw
       expect(() => eventManager.added.fire(testEntity)).not.toThrow();
     });
   });
 
-  describe("条件执行", () => {
-    it("应该支持条件执行", () => {
+  describe("Conditional execution", () => {
+    it("should support conditional execution", () => {
       const callback = vi.fn();
 
-      // 条件为true，应该执行回调
+      // When condition is true, callback should execute
       const result1 = eventManager.when(true, callback);
       expect(result1).toBe(eventManager);
       expect(callback).toHaveBeenCalledWith(eventManager);
 
-      // 条件为false，不应该执行回调
+      // When condition is false, callback should not execute
       callback.mockReset();
       const result2 = eventManager.when(false, callback);
       expect(result2).toBe(eventManager);
@@ -222,15 +222,15 @@ describe("EventManager", () => {
     });
   });
 
-  describe("资源管理", () => {
-    it("应该能正确释放资源", () => {
+  describe("Resource management", () => {
+    it("should correctly release resources", () => {
       const listener = vi.fn();
       eventManager.added.addEventListener(listener);
 
       expect(() => eventManager.dispose()).not.toThrow();
 
-      // dispose后的行为取决于具体实现
-      // 主要测试不抛异常
+      // Behavior after dispose depends on implementation
+      // Mainly testing that it does not throw
       expect(() =>
         eventManager.added.fire({ id: "disposed", name: "test", value: 0 })
       ).not.toThrow();
@@ -249,14 +249,14 @@ describe("EntityEventManager", () => {
     entityManager.dispose();
   });
 
-  describe("实例管理", () => {
-    it("应该通过工厂函数创建实例", () => {
+  describe("Instance management", () => {
+    it("should create instances via factory function", () => {
       const factoryInstance = createEntityEventManager<TestEntity>();
       expect(factoryInstance).toBeInstanceOf(EntityEventManager);
       factoryInstance.dispose();
     });
 
-    it("工厂函数每次调用返回独立实例", () => {
+    it("factory function should return independent instances on each call", () => {
       const instance1 = createEntityEventManager<TestEntity>();
       const instance2 = createEntityEventManager<TestEntity>();
 
@@ -268,22 +268,22 @@ describe("EntityEventManager", () => {
       instance2.dispose();
     });
 
-    it("应该允许直接实例化", () => {
+    it("should allow direct instantiation", () => {
       const directInstance = new EntityEventManager<TestEntity>();
       expect(directInstance).toBeInstanceOf(EntityEventManager);
       directInstance.dispose();
     });
   });
 
-  describe("实体特化功能", () => {
-    it("应该提供额外的更新详情事件", () => {
+  describe("Entity-specific features", () => {
+    it("should provide additional update detail events", () => {
       expect(entityManager.updatedWithDetail).toBeDefined();
       expect(typeof entityManager.updatedWithDetail.addEventListener).toBe(
         "function"
       );
     });
 
-    it("应该能注册生命周期监听器", () => {
+    it("should be able to register lifecycle listeners", () => {
       const addedListener = vi.fn();
       const removedListener = vi.fn();
       const updatedListener = vi.fn();
@@ -294,9 +294,9 @@ describe("EntityEventManager", () => {
         onUpdated: updatedListener,
       });
 
-      expect(result).toBe(entityManager); // 支持链式调用
+      expect(result).toBe(entityManager); // Supports chaining
 
-      // 测试事件触发
+      // Test event firing
       const testEntity: TestEntity = {
         id: "lifecycle",
         name: "test",
@@ -313,7 +313,7 @@ describe("EntityEventManager", () => {
       expect(updatedListener).toHaveBeenCalledWith(testEntity);
     });
 
-    it("应该能注册通用生命周期监听器", () => {
+    it("should be able to register universal lifecycle listeners", () => {
       const universalListener = vi.fn();
 
       const result = entityManager.registerAnyLifecycle(universalListener);
@@ -325,7 +325,7 @@ describe("EntityEventManager", () => {
         value: 123,
       };
 
-      // 所有事件都应该触发通用监听器
+      // All events should trigger the universal listener
       entityManager.added.fire(testEntity);
       expect(universalListener).toHaveBeenCalledWith(testEntity);
 
@@ -336,7 +336,7 @@ describe("EntityEventManager", () => {
       expect(universalListener).toHaveBeenCalledTimes(3);
     });
 
-    it("应该支持更新详情事件", () => {
+    it("should support update detail events", () => {
       const detailListener = vi.fn();
       entityManager.updatedWithDetail.addEventListener(detailListener);
 
@@ -359,20 +359,20 @@ describe("EntityEventManager", () => {
     });
   });
 
-  describe("性能配置", () => {
-    it("应该能设置高性能模式", () => {
+  describe("Performance configuration", () => {
+    it("should be able to set high-performance mode", () => {
       const result = entityManager.setupForPerformance();
-      expect(result).toBe(entityManager); // 支持链式调用
+      expect(result).toBe(entityManager); // Supports chaining
     });
 
-    it("应该能设置调试模式", () => {
+    it("should be able to set debug mode", () => {
       const result = entityManager.setupForDebugging();
-      expect(result).toBe(entityManager); // 支持链式调用
+      expect(result).toBe(entityManager); // Supports chaining
     });
   });
 
-  describe("实体事件触发方法", () => {
-    it("应该能触发实体添加事件", () => {
+  describe("Entity event firing methods", () => {
+    it("should be able to fire entity add events", () => {
       const listener = vi.fn();
       entityManager.added.addEventListener(listener);
 
@@ -382,14 +382,14 @@ describe("EntityEventManager", () => {
         value: 789,
       };
 
-      // 使用便捷方法触发事件
+      // Use convenience method to fire event
       if (typeof entityManager.fireAdd === "function") {
         entityManager.fireAdd(testEntity);
         expect(listener).toHaveBeenCalledWith(testEntity);
       }
     });
 
-    it("应该能触发实体移除事件", () => {
+    it("should be able to fire entity remove events", () => {
       const listener = vi.fn();
       entityManager.removed.addEventListener(listener);
 
@@ -405,7 +405,7 @@ describe("EntityEventManager", () => {
       }
     });
 
-    it("应该能触发实体更新事件", () => {
+    it("should be able to fire entity update events", () => {
       const listener = vi.fn();
       entityManager.updated.addEventListener(listener);
 
@@ -422,8 +422,8 @@ describe("EntityEventManager", () => {
     });
   });
 
-  describe("批量操作", () => {
-    it("应该支持批量添加事件", () => {
+  describe("Batch operations", () => {
+    it("should support batch add events", () => {
       const listener = vi.fn();
       entityManager.added.addEventListener(listener);
 
@@ -437,7 +437,7 @@ describe("EntityEventManager", () => {
       expect(listener).toHaveBeenCalledTimes(entities.length);
     });
 
-    it("应该支持批量移除事件", () => {
+    it("should support batch remove events", () => {
       const listener = vi.fn();
       entityManager.removed.addEventListener(listener);
 
@@ -452,8 +452,8 @@ describe("EntityEventManager", () => {
     });
   });
 
-  describe("错误处理", () => {
-    it("应该处理监听器中的错误", () => {
+  describe("Error handling", () => {
+    it("should handle errors in listeners", () => {
       const errorListener = vi.fn(() => {
         throw new Error("Test error in listener");
       });
@@ -468,7 +468,7 @@ describe("EntityEventManager", () => {
         value: -1,
       };
 
-      // 错误不应该阻止其他监听器执行
+      // Errors should not prevent other listeners from executing
       expect(() => entityManager.added.fire(testEntity)).not.toThrow();
       expect(errorListener).toHaveBeenCalled();
       expect(normalListener).toHaveBeenCalled();

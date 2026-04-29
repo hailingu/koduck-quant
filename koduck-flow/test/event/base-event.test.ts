@@ -1,13 +1,13 @@
 /**
- * BaseEvent 核心类单元测试
- * 测试事件的创建、监听器管理、触发、批处理等核心功能
+ * BaseEvent core class unit tests
+ * Tests event creation, listener management, firing, batching, and other core features
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { BaseEvent } from "../../src/common/event/base-event";
 import type { EventConfiguration } from "../../src/common/event/types";
 
-// 测试用的具体事件实现
+// Concrete event implementation for testing
 class TestEvent extends BaseEvent<string> {
   constructor(
     name: string = "TestEvent",
@@ -17,7 +17,7 @@ class TestEvent extends BaseEvent<string> {
   }
 }
 
-// 测试用的复杂数据类型
+// Complex data type for testing
 interface TestData {
   id: string;
   value: number;
@@ -39,26 +39,26 @@ describe("BaseEvent", () => {
     complexEvent = new ComplexTestEvent();
   });
 
-  describe("基础事件功能", () => {
-    it("应该能创建事件实例", () => {
+  describe("Basic event functionality", () => {
+    it("should create an event instance", () => {
       expect(event).toBeInstanceOf(BaseEvent);
       expect(event).toBeInstanceOf(TestEvent);
       expect(event["eventName"]).toBe("TestEvent");
     });
 
-    it("应该能使用自定义事件名", () => {
+    it("should support custom event names", () => {
       const customEvent = new TestEvent("CustomEventName");
       expect(customEvent["eventName"]).toBe("CustomEventName");
     });
 
-    it("应该初始化为空的监听器列表", () => {
+    it("should initialize with an empty listener list", () => {
       expect(event["_listeners"]).toEqual([]);
       expect(event["_listeners"].length).toBe(0);
     });
   });
 
-  describe("监听器管理", () => {
-    it("应该能添加监听器", () => {
+  describe("Listener management", () => {
+    it("should be able to add listeners", () => {
       const listener = vi.fn();
       const unsubscribe = event.addEventListener(listener);
 
@@ -67,7 +67,7 @@ describe("BaseEvent", () => {
       expect(event["_listeners"].length).toBe(1);
     });
 
-    it("应该能移除监听器", () => {
+    it("should be able to remove listeners", () => {
       const listener = vi.fn();
       const unsubscribe = event.addEventListener(listener);
 
@@ -79,7 +79,7 @@ describe("BaseEvent", () => {
       expect(event["_listeners"].length).toBe(0);
     });
 
-    it("应该支持多个监听器", () => {
+    it("should support multiple listeners", () => {
       const listener1 = vi.fn();
       const listener2 = vi.fn();
       const listener3 = vi.fn();
@@ -93,7 +93,7 @@ describe("BaseEvent", () => {
       expect(event["_listeners"]).toContain(listener2);
       expect(event["_listeners"]).toContain(listener3);
 
-      // 测试部分移除
+      // Test partial removal
       unsub2();
       expect(event["_listeners"].length).toBe(2);
       expect(event["_listeners"]).not.toContain(listener2);
@@ -101,33 +101,33 @@ describe("BaseEvent", () => {
       expect(event["_listeners"]).toContain(listener3);
     });
 
-    it("应该允许重复添加同一监听器", () => {
+    it("should allow adding the same listener multiple times", () => {
       const listener = vi.fn();
 
       event.addEventListener(listener);
-      event.addEventListener(listener); // 重复添加
+      event.addEventListener(listener); // Duplicate add
 
       expect(event["_listeners"].length).toBe(2);
 
-      // 触发事件，监听器应该被调用两次
+      // Firing event, listener should be called twice
       event.fire("test");
       expect(listener).toHaveBeenCalledTimes(2);
     });
 
-    it("应该处理重复移除监听器", () => {
+    it("should handle repeated listener removal", () => {
       const listener = vi.fn();
       const unsubscribe = event.addEventListener(listener);
 
       unsubscribe();
       expect(event["_listeners"]).not.toContain(listener);
 
-      // 重复移除应该不出错
+      // Repeated removal should not throw
       expect(() => unsubscribe()).not.toThrow();
     });
   });
 
-  describe("事件触发", () => {
-    it("应该能触发事件并调用监听器", () => {
+  describe("Event firing", () => {
+    it("should fire events and call listeners", () => {
       const listener = vi.fn();
       event.addEventListener(listener);
 
@@ -137,7 +137,7 @@ describe("BaseEvent", () => {
       expect(listener).toHaveBeenCalledWith("test data");
     });
 
-    it("应该按顺序调用多个监听器", () => {
+    it("should call multiple listeners in order", () => {
       const callOrder: number[] = [];
       const listener1 = vi.fn(() => callOrder.push(1));
       const listener2 = vi.fn(() => callOrder.push(2));
@@ -155,7 +155,7 @@ describe("BaseEvent", () => {
       expect(listener3).toHaveBeenCalledWith("test");
     });
 
-    it("应该处理复杂数据类型", () => {
+    it("should handle complex data types", () => {
       const listener = vi.fn();
       complexEvent.addEventListener(listener);
 
@@ -170,7 +170,7 @@ describe("BaseEvent", () => {
       expect(listener).toHaveBeenCalledWith(testData);
     });
 
-    it("应该处理监听器中的错误", () => {
+    it("should handle errors in listeners", () => {
       const errorListener = vi.fn(() => {
         throw new Error("Listener error");
       });
@@ -179,7 +179,7 @@ describe("BaseEvent", () => {
       event.addEventListener(errorListener);
       event.addEventListener(normalListener);
 
-      // 错误不应该阻止其他监听器执行
+      // Errors should not prevent other listeners from executing
       expect(() => event.fire("test")).not.toThrow();
 
       expect(errorListener).toHaveBeenCalled();
@@ -187,8 +187,8 @@ describe("BaseEvent", () => {
     });
   });
 
-  describe("事件配置", () => {
-    it("应该支持自定义配置", () => {
+  describe("Event configuration", () => {
+    it("should support custom configuration", () => {
       const config: Partial<EventConfiguration> = {
         enableBatching: false,
         maxListeners: 5,
@@ -199,7 +199,7 @@ describe("BaseEvent", () => {
       expect(configuredEvent).toBeInstanceOf(TestEvent);
     });
 
-    it("应该支持批处理配置", () => {
+    it("should support batch configuration", () => {
       const batchConfig: Partial<EventConfiguration> = {
         enableBatching: true,
         batchSize: 3,
@@ -210,7 +210,7 @@ describe("BaseEvent", () => {
       expect(batchEvent).toBeInstanceOf(TestEvent);
     });
 
-    it("应该支持并发配置", () => {
+    it("should support concurrency configuration", () => {
       const concurrencyConfig: Partial<EventConfiguration> = {
         concurrencyMode: "parallel",
         concurrencyLimit: 5,
@@ -224,8 +224,8 @@ describe("BaseEvent", () => {
     });
   });
 
-  describe("性能和优化", () => {
-    it("应该正确跟踪触发次数", () => {
+  describe("Performance and optimization", () => {
+    it("should correctly track fire count", () => {
       const listener = vi.fn();
       event.addEventListener(listener);
 
@@ -238,17 +238,17 @@ describe("BaseEvent", () => {
       expect(event["_fireCount"]).toBe(2);
     });
 
-    it("应该处理大量监听器", () => {
-      // 使用高性能配置支持更多监听器
+    it("should handle a large number of listeners", () => {
+      // Use high-performance config to support more listeners
       const highPerfEvent = new TestEvent("HighPerfEvent", {
         maxListeners: 1000,
-        enableBatching: false, // 禁用批处理便于测试
+        enableBatching: false, // Disable batching for easier testing
       });
 
       const listeners: Array<() => void> = [];
-      const listenerCount = 50; // 使用合理的数量
+      const listenerCount = 50; // Use a reasonable count
 
-      // 添加大量监听器
+      // Add a large number of listeners
       for (let i = 0; i < listenerCount; i++) {
         const listener = vi.fn();
         listeners.push(listener);
@@ -259,14 +259,14 @@ describe("BaseEvent", () => {
 
       highPerfEvent.fire("test");
 
-      // 验证所有监听器都被调用
+      // Verify all listeners were called
       listeners.forEach((listener) => {
         expect(listener).toHaveBeenCalledWith("test");
       });
     });
 
-    it("应该高效处理监听器的添加和移除", () => {
-      // 使用非批处理配置便于测试
+    it("should efficiently handle listener add and remove", () => {
+      // Use non-batching config for easier testing
       const testEvent = new TestEvent("RemovalTest", {
         enableBatching: false,
         maxListeners: 200,
@@ -275,7 +275,7 @@ describe("BaseEvent", () => {
       const listeners = [];
       const unsubscribers = [];
 
-      // 添加监听器
+      // Add listeners
       for (let i = 0; i < 50; i++) {
         const listener = vi.fn();
         listeners.push(listener);
@@ -285,14 +285,14 @@ describe("BaseEvent", () => {
 
       expect(testEvent["_listeners"].length).toBe(50);
 
-      // 移除一半监听器
+      // Remove half of the listeners
       for (let i = 0; i < 25; i++) {
         unsubscribers[i]();
       }
 
       expect(testEvent["_listeners"].length).toBe(25);
 
-      // 触发事件，只有剩余的监听器应该被调用
+      // Fire event, only remaining listeners should be called
       testEvent.fire("test");
 
       for (let i = 0; i < 25; i++) {
@@ -305,29 +305,29 @@ describe("BaseEvent", () => {
     });
   });
 
-  describe("边界情况", () => {
-    it("应该处理空事件触发", () => {
+  describe("Edge cases", () => {
+    it("should handle empty event firing", () => {
       expect(() => event.fire("test")).not.toThrow();
     });
 
-    it("应该处理特殊字符串数据", () => {
+    it("should handle special string data", () => {
       const listener = vi.fn();
       event.addEventListener(listener);
 
-      // 测试空字符串
+      // Test empty string
       event.fire("");
       expect(listener).toHaveBeenCalledWith("");
 
-      // 测试特殊字符
-      event.fire("特殊字符测试");
-      expect(listener).toHaveBeenCalledWith("特殊字符测试");
+      // Test special characters
+      event.fire("Special characters test");
+      expect(listener).toHaveBeenCalledWith("Special characters test");
     });
 
-    it("应该处理快速的连续触发", () => {
+    it("should handle rapid consecutive firing", () => {
       const listener = vi.fn();
       event.addEventListener(listener);
 
-      // 快速连续触发
+      // Rapid consecutive firing
       for (let i = 0; i < 10; i++) {
         event.fire(`test-${i}`);
       }
@@ -335,11 +335,11 @@ describe("BaseEvent", () => {
       expect(listener).toHaveBeenCalledTimes(10);
     });
 
-    it("应该处理监听器在执行中修改监听器列表", () => {
+    it("should handle listeners modifying the listener list during execution", () => {
       const unsub2Ref = { current: undefined as (() => void) | undefined };
 
       const listener1 = vi.fn(() => {
-        // 在监听器执行中移除另一个监听器
+        // Remove another listener during listener execution
         if (unsub2Ref.current) unsub2Ref.current();
       });
 
@@ -348,16 +348,16 @@ describe("BaseEvent", () => {
       event.addEventListener(listener1);
       unsub2Ref.current = event.addEventListener(listener2);
 
-      // 这应该不会导致错误
+      // This should not cause errors
       expect(() => event.fire("test")).not.toThrow();
 
       expect(listener1).toHaveBeenCalled();
-      // listener2 可能被调用也可能不被调用，取决于执行顺序
+      // listener2 may or may not be called depending on execution order
     });
   });
 
-  describe("资源清理", () => {
-    it("应该支持清理所有监听器", () => {
+  describe("Resource cleanup", () => {
+    it("should support clearing all listeners", () => {
       const listener1 = vi.fn();
       const listener2 = vi.fn();
 
@@ -366,7 +366,7 @@ describe("BaseEvent", () => {
 
       expect(event["_listeners"].length).toBe(2);
 
-      // 手动清理（如果有的话）
+      // Manual cleanup (if available)
       if (typeof event.dispose === "function") {
         event.dispose();
         expect(event["_listeners"].length).toBe(0);
@@ -374,47 +374,47 @@ describe("BaseEvent", () => {
     });
   });
 
-  // ===== 补充高级功能测试 =====
+  // ===== Advanced functionality tests =====
 
-  describe("高级监听器方法", () => {
-    it("应该支持一次性监听器 (once)", () => {
+  describe("Advanced listener methods", () => {
+    it("should support one-time listeners (once)", () => {
       const listener = vi.fn();
       event.once(listener);
 
-      // 第一次触发应该调用监听器
+      // First fire should call the listener
       event.fire("test1");
       expect(listener).toHaveBeenCalledTimes(1);
       expect(listener).toHaveBeenCalledWith("test1");
 
-      // 第二次触发不应该调用监听器
+      // Second fire should not call the listener
       event.fire("test2");
-      expect(listener).toHaveBeenCalledTimes(1); // 仍然只调用了一次
+      expect(listener).toHaveBeenCalledTimes(1); // Still only called once
     });
 
-    it("应该支持条件监听器 (when)", () => {
+    it("should support conditional listeners (when)", () => {
       const listener = vi.fn();
       const condition = (data: string) => data.startsWith("valid");
 
       event.when(condition, listener);
 
-      // 满足条件的数据应该触发监听器
+      // Data meeting the condition should trigger the listener
       event.fire("valid-data");
       expect(listener).toHaveBeenCalledTimes(1);
       expect(listener).toHaveBeenCalledWith("valid-data");
 
-      // 不满足条件的数据不应该触发监听器
+      // Data not meeting the condition should not trigger the listener
       event.fire("invalid-data");
-      expect(listener).toHaveBeenCalledTimes(1); // 仍然只调用了一次
+      expect(listener).toHaveBeenCalledTimes(1); // Still only called once
     });
 
-    it("应该支持批量添加监听器 (addListeners)", () => {
+    it("should support batch adding listeners (addListeners)", () => {
       const listener1 = vi.fn();
       const listener2 = vi.fn();
       const listener3 = vi.fn();
 
       const result = event.addListeners(listener1, listener2, listener3);
 
-      // 应该返回事件实例支持链式调用
+      // Should return the event instance to support chaining
       expect(result).toBe(event);
       expect(event["_listeners"].length).toBe(3);
 
@@ -424,7 +424,7 @@ describe("BaseEvent", () => {
       expect(listener3).toHaveBeenCalledWith("test");
     });
 
-    it("应该支持event getter属性", () => {
+    it("should support the event getter property", () => {
       const eventGetter = event.event;
       expect(typeof eventGetter).toBe("function");
 
@@ -436,50 +436,50 @@ describe("BaseEvent", () => {
       event.fire("test");
       expect(listener).toHaveBeenCalledWith("test");
 
-      // 测试取消订阅
+      // Test unsubscribe
       unsubscribe();
       event.fire("test2");
-      expect(listener).toHaveBeenCalledTimes(1); // 应该只被调用一次
+      expect(listener).toHaveBeenCalledTimes(1); // Should only be called once
     });
   });
 
-  describe("数据验证和去重", () => {
-    it("应该支持数据验证器 (setValidator)", () => {
+  describe("Data validation and deduplication", () => {
+    it("should support data validator (setValidator)", () => {
       const validator = (data: string) => data.length > 3;
       const listener = vi.fn();
 
-      // 启用调试模式以激活验证器
+      // Enable debug mode to activate validator
       event.setDebugMode(true).setValidator(validator);
       event.addEventListener(listener);
 
-      // 有效数据应该通过验证
+      // Valid data should pass validation
       event.fire("valid");
       expect(listener).toHaveBeenCalledWith("valid");
 
-      // 在调试模式下，无效数据应该被过滤
-      event.fire("no"); // 长度 <= 3
-      // 由于数据验证失败，监听器不应该被再次调用
+      // In debug mode, invalid data should be filtered
+      event.fire("no"); // Length <= 3
+      // Listener should not be called again due to validation failure
       expect(listener).toHaveBeenCalledTimes(1);
     });
 
-    it("应该支持移除验证器", () => {
-      const validator = (data: string) => data.length > 10; // 很严格的验证
+    it("should support removing the validator", () => {
+      const validator = (data: string) => data.length > 10; // Very strict validation
       const listener = vi.fn();
 
       event.setDebugMode(true).setValidator(validator);
       event.addEventListener(listener);
 
-      // 移除验证器
+      // Remove validator
       event.setValidator(undefined);
 
-      // 现在短数据应该也能通过
+      // Now short data should also pass
       event.fire("short");
       expect(listener).toHaveBeenCalledWith("short");
     });
   });
 
-  describe("配置管理", () => {
-    it("应该支持获取配置", () => {
+  describe("Configuration management", () => {
+    it("should support getting configuration", () => {
       const config = event.configuration;
       expect(config).toBeDefined();
       expect(typeof config).toBe("object");
@@ -487,36 +487,36 @@ describe("BaseEvent", () => {
       expect(config).toHaveProperty("maxListeners");
     });
 
-    it("应该支持动态更新配置", () => {
+    it("should support dynamic configuration updates", () => {
       const newConfig = { enableBatching: false, maxListeners: 100 };
       const result = event.updateConfiguration(newConfig);
 
-      expect(result).toBe(event); // 支持链式调用
+      expect(result).toBe(event); // Supports chaining
 
       const updatedConfig = event.configuration;
-      // 注意：配置更新可能需要与现有配置合并，enableBatching可能保持原值
+      // Note: config update may need to merge with existing config, enableBatching may remain unchanged
       expect(updatedConfig.maxListeners).toBe(100);
     });
 
-    it("应该支持maxListeners getter/setter", () => {
-      // 测试getter
+    it("should support maxListeners getter/setter", () => {
+      // Test getter
       const initialMax = event.maxListeners;
       expect(typeof initialMax).toBe("number");
 
-      // 测试setter
+      // Test setter
       event.maxListeners = 50;
       expect(event.maxListeners).toBe(50);
 
-      // 测试无效值处理
+      // Test invalid value handling
       const originalMax = event.maxListeners;
-      event.maxListeners = -1; // 无效值
-      expect(event.maxListeners).toBe(originalMax); // 应该保持不变
+      event.maxListeners = -1; // Invalid value
+      expect(event.maxListeners).toBe(originalMax); // Should remain unchanged
 
-      event.maxListeners = 20000; // 超出范围
-      expect(event.maxListeners).toBe(originalMax); // 应该保持不变
+      event.maxListeners = 20000; // Out of range
+      expect(event.maxListeners).toBe(originalMax); // Should remain unchanged
     });
 
-    it("应该支持监听器数量和触发次数统计", () => {
+    it("should support listener count and fire count statistics", () => {
       expect(event.listenerCount).toBe(0);
       expect(event.fireCount).toBe(0);
 
@@ -536,7 +536,7 @@ describe("BaseEvent", () => {
       expect(event.fireCount).toBe(2);
     });
 
-    it("应该支持hasListeners检查", () => {
+    it("should support hasListeners check", () => {
       expect(event.hasListeners()).toBe(false);
 
       const listener = vi.fn();
@@ -547,9 +547,9 @@ describe("BaseEvent", () => {
       expect(event.hasListeners()).toBe(false);
     });
 
-    it("应该支持调试模式切换", () => {
+    it("should support debug mode toggle", () => {
       const result = event.setDebugMode(true);
-      expect(result).toBe(event); // 支持链式调用
+      expect(result).toBe(event); // Supports chaining
 
       const config = event.configuration;
       expect(config.enableDebugMode).toBe(true);
@@ -560,7 +560,7 @@ describe("BaseEvent", () => {
     });
   });
 
-  describe("批处理功能", () => {
+  describe("Batching functionality", () => {
     let batchEvent: TestEvent;
 
     beforeEach(() => {
@@ -571,33 +571,33 @@ describe("BaseEvent", () => {
       });
     });
 
-    it("应该支持批处理事件", async () => {
+    it("should support batch event processing", async () => {
       const listener = vi.fn();
       batchEvent.addEventListener(listener);
 
-      // 快速触发多个事件
+      // Rapidly fire multiple events
       batchEvent.fire("event1");
       batchEvent.fire("event2");
 
-      // 批处理可能立即触发或延迟触发，取决于实现
-      // 触发第三个事件，应该达到批处理大小阈值
+      // Batching may fire immediately or with delay depending on implementation
+      // Fire third event, should reach batch size threshold
       batchEvent.fire("event3");
 
-      // 现在应该处理批次，至少应该调用监听器
+      // Now batch should be processed, listener should be called
       expect(listener).toHaveBeenCalled();
       expect(listener).toHaveBeenCalledWith("event1");
       expect(listener).toHaveBeenCalledWith("event2");
       expect(listener).toHaveBeenCalledWith("event3");
     });
 
-    it("应该支持手动刷新批处理", async () => {
+    it("should support manual batch flush", async () => {
       const listener = vi.fn();
       batchEvent.addEventListener(listener);
 
       batchEvent.fire("event1");
       batchEvent.fire("event2");
 
-      // 手动刷新批处理
+      // Manual batch flush
       batchEvent.flushBatch();
 
       expect(listener).toHaveBeenCalledTimes(2);
@@ -605,21 +605,21 @@ describe("BaseEvent", () => {
       expect(listener).toHaveBeenNthCalledWith(2, "event2");
     });
 
-    it("应该在时间间隔后自动处理批次", async () => {
+    it("should automatically process batch after interval", async () => {
       const listener = vi.fn();
       batchEvent.addEventListener(listener);
 
       batchEvent.fire("event1");
 
-      // 等待批处理间隔
+      // Wait for batch interval
       await new Promise((resolve) => setTimeout(resolve, 15));
 
       expect(listener).toHaveBeenCalledWith("event1");
     });
   });
 
-  describe("异步事件处理", () => {
-    it("应该支持异步事件触发 (fireAsync)", async () => {
+  describe("Async event handling", () => {
+    it("should support async event firing (fireAsync)", async () => {
       const listener = vi.fn().mockResolvedValue(undefined);
       event.addEventListener(listener);
 
@@ -628,7 +628,7 @@ describe("BaseEvent", () => {
       expect(listener).toHaveBeenCalledWith("async-test");
     });
 
-    it("应该支持并行异步监听器", async () => {
+    it("should support parallel async listeners", async () => {
       const parallelEvent = new TestEvent("ParallelTest", {
         concurrencyMode: "parallel",
       });
@@ -653,11 +653,11 @@ describe("BaseEvent", () => {
       expect(listener1).toHaveBeenCalledWith("parallel-test");
       expect(listener2).toHaveBeenCalledWith("parallel-test");
 
-      // 并行执行应该比串行快
-      expect(endTime - startTime).toBeLessThan(20); // 应该接近较长监听器的时间
+      // Parallel execution should be faster than serial
+      expect(endTime - startTime).toBeLessThan(20); // Should be close to the longer listener time
     });
 
-    it("应该支持受限并发异步监听器", async () => {
+    it("should support limited concurrency async listeners", async () => {
       const limitedEvent = new TestEvent("LimitedTest", {
         concurrencyMode: "limited",
         concurrencyLimit: 2,
@@ -675,34 +675,34 @@ describe("BaseEvent", () => {
 
       await limitedEvent.fireAsync("limited-test");
 
-      // 所有监听器都应该被调用
+      // All listeners should be called
       listeners.forEach((listener) => {
         expect(listener).toHaveBeenCalledWith("limited-test");
       });
     });
 
-    it("应该处理异步监听器中的错误", async () => {
+    it("should handle errors in async listeners", async () => {
       const errorListener = vi.fn().mockRejectedValue(new Error("Async error"));
       const normalListener = vi.fn().mockResolvedValue(undefined);
 
       event.addEventListener(errorListener);
       event.addEventListener(normalListener);
 
-      // 异步错误不应该阻止其他监听器执行
+      // Async errors should not prevent other listeners from executing
       await expect(event.fireAsync("error-test")).resolves.not.toThrow();
 
       expect(errorListener).toHaveBeenCalledWith("error-test");
       expect(normalListener).toHaveBeenCalledWith("error-test");
     });
 
-    it("应该支持异步监听器超时处理", async () => {
+    it("should support async listener timeout handling", async () => {
       const timeoutEvent = new TestEvent("TimeoutTest", {
         concurrencyMode: "limited",
-        listenerTimeout: 5, // 5ms超时
+        listenerTimeout: 5, // 5ms timeout
       });
 
       const slowListener = vi.fn().mockImplementation(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 20)); // 慢于超时时间
+        await new Promise((resolve) => setTimeout(resolve, 20)); // Slower than timeout
         return "slow";
       });
 
@@ -718,8 +718,8 @@ describe("BaseEvent", () => {
     });
   });
 
-  describe("资源管理和清理", () => {
-    it("应该支持clear清理监听器", () => {
+  describe("Resource management and cleanup", () => {
+    it("should support clear to cleanup listeners", () => {
       const listener1 = vi.fn();
       const listener2 = vi.fn();
 
@@ -731,13 +731,13 @@ describe("BaseEvent", () => {
       expect(event.listenerCount).toBe(0);
       expect(event.hasListeners()).toBe(false);
 
-      // 清理后触发事件不应该调用任何监听器
+      // Firing event after cleanup should not call any listeners
       event.fire("test");
       expect(listener1).not.toHaveBeenCalled();
       expect(listener2).not.toHaveBeenCalled();
     });
 
-    it("应该支持reset重置事件状态", () => {
+    it("should support reset to restore event state", () => {
       const listener = vi.fn();
       event.addEventListener(listener);
 
@@ -754,14 +754,14 @@ describe("BaseEvent", () => {
       expect(event.hasListeners()).toBe(false);
     });
 
-    it("应该支持dispose析构", () => {
+    it("should support dispose for destruction", () => {
       const listener1 = vi.fn();
       const listener2 = vi.fn();
 
       event.addEventListener(listener1);
       event.addEventListener(listener2);
 
-      // 创建批处理事件测试批处理清理
+      // Create batch event to test batch cleanup
       const batchEvent = new TestEvent("DisposeTest", {
         enableBatching: true,
         batchSize: 10,
@@ -773,7 +773,7 @@ describe("BaseEvent", () => {
       expect(event.listenerCount).toBe(2);
       expect(batchEvent.listenerCount).toBe(1);
 
-      // 在dispose之前触发的事件可能已经被处理
+      // Events fired before dispose may have already been processed
       const batchListenerCallsBefore = batchListener.mock.calls.length;
 
       event.dispose();
@@ -782,42 +782,42 @@ describe("BaseEvent", () => {
       expect(event.listenerCount).toBe(0);
       expect(batchEvent.listenerCount).toBe(0);
 
-      // dispose后触发事件不应该调用监听器
+      // Firing event after dispose should not call listeners
       event.fire("disposed-test");
       batchEvent.fire("disposed-batch-test");
 
       expect(listener1).not.toHaveBeenCalled();
       expect(listener2).not.toHaveBeenCalled();
 
-      // dispose后新的调用不应该发生
+      // New calls after dispose should not happen
       expect(batchListener.mock.calls.length).toBe(batchListenerCallsBefore);
     });
   });
 
-  describe("错误处理和边界情况", () => {
-    it("应该处理无效监听器", () => {
-      // 测试null监听器
+  describe("Error handling and edge cases", () => {
+    it("should handle invalid listeners", () => {
+      // Test null listener
       expect(() =>
         event.addEventListener(null as unknown as (data: string) => void)
       ).not.toThrow();
 
-      // 测试undefined监听器
+      // Test undefined listener
       expect(() =>
         event.addEventListener(undefined as unknown as (data: string) => void)
       ).not.toThrow();
 
-      // 测试非函数监听器
+      // Test non-function listener
       expect(() =>
         event.addEventListener(
           "not-a-function" as unknown as (data: string) => void
         )
       ).not.toThrow();
 
-      // 监听器列表不应该增加
+      // Listener list should not increase
       expect(event.listenerCount).toBe(0);
     });
 
-    it("应该处理监听器数量限制", () => {
+    it("should handle listener count limits", () => {
       const limitedEvent = new TestEvent("LimitedEvent", {
         maxListeners: 2,
         enableBatching: false,
@@ -832,27 +832,27 @@ describe("BaseEvent", () => {
 
       expect(limitedEvent.listenerCount).toBe(2);
 
-      // 添加第三个监听器应该被忽略或警告
+      // Adding a third listener should be ignored or warned
       limitedEvent.addEventListener(listener3);
 
-      // 根据实现，可能会限制或发出警告
+      // Depending on implementation, may limit or warn
       limitedEvent.fire("test");
       expect(listener1).toHaveBeenCalled();
       expect(listener2).toHaveBeenCalled();
     });
 
-    it("应该处理空的批处理刷新", () => {
+    it("should handle empty batch flush", () => {
       const batchEvent = new TestEvent("EmptyBatchTest", {
         enableBatching: true,
       });
 
-      // 没有事件时刷新批处理不应该出错
+      // Flushing batch with no events should not throw
       expect(() => batchEvent.flushBatch()).not.toThrow();
     });
 
-    it("应该处理监听器执行期间的结构变化", () => {
+    it("should handle structural changes during listener execution", () => {
       const removingListener = vi.fn(() => {
-        // 在监听器中移除自身
+        // Remove self in listener
         event.removeEventListener(removingListener);
       });
 
@@ -865,7 +865,7 @@ describe("BaseEvent", () => {
 
       expect(removingListener).toHaveBeenCalled();
       expect(normalListener).toHaveBeenCalled();
-      expect(event.listenerCount).toBe(1); // removingListener应该被移除
+      expect(event.listenerCount).toBe(1); // removingListener should be removed
     });
   });
 });

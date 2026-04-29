@@ -1,21 +1,21 @@
 /**
- * 哈希和数值处理工具函数
+ * Hash and numeric processing utility functions
  * @module runtime/utils/hash-utils
  */
 
 /**
- * 计算字符串的哈希值
+ * Compute the hash value of a string
  *
- * 使用简单的哈希算法（基于 Java String.hashCode()），
- * 用于快速生成字符串的数值标识。
+ * Uses a simple hash algorithm (based on Java String.hashCode()),
+ * for quickly generating a numeric identifier for a string.
  *
- * 该算法的特点：
- * - 确定性：相同输入总是产生相同输出
- * - 快速：时间复杂度 O(n)
- * - 分布良好：不同输入倾向于产生不同哈希值
+ * Characteristics of this algorithm:
+ * - Deterministic: same input always produces same output
+ * - Fast: O(n) time complexity
+ * - Good distribution: different inputs tend to produce different hash values
  *
- * @param input - 待哈希的字符串
- * @returns 32位无符号整数哈希值
+ * @param input - String to hash
+ * @returns 32-bit unsigned integer hash value
  *
  * @example
  * ```typescript
@@ -33,23 +33,23 @@ export function hashString(input: string): number {
 }
 
 /**
- * 将数值夹紧到百分比范围 [0, 100]
+ * Clamp a numeric value to the percentage range [0, 100]
  *
- * 该函数用于确保百分比值在有效范围内：
- * - 小于 0 的值被夹紧为 0
- * - 大于 100 的值被夹紧为 100
- * - NaN 被转换为 0
- * - 正常范围内的值保持不变
+ * This function ensures percentage values stay within the valid range:
+ * - Values less than 0 are clamped to 0
+ * - Values greater than 100 are clamped to 100
+ * - NaN is converted to 0
+ * - Values within the normal range remain unchanged
  *
- * @param value - 待夹紧的数值
- * @returns 夹紧后的值，范围 [0, 100]
+ * @param value - Value to clamp
+ * @returns Clamped value in range [0, 100]
  *
  * @example
  * ```typescript
- * clampPercentage(-10);   // 返回 0
- * clampPercentage(50);    // 返回 50
- * clampPercentage(150);   // 返回 100
- * clampPercentage(NaN);   // 返回 0
+ * clampPercentage(-10);   // returns 0
+ * clampPercentage(50);    // returns 50
+ * clampPercentage(150);   // returns 100
+ * clampPercentage(NaN);   // returns 0
  * ```
  */
 export function clampPercentage(value: number): number {

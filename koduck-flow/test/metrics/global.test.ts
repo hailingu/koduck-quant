@@ -1,6 +1,6 @@
 /**
  * Global metrics registry tests
- * 测试全局metrics注册表的功能
+ * Tests the functionality of the global metrics registry
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
@@ -14,7 +14,7 @@ import {
 import { NoopMetricsProvider } from "../../src/common/metrics/noop";
 import type { MetricsProvider, Meter } from "../../src/common/metrics/types";
 
-// 创建一个模拟的MetricsProvider用于测试
+// Create a mock MetricsProvider for testing
 class MockMetricsProvider implements MetricsProvider {
   private meters = new Map<string, Meter>();
   public collectCalled = false;
@@ -59,36 +59,36 @@ describe("Global Metrics Registry", () => {
 
   beforeEach(() => {
     mockProvider = new MockMetricsProvider();
-    // 重置为默认的NoopMetricsProvider
+    // Reset to default NoopMetricsProvider
     setMetricsProvider(new NoopMetricsProvider());
   });
 
   describe("GlobalMetrics Registry", () => {
-    it("应该有默认的NoopMetricsProvider", () => {
+    it("should have default NoopMetricsProvider", () => {
       const provider = getMetricsProvider();
       expect(provider).toBeInstanceOf(NoopMetricsProvider);
     });
 
-    it("应该支持设置新的provider", () => {
+    it("should support setting a new provider", () => {
       setMetricsProvider(mockProvider);
       const provider = getMetricsProvider();
       expect(provider).toBe(mockProvider);
     });
 
-    it("应该支持获取meter", () => {
+    it("should support getting a meter", () => {
       setMetricsProvider(mockProvider);
       const testMeter = GlobalMetrics.getMeter("test-scope");
       expect(testMeter).toBeDefined();
       expect(typeof testMeter.counter).toBe("function");
     });
 
-    it("应该支持collect操作", () => {
+    it("should support collect operation", () => {
       setMetricsProvider(mockProvider);
       GlobalMetrics.collect();
       expect(mockProvider.collectCalled).toBe(true);
     });
 
-    it("应该处理没有collect方法的provider", () => {
+    it("should handle provider without collect method", () => {
       const providerWithoutCollect: MetricsProvider = {
         getMeter: () => ({
           counter: () => ({ add: () => {} }),
@@ -109,7 +109,7 @@ describe("Global Metrics Registry", () => {
   });
 
   describe("Helper Functions", () => {
-    it("应该支持meter()助手函数", () => {
+    it("should support meter() helper function", () => {
       setMetricsProvider(mockProvider);
       const testMeter = meter("helper-test");
       expect(testMeter).toBeDefined();
@@ -118,22 +118,22 @@ describe("Global Metrics Registry", () => {
       expect(typeof testMeter.histogram).toBe("function");
     });
 
-    it("应该支持collect()助手函数", () => {
+    it("should support collect() helper function", () => {
       setMetricsProvider(mockProvider);
       collect();
       expect(mockProvider.collectCalled).toBe(true);
     });
 
-    it("应该支持setMetricsProvider()助手函数", () => {
+    it("should support setMetricsProvider() helper function", () => {
       const originalProvider = getMetricsProvider();
       setMetricsProvider(mockProvider);
       expect(getMetricsProvider()).toBe(mockProvider);
 
-      // 恢复原始provider
+      // Restore original provider
       setMetricsProvider(originalProvider);
     });
 
-    it("应该支持getMetricsProvider()助手函数", () => {
+    it("should support getMetricsProvider() helper function", () => {
       const provider = getMetricsProvider();
       expect(provider).toBeDefined();
       expect(typeof provider.getMeter).toBe("function");
@@ -141,31 +141,31 @@ describe("Global Metrics Registry", () => {
   });
 
   describe("Integration", () => {
-    it("应该支持完整的metrics工作流", () => {
-      // 设置mock provider
+    it("should support complete metrics workflow", () => {
+      // Set mock provider
       setMetricsProvider(mockProvider);
 
-      // 获取meter
+      // Get meter
       const appMeter = meter("app");
       const dbMeter = meter("database");
 
-      // 创建metrics
+      // Create metrics
       const requestCounter = appMeter.counter("requests_total");
       const dbConnections = dbMeter.gauge("connections_active");
 
       expect(requestCounter).toBeDefined();
       expect(dbConnections).toBeDefined();
 
-      // 使用metrics
+      // Use metrics
       requestCounter.add(1, { method: "GET" });
       dbConnections.set(5);
 
-      // 收集metrics
+      // Collect metrics
       collect();
       expect(mockProvider.collectCalled).toBe(true);
     });
 
-    it("应该支持多个scope的meter", () => {
+    it("should support meters with multiple scopes", () => {
       setMetricsProvider(mockProvider);
 
       const scopes = ["service-a", "service-b", "service-c"];
@@ -178,7 +178,7 @@ describe("Global Metrics Registry", () => {
       });
     });
 
-    it("应该支持异步时间测量", async () => {
+    it("should support asynchronous time measurement", async () => {
       setMetricsProvider(mockProvider);
       const testMeter = meter("async-test");
 
@@ -190,28 +190,28 @@ describe("Global Metrics Registry", () => {
       expect(result).toBe("completed");
     });
 
-    it("应该处理provider切换", () => {
-      // 开始使用默认provider
+    it("should handle provider switching", () => {
+      // Start with default provider
       const defaultProvider = getMetricsProvider();
       const meter1 = meter("test1");
       expect(meter1).toBeDefined();
 
-      // 切换到mock provider
+      // Switch to mock provider
       setMetricsProvider(mockProvider);
       const meter2 = meter("test2");
       expect(meter2).toBeDefined();
 
-      // 验证provider已切换
+      // Verify provider has switched
       expect(getMetricsProvider()).toBe(mockProvider);
 
-      // 切换回默认provider
+      // Switch back to default provider
       setMetricsProvider(defaultProvider);
       expect(getMetricsProvider()).toBe(defaultProvider);
     });
   });
 
   describe("Error Handling", () => {
-    it("应该处理provider中的错误", () => {
+    it("should handle errors in provider", () => {
       const faultyProvider: MetricsProvider = {
         getMeter: () => {
           throw new Error("Provider error");
@@ -220,11 +220,11 @@ describe("Global Metrics Registry", () => {
 
       setMetricsProvider(faultyProvider);
 
-      // 调用应该抛出错误，但不应该崩溃整个系统
+      // Call should throw error, but should not crash the entire system
       expect(() => meter("test")).toThrow("Provider error");
     });
 
-    it("应该处理collect中的错误", () => {
+    it("should handle errors in collect", () => {
       const faultyProvider: MetricsProvider = {
         getMeter: () => ({
           counter: () => ({ add: () => {} }),
@@ -244,17 +244,17 @@ describe("Global Metrics Registry", () => {
 
       setMetricsProvider(faultyProvider);
 
-      // collect调用应该抛出错误
+      // collect call should throw error
       expect(() => collect()).toThrow("Collect error");
     });
   });
 
   describe("Type Safety", () => {
-    it("应该正确处理泛型类型", () => {
+    it("should correctly handle generic types", () => {
       setMetricsProvider(mockProvider);
       const testMeter = meter("type-test");
 
-      // 测试time方法的类型推断
+      // Test type inference for time method
       const syncResult = testMeter.time("sync", () => 42);
       expect(syncResult).resolves.toBe(42);
 
@@ -262,13 +262,13 @@ describe("Global Metrics Registry", () => {
       expect(asyncResult).resolves.toBe("hello");
     });
 
-    it("应该支持复杂的属性类型", () => {
+    it("should support complex attribute types", () => {
       setMetricsProvider(mockProvider);
       const testMeter = meter("complex-attrs");
 
       const counter = testMeter.counter("test_counter");
 
-      // 测试不同类型的属性值
+      // Test different types of attribute values
       expect(() =>
         counter.add(1, {
           service: "api",
@@ -281,7 +281,7 @@ describe("Global Metrics Registry", () => {
   });
 
   describe("Performance", () => {
-    it("应该高效处理大量meter创建", () => {
+    it("should efficiently handle large number of meter creations", () => {
       setMetricsProvider(mockProvider);
 
       const startTime = Date.now();
@@ -294,11 +294,11 @@ describe("Global Metrics Registry", () => {
       const endTime = Date.now();
       const duration = endTime - startTime;
 
-      // 应该在合理时间内完成（100ms内）
+      // Should complete within reasonable time (within 100ms)
       expect(duration).toBeLessThan(100);
     });
 
-    it("应该高效处理频繁的collect调用", () => {
+    it("should efficiently handle frequent collect calls", () => {
       setMetricsProvider(mockProvider);
 
       const startTime = Date.now();
@@ -310,7 +310,7 @@ describe("Global Metrics Registry", () => {
       const endTime = Date.now();
       const duration = endTime - startTime;
 
-      // 应该在合理时间内完成
+      // Should complete within reasonable time
       expect(duration).toBeLessThan(50);
       expect(mockProvider.collectCalled).toBe(true);
     });

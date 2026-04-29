@@ -85,8 +85,8 @@
  */
 
 /**
- * 日志工具 - 用于生产环境的日志管理
- * 替代直接使用 console.* 的调试输出
+ * Logging utility - for production environment log management
+ * Replaces direct console.* debug output
  */
 
 // Basic types migrated to types.ts, re-exported to avoid breaking changes
@@ -427,7 +427,7 @@ class Logger {
   }
 }
 
-// 导出单例实例
+// Export singleton instance
 export const logger = new Logger();
 logger.setConfig({
   enabled: import.meta.env?.DEV ?? false,
@@ -435,7 +435,7 @@ logger.setConfig({
 });
 
 /**
- * 一个空实现的最小 Logger，用于完全静默（测试或生产禁用场景）
+ * A no-op minimal Logger for complete silence (testing or production-disabled scenarios)
  */
 export const noopMinimalLogger: LoggerCore = {
   debug: function () {},
@@ -445,22 +445,22 @@ export const noopMinimalLogger: LoggerCore = {
 };
 
 /**
- * 便捷方法：获取当前全局 logger 的最小适配体（事件系统可直接注入）
+ * Convenience method: get the minimal adapter of the current global logger (can be directly injected into the event system)
  */
 /**
  * getMinimalLogger
- * @deprecated 请使用 getLoggerCore()
+ * @deprecated Use getLoggerCore() instead
  */
 export function getMinimalLogger(): LoggerCore {
   return logger.asMinimal();
 }
 
 /**
- * 获取全局 logger 的最小协议实例（LoggerCore）
+ * Get the minimal protocol instance of the global logger (LoggerCore)
  */
 export function getLoggerCore(): LoggerCore {
   return logger.asCore();
 }
 
-// 在生产环境中默认禁用日志
-// 可以通过 logger.setConfig({ enabled: true }) 手动启用
+// Logs are disabled by default in production
+// Can be manually enabled via logger.setConfig({ enabled: true })

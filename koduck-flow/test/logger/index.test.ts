@@ -3,8 +3,8 @@ import { logger, getLoggerCore, noopMinimalLogger } from "../../src/common/logge
 import type { LogLevel, LogConfig, LoggerCore } from "../../src/common/logger/index";
 
 describe("Logger Index Exports", () => {
-  describe("导出的实例", () => {
-    test("应该导出logger实例", () => {
+  describe("Exported Instances", () => {
+    test("should export logger instance", () => {
       expect(logger).toBeDefined();
       expect(typeof logger.debug).toBe("function");
       expect(typeof logger.info).toBe("function");
@@ -13,7 +13,7 @@ describe("Logger Index Exports", () => {
       expect(typeof logger.setConfig).toBe("function");
     });
 
-    test("应该导出getLoggerCore函数", () => {
+    test("should export getLoggerCore function", () => {
       expect(getLoggerCore).toBeDefined();
       expect(typeof getLoggerCore).toBe("function");
 
@@ -23,7 +23,7 @@ describe("Logger Index Exports", () => {
       expect(typeof core.error).toBe("function");
     });
 
-    test("应该导出noopMinimalLogger实例", () => {
+    test("should export noopMinimalLogger instance", () => {
       expect(noopMinimalLogger).toBeDefined();
       expect(typeof noopMinimalLogger.warn).toBe("function");
       expect(typeof noopMinimalLogger.error).toBe("function");
@@ -32,13 +32,13 @@ describe("Logger Index Exports", () => {
     });
   });
 
-  describe("类型导出", () => {
-    test("应该正确导出LogLevel类型", () => {
+  describe("Type Exports", () => {
+    test("should correctly export LogLevel type", () => {
       const level: LogLevel = "debug";
       expect(level).toBe("debug");
     });
 
-    test("应该正确导出LogConfig类型", () => {
+    test("should correctly export LogConfig type", () => {
       const config: LogConfig = {
         enabled: true,
         level: "info",
@@ -50,7 +50,7 @@ describe("Logger Index Exports", () => {
       expect(config.prefix).toBe("[Test]");
     });
 
-    test("应该正确导出LoggerCore类型", () => {
+    test("should correctly export LoggerCore type", () => {
       const core: LoggerCore = {
         warn: () => {},
         error: () => {},
@@ -61,8 +61,8 @@ describe("Logger Index Exports", () => {
     });
   });
 
-  describe("模块一致性", () => {
-    test("noopMinimalLogger应该符合LoggerCore接口", () => {
+  describe("Module Consistency", () => {
+    test("noopMinimalLogger should conform to LoggerCore interface", () => {
       const noop: LoggerCore = noopMinimalLogger;
 
       expect(typeof noop.warn).toBe("function");

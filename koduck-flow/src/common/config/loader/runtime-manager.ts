@@ -22,8 +22,8 @@ interface LoaderMetrics {
 }
 
 /**
- * 运行时管理器所需的状态接口
- * 用于解耦 runtime-manager 与 ConfigLoader 的直接依赖
+ * State interface required by the runtime manager
+ * Used to decouple runtime-manager from direct dependency on ConfigLoader
  */
 interface RuntimeManagerState {
   runtimeOverrides: Partial<KoduckFlowConfig>;

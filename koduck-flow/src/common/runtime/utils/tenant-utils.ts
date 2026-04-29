@@ -1,5 +1,5 @@
 /**
- * 租户上下文工具函数
+ * Tenant context utility functions
  * @module runtime/utils/tenant-utils
  */
 
@@ -10,10 +10,10 @@ import type {
 } from "../tenant-context";
 
 /**
- * 克隆租户资源配额对象
+ * Clone tenant resource quotas object
  *
- * @param quotas - 原始配额对象
- * @returns 克隆后的配额对象，如果输入为空则返回 undefined
+ * @param quotas - Original quotas object
+ * @returns Cloned quotas object, or undefined if input is empty
  */
 export function cloneTenantResourceQuotas(
   quotas?: TenantResourceQuota
@@ -29,16 +29,16 @@ export function cloneTenantResourceQuotas(
 }
 
 /**
- * 深度克隆租户上下文对象
+ * Deep clone tenant context object
  *
- * 该函数会克隆所有嵌套对象，包括：
+ * This function clones all nested objects, including:
  * - environmentKey
- * - quotas（包括 custom 字段）
+ * - quotas (including custom field)
  * - metadata
- * - rollout（包括 features 字段）
+ * - rollout (including features field)
  *
- * @param context - 原始租户上下文
- * @returns 克隆后的租户上下文，如果输入为空则返回 undefined
+ * @param context - Original tenant context
+ * @returns Cloned tenant context, or undefined if input is empty
  *
  * @example
  * ```typescript
@@ -50,7 +50,7 @@ export function cloneTenantResourceQuotas(
  * };
  *
  * const cloned = cloneTenantContext(original);
- * cloned.environmentKey.region = 'us-west-1'; // 不会影响原始对象
+ * cloned.environmentKey.region = 'us-west-1'; // will not affect the original object
  * ```
  */
 export function cloneTenantContext(

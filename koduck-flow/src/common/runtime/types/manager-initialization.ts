@@ -1,70 +1,70 @@
 /**
- * Manager 初始化相关类型定义
+ * Manager initialization-related type definitions
  * @module runtime/types/manager-initialization
  */
 
 /**
- * Manager 初始化重试配置
+ * Manager initialization retry configuration
  */
 export interface ManagerInitializationRetryConfig {
   /**
-   * 重试次数（默认 1，表示不重试）
+   * Retry attempts (default 1, meaning no retry)
    */
   attempts?: number;
 
   /**
-   * 重试延迟（毫秒）
+   * Retry delay (milliseconds)
    */
   delayMs?: number;
 }
 
 /**
- * Manager 初始化选项
+ * Manager initialization options
  */
 export interface ManagerInitializationOptions {
   /**
-   * 重试配置
+   * Retry configuration
    */
   retries?: ManagerInitializationRetryConfig;
 
   /**
-   * 初始化超时时间（毫秒）
+   * Initialization timeout (milliseconds)
    */
   timeoutMs?: number;
 
   /**
-   * 是否在重试时发出警告（默认 true）
+   * Whether to warn on retry (default true)
    */
   warnOnRetry?: boolean;
 }
 
 /**
- * Manager 注册选项
+ * Manager registration options
  */
 export interface ManagerRegistrationOptions {
   /**
-   * 是否懒加载（仅在首次访问时初始化）
+   * Whether to lazy-load (initialize only on first access)
    */
   lazy?: boolean;
 
   /**
-   * 是否为必需的 Manager（如果初始化失败则阻止运行时启动）
+   * Whether this is a required Manager (blocks runtime startup if initialization fails)
    */
   required?: boolean;
 
   /**
-   * 依赖的其他 Manager 名称列表
+   * List of other Manager names this depends on
    */
   dependencies?: string[];
 
   /**
-   * 自定义初始化选项（覆盖运行时级别的配置）
+   * Custom initialization options (override runtime-level config)
    */
   initialization?: ManagerInitializationOptions;
 }
 
 /**
- * 标准化后的 Manager 初始化配置（内部使用）
+ * Normalized Manager initialization config (internal use)
  */
 export type NormalizedManagerInitializationConfig = {
   retries: {
@@ -76,7 +76,7 @@ export type NormalizedManagerInitializationConfig = {
 };
 
 /**
- * 默认的 Manager 初始化配置
+ * Default Manager initialization config
  */
 export const DEFAULT_MANAGER_INITIALIZATION_CONFIG: NormalizedManagerInitializationConfig = {
   retries: {

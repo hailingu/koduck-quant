@@ -30,7 +30,7 @@ const webgpuLogger = logger.withContext({
 });
 
 /**
- * WebGPU 性能优化配置
+ * WebGPU performance optimization configuration
  */
 interface WebGPUPerformanceOptimization {
   enableComputeShaders: boolean;
@@ -42,20 +42,20 @@ interface WebGPUPerformanceOptimization {
 }
 
 /**
- * WebGPU 渲染器实现
- * 使用 WebGPU API 进行硬件加速渲染
+ * WebGPU renderer implementation
+ * Uses the WebGPU API for hardware-accelerated rendering
  *
- * 使用示例:
+ * Usage example:
  * ```typescript
  * import { RenderManager, WebGPURender } from './render';
  *
  * const renderManager = RenderManager.getInstance();
  * const webgpuRenderer = new WebGPURender(registryManager);
  *
- * // 注册 WebGPU 渲染器
+ * // Register WebGPU renderer
  * renderManager.registerRenderer('webgpu', webgpuRenderer);
  *
- * // 设置为默认渲染器（如果支持 WebGPU）
+ * // Set as default renderer (if WebGPU is supported)
  * if (webgpuRenderer.canHandle(renderContext)) {
  *   renderManager.setDefaultRenderer('webgpu');
  * }
@@ -64,7 +64,7 @@ interface WebGPUPerformanceOptimization {
 class WebGPURender extends BaseRenderer implements ICanvasRenderer {
   private ctx: IRenderContext | undefined;
 
-  // WebGPU 相关属性
+  // WebGPU-related properties
   private device: GPUDevice | null = null;
   private context: GPUCanvasContext | null = null;
   private format: GPUTextureFormat = "bgra8unorm";
@@ -74,7 +74,7 @@ class WebGPURender extends BaseRenderer implements ICanvasRenderer {
   private colorBuffer: GPUBuffer | null = null;
   private uniformBuffer: GPUBuffer | null = null;
 
-  // 性能配置
+  // Performance configuration
   private readonly config: WebGPUPerformanceOptimization = {
     enableComputeShaders: true,
     enableInstancing: true,
@@ -84,17 +84,17 @@ class WebGPURender extends BaseRenderer implements ICanvasRenderer {
     enableDPR: true,
   };
 
-  // DPR相关属性（暂时未使用）
+  // DPR-related properties (not used for now)
   // private dpr: number = 1;
 
-  // 使用统一的缓存管理器管理 shader 缓存
+  // Use unified cache manager to manage shader cache
   private readonly shaderCache = new RenderCacheManager<string, GPUShaderModule>("webgpu-shader", {
     maxSize: 50,
-    maxAge: 10 * 60 * 1000, // 10 分钟
+    maxAge: 10 * 60 * 1000, // 10 minutes
     enableMetrics: true,
   });
 
-  // 首次渲染标记
+  // First render flag
   private isFirstRender = true;
   private ogShaderCacheGauge: ObservableGauge | undefined;
   private ogShaderCacheCb:
@@ -146,35 +146,35 @@ class WebGPURender extends BaseRenderer implements ICanvasRenderer {
   }
 
   /**
-   * 获取渲染器类型
+   * Get renderer type
    */
   getType(): "canvas" {
-    return "canvas"; // 保持与接口兼容，但实际是 WebGPU
+    return "canvas"; // Keep interface compatible, but actually WebGPU
   }
 
   /**
-   * 判断是否能处理当前渲染上下文
+   * Determine if current render context can be handled
    */
   canHandle(context: IRenderContext): boolean {
     return !!context?.canvas && this.isWebGPUSupported();
   }
 
   /**
-   * 获取渲染器优先级
+   * Get renderer priority
    */
   getPriority(): number {
-    return 60; // 高于 Canvas 渲染器
+    return 60; // Higher than Canvas renderer
   }
 
   /**
-   * 检查 WebGPU 支持
+   * Check WebGPU support
    */
   private isWebGPUSupported(): boolean {
     return "gpu" in navigator;
   }
 
   /**
-   * 初始化 WebGPU
+   * Initialize WebGPU
    */
   private async initializeWebGPU(canvas: HTMLCanvasElement): Promise<void> {
     if (!this.isWebGPUSupported()) {
@@ -200,15 +200,15 @@ class WebGPURender extends BaseRenderer implements ICanvasRenderer {
       alphaMode: "premultiplied",
     });
 
-    // 创建着色器和管道
+    // Create shaders and pipeline
     await this.createShadersAndPipeline();
 
-    // 创建缓冲区
+    // Create buffers
     this.createBuffers();
   }
 
   /**
-   * 创建着色器和渲染管道
+   * Create shaders and render pipeline
    */
   private async createShadersAndPipeline(): Promise<void> {
     if (!this.device) return;
@@ -266,30 +266,30 @@ class WebGPURender extends BaseRenderer implements ICanvasRenderer {
   }
 
   /**
-   * 创建缓冲区
+   * Create buffers
    */
   private createBuffers(): void {
     if (!this.device) return;
 
-    // 创建顶点缓冲区
+    // Create vertex buffer
     this.vertexBuffer = this.device.createBuffer({
       size: 1024 * 1024, // 1MB
       usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
     });
 
-    // 创建索引缓冲区
+    // Create index buffer
     this.indexBuffer = this.device.createBuffer({
       size: 512 * 1024, // 512KB
       usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
     });
 
-    // 创建颜色缓冲区
+    // Create color buffer
     this.colorBuffer = this.device.createBuffer({
       size: 1024 * 1024, // 1MB
       usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
     });
 
-    // 创建统一缓冲区
+    // Create uniform buffer
     this.uniformBuffer = this.device.createBuffer({
       size: 256,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -297,7 +297,7 @@ class WebGPURender extends BaseRenderer implements ICanvasRenderer {
   }
 
   /**
-   * 渲染上下文方法
+   * Render context methods
    */
   setRenderContext(ctx: IRenderContext): void {
     this.ctx = ctx;
@@ -357,7 +357,7 @@ class WebGPURender extends BaseRenderer implements ICanvasRenderer {
       return;
     }
 
-    // 首次渲染提示
+    // First render hint
     if (this.isFirstRender) {
       webgpuLogger.info({
         event: WebGPURenderEvent.FirstRender,
@@ -387,10 +387,10 @@ class WebGPURender extends BaseRenderer implements ICanvasRenderer {
     const startTime = performance.now();
 
     try {
-      // 使用 WebGPU 渲染
+      // Render using WebGPU
       this.renderWithWebGPU(entity);
 
-      // 使用基类的 metrics 记录方法
+      // Use base class metrics recording method
       this.recordRenderMetrics(startTime, entity);
       this.updatePerformanceStats(startTime);
     } catch (error) {
@@ -406,12 +406,12 @@ class WebGPURender extends BaseRenderer implements ICanvasRenderer {
   }
 
   /**
-   * 使用 WebGPU 渲染实体
+   * Render entity using WebGPU
    */
   private renderWithWebGPU(entity: IEntity): void {
     if (!this.device || !this.context || !this.pipeline) return;
 
-    // 获取实体的渲染注册表
+    // Get render registry for entity
     const registry = this.registryManager?.getRegistryForEntity(entity) as ICapabilityAwareRegistry<
       IEntity,
       IMeta
@@ -429,11 +429,11 @@ class WebGPURender extends BaseRenderer implements ICanvasRenderer {
     }
 
     try {
-      // 使用 WebGPU 上下文进行渲染
-      // 注意：这里我们仍然使用 registry.render，但传递 WebGPU 增强的上下文
+      // Render using WebGPU context
+      // Note: we still use registry.render, but pass a WebGPU-enhanced context
       registry.executeCapability("render", entity, this.ctx!);
 
-      // 执行 WebGPU 渲染命令
+      // Execute WebGPU render commands
       this.executeWebGPURendering();
 
       webgpuLogger.info({
@@ -455,7 +455,7 @@ class WebGPURender extends BaseRenderer implements ICanvasRenderer {
   }
 
   /**
-   * 执行 WebGPU 渲染命令
+   * Execute WebGPU render commands
    */
   private executeWebGPURendering(): void {
     if (!this.device || !this.context || !this.pipeline) return;
@@ -476,8 +476,8 @@ class WebGPURender extends BaseRenderer implements ICanvasRenderer {
 
     renderPass.setPipeline(this.pipeline);
 
-    // 这里可以设置顶点缓冲区、索引缓冲区等
-    // 实际实现中，这些数据应该从实体的数据中获取
+    // Vertex buffers, index buffers, etc. can be set here
+    // In actual implementation, this data should come from the entity's data
 
     renderPass.end();
     this.device.queue.submit([commandEncoder.finish()]);
@@ -486,7 +486,7 @@ class WebGPURender extends BaseRenderer implements ICanvasRenderer {
   batchRender(entities: IEntity[]): void {
     if (!this.ctx || !this.device) return;
 
-    // 批量渲染逻辑
+    // Batch rendering logic
     const start = performance.now();
     entities.forEach((entity) => this.render(entity));
     const dur = performance.now() - start;
@@ -494,27 +494,27 @@ class WebGPURender extends BaseRenderer implements ICanvasRenderer {
   }
 
   canRender(entity: IEntity): boolean {
-    // 检查渲染上下文和 WebGPU 设备是否存在
+    // Check if render context and WebGPU device exist
     if (!this.ctx || !this.device) {
       return false;
     }
 
-    // 检查实体类型是否以 "canvas" 结尾
+    // Check if entity type ends with "canvas"
     const isCanvasEntity = entity.type?.endsWith("canvas");
 
-    // 检查是否有可用的渲染注册表
+    // Check if a render registry is available
     const registry = this.registryManager?.getRegistryForEntity(entity) as ICapabilityAwareRegistry<
       IEntity,
       IMeta
     >;
     const hasRenderRegistry = registry && RegistryCapabilityUtils.hasCapability(registry, "render");
 
-    // 实体可以渲染的条件：类型匹配且有渲染注册表
+    // Entity can be rendered if: type matches and render registry exists
     return isCanvasEntity && hasRenderRegistry;
   }
 
   override configure(config: IRenderConfig): void {
-    // 映射通用配置到 WebGPU 特定配置
+    // Map generic configuration to WebGPU-specific configuration
     if (config.enableCache !== undefined) {
       this.config.enableComputeShaders = config.enableCache;
     }
@@ -541,10 +541,10 @@ class WebGPURender extends BaseRenderer implements ICanvasRenderer {
   dispose(): void {
     this.shaderCache.clear();
 
-    // 重置首次渲染标记
+    // Reset first render flag
     this.isFirstRender = true;
 
-    // 清理 WebGPU 资源
+    // Clean up WebGPU resources
     if (this.vertexBuffer) {
       this.vertexBuffer.destroy();
       this.vertexBuffer = null;
@@ -567,7 +567,7 @@ class WebGPURender extends BaseRenderer implements ICanvasRenderer {
       this.device = null;
     }
 
-    // 重置性能统计
+    // Reset performance statistics
     this.performanceStats.totalRenderTime = 0;
     this.performanceStats.renderCount = 0;
     this.performanceStats.cacheHitCount = 0;

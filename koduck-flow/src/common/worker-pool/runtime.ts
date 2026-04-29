@@ -1258,7 +1258,7 @@ export class WorkerPoolRuntime implements WorkerPool {
    * Emit event to all registered listeners
    *
    * Listener exceptions are caught and ignored to prevent disrupting pool.
-   * Chinese comment preserved: 忽略监听器抛出的异常，避免影响线程池调度
+   * Listener exceptions are caught and ignored to prevent disrupting pool scheduling
    *
    * @internal
    * @param event - Event to emit

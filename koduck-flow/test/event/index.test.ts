@@ -3,28 +3,28 @@ import * as EventModule from "../../src/common/event/index";
 
 describe("Event Module Index", () => {
   describe("Core Event Infrastructure", () => {
-    test("应该导出BaseEvent", () => {
+    test("should export BaseEvent", () => {
       expect(EventModule.BaseEvent).toBeDefined();
       expect(typeof EventModule.BaseEvent).toBe("function");
     });
 
-    test("应该导出GenericEvent", () => {
+    test("should export GenericEvent", () => {
       expect(EventModule.GenericEvent).toBeDefined();
       expect(typeof EventModule.GenericEvent).toBe("function");
     });
 
-    test("应该导出createEmitter", () => {
+    test("should export createEmitter", () => {
       expect(EventModule.createEmitter).toBeDefined();
       expect(typeof EventModule.createEmitter).toBe("function");
     });
 
-    test("应该BaseEvent可以实例化", () => {
-      // 由于BaseEvent是抽象类，我们通过GenericEvent测试
+    test("BaseEvent should be instantiable", () => {
+      // Since BaseEvent is abstract, we test via GenericEvent
       const event = new EventModule.GenericEvent("test");
       expect(event).toBeInstanceOf(EventModule.BaseEvent);
     });
 
-    test("应该createEmitter返回GenericEvent实例", () => {
+    test("createEmitter should return a GenericEvent instance", () => {
       const emitter = EventModule.createEmitter<string>("test");
       expect(emitter).toBeInstanceOf(EventModule.GenericEvent);
       expect(emitter).toBeInstanceOf(EventModule.BaseEvent);
@@ -32,55 +32,55 @@ describe("Event Module Index", () => {
   });
 
   describe("Entity Events", () => {
-    test("应该导出EntityEvent", () => {
+    test("should export EntityEvent", () => {
       expect(EventModule.EntityEvent).toBeDefined();
       expect(typeof EventModule.EntityEvent).toBe("function");
     });
 
-    test("应该导出EntityAddEvent", () => {
+    test("should export EntityAddEvent", () => {
       expect(EventModule.EntityAddEvent).toBeDefined();
       expect(typeof EventModule.EntityAddEvent).toBe("function");
     });
 
-    test("应该导出EntityRemoveEvent", () => {
+    test("should export EntityRemoveEvent", () => {
       expect(EventModule.EntityRemoveEvent).toBeDefined();
       expect(typeof EventModule.EntityRemoveEvent).toBe("function");
     });
 
-    test("应该导出EntityUpdateEvent", () => {
+    test("should export EntityUpdateEvent", () => {
       expect(EventModule.EntityUpdateEvent).toBeDefined();
       expect(typeof EventModule.EntityUpdateEvent).toBe("function");
     });
 
-    test("应该导出EntityEventType", () => {
+    test("should export EntityEventType", () => {
       expect(EventModule.EntityEventType).toBeDefined();
       expect(typeof EventModule.EntityEventType).toBe("object");
     });
 
-    test("EntityEventType应该包含正确的值", () => {
+    test("EntityEventType should contain correct values", () => {
       expect(EventModule.EntityEventType.ADD).toBe("EntityAdd");
       expect(EventModule.EntityEventType.REMOVE).toBe("EntityRemove");
       expect(EventModule.EntityEventType.UPDATE).toBe("EntityUpdate");
     });
 
-    test("应该能够实例化EntityEvent", () => {
+    test("should be able to instantiate EntityEvent", () => {
       const entityEvent = new EventModule.EntityEvent(EventModule.EntityEventType.ADD);
       expect(entityEvent).toBeInstanceOf(EventModule.EntityEvent);
     });
 
-    test("应该能够实例化EntityAddEvent", () => {
+    test("should be able to instantiate EntityAddEvent", () => {
       const addEvent = new EventModule.EntityAddEvent();
       expect(addEvent).toBeInstanceOf(EventModule.EntityAddEvent);
       expect(addEvent).toBeInstanceOf(EventModule.EntityEvent);
     });
 
-    test("应该能够实例化EntityRemoveEvent", () => {
+    test("should be able to instantiate EntityRemoveEvent", () => {
       const removeEvent = new EventModule.EntityRemoveEvent();
       expect(removeEvent).toBeInstanceOf(EventModule.EntityRemoveEvent);
       expect(removeEvent).toBeInstanceOf(EventModule.EntityEvent);
     });
 
-    test("应该能够实例化EntityUpdateEvent", () => {
+    test("should be able to instantiate EntityUpdateEvent", () => {
       const updateEvent = new EventModule.EntityUpdateEvent();
       expect(updateEvent).toBeInstanceOf(EventModule.EntityUpdateEvent);
       expect(updateEvent).toBeInstanceOf(EventModule.EntityEvent);
@@ -88,27 +88,27 @@ describe("Event Module Index", () => {
   });
 
   describe("Event Managers", () => {
-    test("应该导出EventManager", () => {
+    test("should export EventManager", () => {
       expect(EventModule.EventManager).toBeDefined();
       expect(typeof EventModule.EventManager).toBe("function");
     });
 
-    test("应该导出EntityEventManager", () => {
+    test("should export EntityEventManager", () => {
       expect(EventModule.EntityEventManager).toBeDefined();
       expect(typeof EventModule.EntityEventManager).toBe("function");
     });
 
-    test("应该导出createEntityEventManager", () => {
+    test("should export createEntityEventManager", () => {
       expect(EventModule.createEntityEventManager).toBeDefined();
       expect(typeof EventModule.createEntityEventManager).toBe("function");
     });
 
-    test("应该能够实例化EventManager", () => {
+    test("should be able to instantiate EventManager", () => {
       const manager = new EventModule.EventManager();
       expect(manager).toBeInstanceOf(EventModule.EventManager);
     });
 
-    test("createEntityEventManager应该返回独立实例", () => {
+    test("createEntityEventManager should return independent instances", () => {
       const instance1 = EventModule.createEntityEventManager();
       const instance2 = EventModule.createEntityEventManager();
 
@@ -122,27 +122,27 @@ describe("Event Module Index", () => {
   });
 
   describe("System Event Bus", () => {
-    test("应该导出EventBus", () => {
+    test("should export EventBus", () => {
       expect(EventModule.EventBus).toBeDefined();
       expect(typeof EventModule.EventBus).toBe("function");
     });
 
-    test("应该导出createEventBus", () => {
+    test("should export createEventBus", () => {
       expect(EventModule.createEventBus).toBeDefined();
       expect(typeof EventModule.createEventBus).toBe("function");
     });
 
-    test("应该导出LoggingEvent", () => {
+    test("should export LoggingEvent", () => {
       expect(EventModule.LoggingEvent).toBeDefined();
       expect(typeof EventModule.LoggingEvent).toBe("function");
     });
 
-    test("应该导出SystemEventBus", () => {
+    test("should export SystemEventBus", () => {
       expect(EventModule.SystemEventBus).toBeDefined();
       expect(typeof EventModule.SystemEventBus).toBe("function");
     });
 
-    test("createEventBus应该返回新的EventBus实例", () => {
+    test("createEventBus should return a new EventBus instance", () => {
       const bus1 = EventModule.createEventBus();
       const bus2 = EventModule.createEventBus();
 
@@ -154,13 +154,13 @@ describe("Event Module Index", () => {
       bus2.dispose();
     });
 
-    test("应该能够实例化LoggingEvent", () => {
+    test("should be able to instantiate LoggingEvent", () => {
       const loggingEvent = new EventModule.LoggingEvent();
       expect(loggingEvent).toBeInstanceOf(EventModule.LoggingEvent);
       expect(loggingEvent).toBeInstanceOf(EventModule.BaseEvent);
     });
 
-    test("应该能够实例化SystemEventBus", () => {
+    test("should be able to instantiate SystemEventBus", () => {
       const systemEventBus = new EventModule.SystemEventBus();
       expect(systemEventBus).toBeInstanceOf(EventModule.SystemEventBus);
       expect(systemEventBus).toBeInstanceOf(EventModule.BaseEvent);
@@ -168,17 +168,17 @@ describe("Event Module Index", () => {
   });
 
   describe("Render Event Manager", () => {
-    test("应该导出RenderEventManager", () => {
+    test("should export RenderEventManager", () => {
       expect(EventModule.RenderEventManager).toBeDefined();
       expect(typeof EventModule.RenderEventManager).toBe("function");
     });
 
-    test("应该导出createRenderEventManager", () => {
+    test("should export createRenderEventManager", () => {
       expect(EventModule.createRenderEventManager).toBeDefined();
       expect(typeof EventModule.createRenderEventManager).toBe("function");
     });
 
-    test("createRenderEventManager应该返回独立实例", () => {
+    test("createRenderEventManager should return independent instances", () => {
       const renderManager1 = EventModule.createRenderEventManager();
       const renderManager2 = EventModule.createRenderEventManager();
 
@@ -189,7 +189,7 @@ describe("Event Module Index", () => {
   });
 
   describe("Module Structure", () => {
-    test("应该导出所有预期的成员", () => {
+    test("should export all expected members", () => {
       const expectedExports = [
         // Core
         "BaseEvent",
@@ -232,7 +232,7 @@ describe("Event Module Index", () => {
       });
     });
 
-    test("应该不导出意外的成员", () => {
+    test("should not export unexpected members", () => {
       const actualExports = Object.keys(EventModule);
       const expectedExports = [
         "BaseEvent",
@@ -261,7 +261,7 @@ describe("Event Module Index", () => {
         "defaultListenerSnapshotPool",
       ];
 
-      // 检查是否有意外的导出
+      // Check for unexpected exports
       const unexpectedExports = actualExports.filter(
         (exportName) => !expectedExports.includes(exportName)
       );
@@ -269,7 +269,7 @@ describe("Event Module Index", () => {
       expect(unexpectedExports).toEqual([]);
     });
 
-    test("应该所有导出都是可用的", () => {
+    test("all exports should be available", () => {
       Object.keys(EventModule).forEach((exportName) => {
         const exportValue = EventModule[exportName as keyof typeof EventModule];
         expect(exportValue).toBeDefined();
@@ -279,33 +279,33 @@ describe("Event Module Index", () => {
   });
 
   describe("Integration Tests", () => {
-    test("应该支持完整的事件系统工作流", () => {
-      // 创建基础事件
+    test("should support a complete event system workflow", () => {
+      // Create base event
       const genericEvent = new EventModule.GenericEvent<string>("integration-test");
 
-      // 创建实体事件
+      // Create entity event
       const entityAdd = new EventModule.EntityAddEvent();
 
-      // 获取管理器实例
+      // Get manager instances
       const eventBus = EventModule.createEventBus();
       const entityManager = EventModule.createEntityEventManager();
       const renderManager = EventModule.createRenderEventManager();
 
-      // 验证所有组件都正常工作
+      // Verify all components work correctly
       expect(genericEvent).toBeInstanceOf(EventModule.BaseEvent);
       expect(entityAdd).toBeInstanceOf(EventModule.EntityEvent);
       expect(eventBus).toBeInstanceOf(EventModule.EventBus);
       expect(entityManager).toBeInstanceOf(EventModule.EntityEventManager);
       expect(renderManager).toBeInstanceOf(EventModule.RenderEventManager);
 
-      // 清理
+      // Cleanup
       eventBus.dispose();
       entityManager.dispose();
       genericEvent.dispose();
     });
 
-    test("应该支持事件类型检查", () => {
-      // 测试类型系统是否正常工作
+    test("should support event type checking", () => {
+      // Test whether the type system works correctly
       const emitter = EventModule.createEmitter<number>("number-test");
       const listener = (value: number) => {
         expect(typeof value).toBe("number");
@@ -317,20 +317,20 @@ describe("Event Module Index", () => {
       emitter.dispose();
     });
 
-    test("应该支持实体事件类型枚举", () => {
+    test("should support entity event type enum", () => {
       const { EntityEventType } = EventModule;
 
-      // 验证枚举值
+      // Verify enum values
       expect(EntityEventType.ADD).toBe("EntityAdd");
       expect(EntityEventType.REMOVE).toBe("EntityRemove");
       expect(EntityEventType.UPDATE).toBe("EntityUpdate");
 
-      // 验证枚举可以用于事件创建
+      // Verify enum can be used for event creation
       const addEvent = new EventModule.EntityEvent(EntityEventType.ADD);
       const removeEvent = new EventModule.EntityEvent(EntityEventType.REMOVE);
       const updateEvent = new EventModule.EntityEvent(EntityEventType.UPDATE);
 
-      // 验证事件创建成功
+      // Verify event creation succeeded
       expect(addEvent).toBeInstanceOf(EventModule.EntityEvent);
       expect(removeEvent).toBeInstanceOf(EventModule.EntityEvent);
       expect(updateEvent).toBeInstanceOf(EventModule.EntityEvent);

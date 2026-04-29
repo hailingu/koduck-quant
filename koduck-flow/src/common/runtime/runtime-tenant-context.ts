@@ -1,24 +1,24 @@
 /**
- * RuntimeTenantContext - 租户上下文管理器
+ * RuntimeTenantContext - Tenant context manager
  *
  * @description
- * 负责管理多租户环境下的租户上下文(Tenant Context)，提供以下核心功能：
- * 1. 租户上下文的设置与获取
- * 2. 租户上下文的深拷贝（防止外部修改）
- * 3. 租户配置同步到 DI 容器（tenantContext, tenantQuota, tenantRollout）
- * 4. 租户上下文的清空与重置
+ * Manages tenant context in a multi-tenant environment, providing the following core features:
+ * 1. Tenant context setting and retrieval
+ * 2. Deep copy of tenant context (prevents external modification)
+ * 3. Sync tenant config to DI container (tenantContext, tenantQuota, tenantRollout)
+ * 4. Tenant context clearing and resetting
  *
  * @responsibilities
- * - 管理租户上下文的生命周期
- * - 确保租户数据的隔离性（通过深拷贝）
- * - 同步租户配置到依赖注入容器
- * - 提供租户上下文的查询接口
+ * - Manages tenant context lifecycle
+ * - Ensures tenant data isolation (via deep copy)
+ * - Syncs tenant config to dependency injection container
+ * - Provides tenant context query interface
  *
  * @example
  * ```typescript
  * const tenantContext = new RuntimeTenantContext(container);
  *
- * // 设置租户上下文
+ * // Set tenant context
  * tenantContext.setTenantContext({
  *   tenantId: 'tenant-123',
  *   environment: 'production',
@@ -26,15 +26,15 @@
  *   rollout: { percentage: 50, variant: 'beta' }
  * });
  *
- * // 获取租户上下文（返回深拷贝）
+ * // Get tenant context (returns deep copy)
  * const context = tenantContext.getTenantContext();
  *
- * // 检查是否存在租户上下文
+ * // Check if tenant context exists
  * if (tenantContext.hasTenantContext()) {
  *   console.log('Tenant context is set');
  * }
  *
- * // 清空租户上下文
+ * // Clear tenant context
  * tenantContext.setTenantContext(null);
  * ```
  *
@@ -49,33 +49,33 @@ import { cloneTenantContext } from "./utils/tenant-utils";
 import { logger } from "../logger";
 
 /**
- * RuntimeTenantContext 类
+ * RuntimeTenantContext class
  *
  * @description
- * 管理租户上下文的设置、获取、同步和清空。
- * 使用深拷贝策略确保租户数据的隔离性，防止外部代码意外修改内部状态。
+ * Manages tenant context setting, retrieval, sync, and clearing.
+ * Uses deep copy strategy to ensure tenant data isolation, preventing external code from accidentally modifying internal state.
  *
  * @class
  */
 export class RuntimeTenantContext {
   /**
-   * 当前租户上下文（内部状态）
+   * Current tenant context (internal state)
    * @private
    */
   private tenantContext: ResolvedTenantContext | null = null;
 
   /**
-   * DI 容器引用，用于同步租户配置
+   * DI container reference for syncing tenant config
    * @private
    * @readonly
    */
   private readonly container: IDependencyContainer;
 
   /**
-   * 创建 RuntimeTenantContext 实例
+   * Create RuntimeTenantContext instance
    *
-   * @param container - 依赖注入容器
-   * @throws {Error} 如果 container 为 null 或 undefined
+   * @param container - Dependency injection container
+   * @throws {Error} If container is null or undefined
    */
   constructor(container: IDependencyContainer) {
     if (!container) {
@@ -85,48 +85,48 @@ export class RuntimeTenantContext {
   }
 
   /**
-   * 设置租户上下文
+   * Set tenant context
    *
    * @description
-   * 设置或清空租户上下文。如果传入 null 或 undefined，则清空当前上下文。
-   * 如果传入有效上下文，则进行深拷贝并同步到 DI 容器。
+   * Sets or clears tenant context. If null or undefined is passed, clears current context.
+   * If a valid context is passed, deep-copies it and syncs to DI container.
    *
-   * @param context - 要设置的租户上下文，null 表示清空
+   * @param context - Tenant context to set, null means clear
    *
    * @example
    * ```typescript
-   * // 设置租户上下文
+   * // Set tenant context
    * tenantContext.setTenantContext({
    *   tenantId: 'tenant-123',
    *   environment: 'production'
    * });
    *
-   * // 清空租户上下文
+   * // Clear tenant context
    * tenantContext.setTenantContext(null);
    * ```
    */
   setTenantContext(context?: ResolvedTenantContext | null): void {
-    // 如果传入 null 或 undefined，清空上下文
+    // If null or undefined is passed, clear context
     if (!context) {
       this.tenantContext = null;
       this.clearContainer();
       return;
     }
 
-    // 深拷贝租户上下文，确保数据隔离
+    // Deep clone tenant context to ensure data isolation
     const snapshot = cloneTenantContext(context);
     if (!snapshot) {
-      // 如果克隆失败（例如 context 为空对象），不做任何操作
+      // If clone fails (e.g., context is empty object), do nothing
       return;
     }
 
-    // 更新内部状态
+    // Update internal state
     this.tenantContext = snapshot;
 
-    // 同步到 DI 容器
+    // Sync to DI container
     this.syncToContainer(snapshot);
 
-    // 记录日志
+    // Log
     logger.info("KoduckFlowRuntime attached tenant context", {
       tenantId: snapshot.tenantId,
       environment: snapshot.environment,
@@ -135,13 +135,13 @@ export class RuntimeTenantContext {
   }
 
   /**
-   * 获取租户上下文
+   * Get tenant context
    *
    * @description
-   * 返回租户上下文的深拷贝，防止外部代码修改内部状态。
-   * 如果租户上下文不存在，返回 undefined。
+   * Returns a deep copy of tenant context to prevent external code from modifying internal state.
+   * If tenant context does not exist, returns undefined.
    *
-   * @returns 租户上下文的深拷贝，如果不存在则返回 undefined
+   * @returns Deep copy of tenant context, or undefined if not set
    *
    * @example
    * ```typescript
@@ -156,17 +156,17 @@ export class RuntimeTenantContext {
   }
 
   /**
-   * 检查是否存在租户上下文
+   * Check if tenant context exists
    *
    * @description
-   * 快速检查当前是否设置了租户上下文，比调用 getTenantContext() 更高效。
+   * Quickly checks whether tenant context is currently set, more efficient than calling getTenantContext().
    *
-   * @returns 如果存在租户上下文返回 true，否则返回 false
+   * @returns true if tenant context exists, false otherwise
    *
    * @example
    * ```typescript
    * if (tenantContext.hasTenantContext()) {
-   *   // 执行租户相关操作
+   *   // Execute tenant-related operations
    * }
    * ```
    */
@@ -175,31 +175,31 @@ export class RuntimeTenantContext {
   }
 
   /**
-   * 同步租户上下文到 DI 容器
+   * Sync tenant context to DI container
    *
    * @description
-   * 将租户上下文及其子配置（quotas, rollout）注册到 DI 容器，
-   * 使得其他模块可以通过依赖注入获取租户信息。
+   * Registers tenant context and its sub-configs (quotas, rollout) to DI container,
+   * allowing other modules to retrieve tenant info via dependency injection.
    *
-   * @param snapshot - 要同步的租户上下文快照
+   * @param snapshot - Tenant context snapshot to sync
    * @private
    */
   private syncToContainer(snapshot: ResolvedTenantContext): void {
-    // 注册完整的租户上下文
+    // Register full tenant context
     this.container.registerInstance(TOKENS.tenantContext, snapshot, {
       lifecycle: "singleton",
       replace: true,
       ownsInstance: false,
     });
 
-    // 注册租户配额配置（如果存在）
+    // Register tenant quota config (if exists)
     this.container.registerInstance(TOKENS.tenantQuota, snapshot.quotas ?? null, {
       lifecycle: "singleton",
       replace: true,
       ownsInstance: false,
     });
 
-    // 注册租户 Rollout 配置（如果存在）
+    // Register tenant rollout config (if exists)
     this.container.registerInstance(TOKENS.tenantRollout, snapshot.rollout ?? null, {
       lifecycle: "singleton",
       replace: true,
@@ -208,11 +208,11 @@ export class RuntimeTenantContext {
   }
 
   /**
-   * 清空 DI 容器中的租户配置
+   * Clear tenant config from DI container
    *
    * @description
-   * 将 DI 容器中的租户相关 token 设置为 null，
-   * 确保依赖注入的模块不会获取到过期的租户信息。
+   * Sets tenant-related tokens in DI container to null,
+   * ensuring dependent modules do not receive stale tenant information.
    *
    * @private
    */

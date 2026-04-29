@@ -5,7 +5,7 @@ import type { IEntity } from "../../src/common/entity";
 import type { ICapability } from "../../src/utils";
 
 describe("RegistryCapabilityUtils", () => {
-  // Mock实体
+  // Mock entity
   class MockEntity implements IEntity {
     readonly id = "mock-entity";
     readonly type = "MockEntity";
@@ -14,8 +14,8 @@ describe("RegistryCapabilityUtils", () => {
 
   const mockEntity = new MockEntity();
 
-  describe("getCapabilities方法", () => {
-    test("应该从显式listCapabilities方法获取能力", () => {
+  describe("getCapabilities method", () => {
+    test("should get capabilities from explicit listCapabilities method", () => {
       const registry: IRegistry<MockEntity> & {
         listCapabilities: () => string[];
       } = {
@@ -29,7 +29,7 @@ describe("RegistryCapabilityUtils", () => {
       expect(capabilities[1].name).toBe("execute");
     });
 
-    test("应该从显式getCapabilities方法获取能力", () => {
+    test("should get capabilities from explicit getCapabilities method", () => {
       const registry: IRegistry<MockEntity> & {
         getCapabilities: () => string[];
       } = {
@@ -43,7 +43,7 @@ describe("RegistryCapabilityUtils", () => {
       expect(capabilities[1].name).toBe("validate");
     });
 
-    test("应该从meta.extras.capabilities获取字符串数组能力", () => {
+    test("should get string array capabilities from meta.extras.capabilities", () => {
       const registry: IRegistry<MockEntity> = {
         getConstructor: () => MockEntity,
         meta: {
@@ -63,7 +63,7 @@ describe("RegistryCapabilityUtils", () => {
       ]);
     });
 
-    test("应该从meta.extras.capabilities获取ICapability对象数组", () => {
+    test("should get ICapability object array from meta.extras.capabilities", () => {
       const mockCapabilities: ICapability[] = [
         {
           name: "render",
@@ -92,7 +92,7 @@ describe("RegistryCapabilityUtils", () => {
       expect(capabilities).toBe(mockCapabilities);
     });
 
-    test("应该返回空数组当没有能力时", () => {
+    test("should return empty array when there are no capabilities", () => {
       const registry: IRegistry<MockEntity> = {
         getConstructor: () => MockEntity,
       };
@@ -101,7 +101,7 @@ describe("RegistryCapabilityUtils", () => {
       expect(capabilities).toHaveLength(0);
     });
 
-    test("应该处理listCapabilities方法抛出异常", () => {
+    test("should handle exceptions thrown by listCapabilities method", () => {
       const registry: IRegistry<MockEntity> & {
         listCapabilities: () => string[];
       } = {
@@ -116,8 +116,8 @@ describe("RegistryCapabilityUtils", () => {
     });
   });
 
-  describe("hasCapability方法", () => {
-    test("应该使用显式hasCapability方法检查能力", () => {
+  describe("hasCapability method", () => {
+    test("should use explicit hasCapability method to check capability", () => {
       const hasCapabilityMock = vi.fn((name: string) => name === "render");
       const registry: IRegistry<MockEntity> & {
         hasCapability: (name: string) => boolean;
@@ -136,7 +136,7 @@ describe("RegistryCapabilityUtils", () => {
       expect(hasCapabilityMock).toHaveBeenCalledWith("unknown");
     });
 
-    test("应该处理hasCapability方法抛出异常", () => {
+    test("should handle exceptions thrown by hasCapability method", () => {
       const registry: IRegistry<MockEntity> & {
         hasCapability: (name: string) => boolean;
       } = {
@@ -146,13 +146,13 @@ describe("RegistryCapabilityUtils", () => {
         },
       };
 
-      // 应该fallback到能力名称检查
+      // Should fallback to capability name check
       expect(RegistryCapabilityUtils.hasCapability(registry, "render")).toBe(
         false
       );
     });
 
-    test("应该从能力名称列表检查能力", () => {
+    test("should check capability from capability name list", () => {
       const registry: IRegistry<MockEntity> = {
         getConstructor: () => MockEntity,
         meta: {
@@ -175,8 +175,8 @@ describe("RegistryCapabilityUtils", () => {
     });
   });
 
-  describe("hasRenderCapability方法", () => {
-    test("应该检查render能力", () => {
+  describe("hasRenderCapability method", () => {
+    test("should check render capability", () => {
       const registry: IRegistry<MockEntity> = {
         getConstructor: () => MockEntity,
         meta: {
@@ -190,7 +190,7 @@ describe("RegistryCapabilityUtils", () => {
       expect(RegistryCapabilityUtils.hasRenderCapability(registry)).toBe(true);
     });
 
-    test("应该返回false当没有render能力时", () => {
+    test("should return false when there is no render capability", () => {
       const registry: IRegistry<MockEntity> = {
         getConstructor: () => MockEntity,
         meta: {
@@ -205,8 +205,8 @@ describe("RegistryCapabilityUtils", () => {
     });
   });
 
-  describe("hasExecuteCapability方法", () => {
-    test("应该检查execute能力", () => {
+  describe("hasExecuteCapability method", () => {
+    test("should check execute capability", () => {
       const registry: IRegistry<MockEntity> = {
         getConstructor: () => MockEntity,
         meta: {
@@ -220,7 +220,7 @@ describe("RegistryCapabilityUtils", () => {
       expect(RegistryCapabilityUtils.hasExecuteCapability(registry)).toBe(true);
     });
 
-    test("应该返回false当没有execute能力时", () => {
+    test("should return false when there is no execute capability", () => {
       const registry: IRegistry<MockEntity> = {
         getConstructor: () => MockEntity,
         meta: {
@@ -237,8 +237,8 @@ describe("RegistryCapabilityUtils", () => {
     });
   });
 
-  describe("executeCapability方法", () => {
-    test("应该使用显式executeCapability方法执行能力", async () => {
+  describe("executeCapability method", () => {
+    test("should use explicit executeCapability method to execute capability", async () => {
       const executeCapabilityMock = vi.fn(
         async (name: string, entity: IEntity) => `${name}-${entity.id}`
       );
@@ -266,7 +266,7 @@ describe("RegistryCapabilityUtils", () => {
       expect(executeCapabilityMock).toHaveBeenCalledWith("render", mockEntity);
     });
 
-    test("应该抛出错误当能力不存在时", async () => {
+    test("should throw error when capability does not exist", async () => {
       const hasCapabilityMock = vi.fn(() => false);
 
       const registry: IRegistry<MockEntity> & {
@@ -291,7 +291,7 @@ describe("RegistryCapabilityUtils", () => {
       ).rejects.toThrow('Capability "unknown" not found in registry');
     });
 
-    test("应该使用虚拟能力对象执行能力", async () => {
+    test("should use virtual capability object to execute capability", async () => {
       const registry: IRegistry<MockEntity> = {
         getConstructor: () => MockEntity,
         meta: {
@@ -307,14 +307,14 @@ describe("RegistryCapabilityUtils", () => {
         "render",
         mockEntity
       );
-      expect(result).toBeUndefined(); // 虚拟能力默认返回undefined
+      expect(result).toBeUndefined(); // virtual capability returns undefined by default
     });
 
-    test("应该抛出错误当能力不能处理实体时", async () => {
+    test("should throw error when capability cannot handle entity", async () => {
       const mockCapabilities: ICapability[] = [
         {
           name: "render",
-          canHandle: () => false, // 不能处理
+          canHandle: () => false, // cannot handle
           execute: async () => "rendered",
         },
       ];
@@ -338,7 +338,7 @@ describe("RegistryCapabilityUtils", () => {
       ).rejects.toThrow('Capability "render" cannot handle entity mock-entity');
     });
 
-    test("应该抛出错误当能力不存在于虚拟列表中时", async () => {
+    test("should throw error when capability does not exist in virtual list", async () => {
       const registry: IRegistry<MockEntity> = {
         getConstructor: () => MockEntity,
         meta: {
@@ -359,8 +359,8 @@ describe("RegistryCapabilityUtils", () => {
     });
   });
 
-  describe("边界情况和错误处理", () => {
-    test("应该处理空的extras对象", () => {
+  describe("Edge Cases and Error Handling", () => {
+    test("should handle empty extras object", () => {
       const registry: IRegistry<MockEntity> = {
         getConstructor: () => MockEntity,
         meta: {
@@ -376,7 +376,7 @@ describe("RegistryCapabilityUtils", () => {
       );
     });
 
-    test("应该处理空的capabilities数组", () => {
+    test("should handle empty capabilities array", () => {
       const registry: IRegistry<MockEntity> = {
         getConstructor: () => MockEntity,
         meta: {
@@ -391,7 +391,7 @@ describe("RegistryCapabilityUtils", () => {
       expect(capabilities).toHaveLength(0);
     });
 
-    test("应该处理无效的capabilities类型", () => {
+    test("should handle invalid capabilities type", () => {
       const registry: IRegistry<MockEntity> = {
         getConstructor: () => MockEntity,
         meta: {

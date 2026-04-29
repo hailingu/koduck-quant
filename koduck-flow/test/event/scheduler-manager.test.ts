@@ -28,15 +28,15 @@ describe("SchedulerManager", () => {
     vi.restoreAllMocks();
   });
 
-  describe("构造函数和初始化", () => {
-    test("应该正确初始化", () => {
+  describe("Constructor and Initialization", () => {
+    test("should initialize correctly", () => {
       schedulerManager = new SchedulerManager(config);
 
       expect(schedulerManager.getSchedulerId()).toBeTruthy();
       expect(typeof schedulerManager.getSchedulerId()).toBe("string");
     });
 
-    test("应该支持自定义调度器配置", () => {
+    test("should support custom scheduler configuration", () => {
       const customScheduler: Scheduler = {
         kind: "custom",
         schedule: vi.fn().mockReturnValue(123),
@@ -52,7 +52,7 @@ describe("SchedulerManager", () => {
       expect(info.supportsRAF).toBe(false);
     });
 
-    test("应该支持RAF调度器", () => {
+    test("should support RAF scheduler", () => {
       const rafScheduler: Scheduler = {
         kind: "raf",
         schedule: vi.fn().mockReturnValue(456),
@@ -69,13 +69,13 @@ describe("SchedulerManager", () => {
     });
   });
 
-  describe("内置调度器功能", () => {
+  describe("Built-in Scheduler Functions", () => {
     beforeEach(() => {
       vi.useFakeTimers();
       schedulerManager = new SchedulerManager(config);
     });
 
-    test("应该使用setTimeout进行延迟调度", () => {
+    test("should use setTimeout for delayed scheduling", () => {
       const mockFn = vi.fn();
       const setTimeoutSpy = vi.spyOn(global, "setTimeout");
 
@@ -86,7 +86,7 @@ describe("SchedulerManager", () => {
       expect(result.id).toBeDefined();
     });
 
-    test("应该使用requestAnimationFrame进行即时调度", () => {
+    test("should use requestAnimationFrame for immediate scheduling", () => {
       const mockFn = vi.fn();
       const rafSpy = vi
         .spyOn(global, "requestAnimationFrame")
@@ -99,9 +99,9 @@ describe("SchedulerManager", () => {
       expect(result.id).toBe(789);
     });
 
-    test("应该在没有RAF时回退到setTimeout", () => {
+    test("should fall back to setTimeout when RAF is unavailable", () => {
       const originalRAF = global.requestAnimationFrame;
-      // @ts-expect-error - 故意删除RAF以测试回退机制
+      // @ts-expect-error - intentionally remove RAF to test fallback mechanism
       delete global.requestAnimationFrame;
 
       const mockFn = vi.fn();
@@ -115,7 +115,7 @@ describe("SchedulerManager", () => {
       global.requestAnimationFrame = originalRAF;
     });
 
-    test("应该正确取消setTimeout调度", () => {
+    test("should correctly cancel setTimeout scheduling", () => {
       const clearTimeoutSpy = vi.spyOn(global, "clearTimeout");
 
       schedulerManager.cancel(123, false);
@@ -123,7 +123,7 @@ describe("SchedulerManager", () => {
       expect(clearTimeoutSpy).toHaveBeenCalledWith(123);
     });
 
-    test("应该正确取消RAF调度", () => {
+    test("should correctly cancel RAF scheduling", () => {
       const cancelRAFSpy = vi
         .spyOn(global, "cancelAnimationFrame")
         .mockImplementation(() => {});
@@ -133,9 +133,9 @@ describe("SchedulerManager", () => {
       expect(cancelRAFSpy).toHaveBeenCalledWith(456);
     });
 
-    test("应该在没有cancelAnimationFrame时回退到clearTimeout", () => {
+    test("should fall back to clearTimeout when cancelAnimationFrame is unavailable", () => {
       const originalCancel = global.cancelAnimationFrame;
-      // @ts-expect-error - 故意删除cancelAnimationFrame以测试回退机制
+      // @ts-expect-error - intentionally remove cancelAnimationFrame to test fallback mechanism
       delete global.cancelAnimationFrame;
 
       const clearTimeoutSpy = vi.spyOn(global, "clearTimeout");
@@ -148,7 +148,7 @@ describe("SchedulerManager", () => {
     });
   });
 
-  describe("自定义调度器功能", () => {
+  describe("Custom Scheduler Functions", () => {
     let customScheduler: Scheduler;
 
     beforeEach(() => {
@@ -162,7 +162,7 @@ describe("SchedulerManager", () => {
       schedulerManager = new SchedulerManager(configWithScheduler);
     });
 
-    test("应该使用自定义调度器进行调度", () => {
+    test("should use custom scheduler for scheduling", () => {
       const mockFn = vi.fn();
 
       const result = schedulerManager.schedule(mockFn, 50);
@@ -172,13 +172,13 @@ describe("SchedulerManager", () => {
       expect(result.isRAF).toBe(false);
     });
 
-    test("应该使用自定义调度器进行取消", () => {
+    test("should use custom scheduler for cancellation", () => {
       schedulerManager.cancel(999, false);
 
       expect(customScheduler.cancel).toHaveBeenCalledWith(999);
     });
 
-    test("应该正确识别RAF类型的自定义调度器", () => {
+    test("should correctly identify RAF-type custom scheduler", () => {
       const rafScheduler: Scheduler = {
         kind: "raf",
         schedule: vi.fn().mockReturnValue(888),
@@ -196,12 +196,12 @@ describe("SchedulerManager", () => {
     });
   });
 
-  describe("配置管理", () => {
+  describe("Configuration Management", () => {
     beforeEach(() => {
       schedulerManager = new SchedulerManager(config);
     });
 
-    test("应该正确更新配置", () => {
+    test("should update configuration correctly", () => {
       const newCustomScheduler: Scheduler = {
         kind: "custom",
         schedule: vi.fn(),
@@ -218,7 +218,7 @@ describe("SchedulerManager", () => {
       expect(info.isCustom).toBe(true);
     });
 
-    test("应该检测调度器引用变化", () => {
+    test("should detect scheduler reference changes", () => {
       const scheduler1: Scheduler = {
         kind: "custom",
         schedule: vi.fn(),
@@ -226,7 +226,7 @@ describe("SchedulerManager", () => {
       };
 
       const scheduler2: Scheduler = {
-        kind: "custom", // 相同kind，但不同实例
+        kind: "custom", // same kind, but different instance
         schedule: vi.fn(),
         cancel: vi.fn(),
       };
@@ -240,7 +240,7 @@ describe("SchedulerManager", () => {
       expect(changed).toBe(true);
     });
 
-    test("应该检测调度器身份字符串变化", () => {
+    test("should detect scheduler identity string changes", () => {
       const scheduler1: Scheduler = {
         kind: "timeout",
         schedule: vi.fn(),
@@ -262,7 +262,7 @@ describe("SchedulerManager", () => {
       expect(changed).toBe(true);
     });
 
-    test("应该在无变化时返回false", () => {
+    test("should return false when there is no change", () => {
       const scheduler: Scheduler = {
         kind: "custom",
         schedule: vi.fn(),
@@ -278,15 +278,15 @@ describe("SchedulerManager", () => {
     });
   });
 
-  describe("调度器身份和信息", () => {
-    test("应该为内置调度器生成正确的身份", () => {
+  describe("Scheduler Identity and Information", () => {
+    test("should generate correct identity for built-in scheduler", () => {
       schedulerManager = new SchedulerManager(config);
 
       const id = schedulerManager.getSchedulerId();
       expect(id).toMatch(/^builtin:(raf|timeout)$/);
     });
 
-    test("应该为自定义调度器生成正确的身份", () => {
+    test("should generate correct identity for custom scheduler", () => {
       const customScheduler: Scheduler = {
         kind: "custom",
         schedule: vi.fn(),
@@ -300,7 +300,7 @@ describe("SchedulerManager", () => {
       expect(id).toBe("custom");
     });
 
-    test("应该返回内置调度器的正确信息", () => {
+    test("should return correct information for built-in scheduler", () => {
       schedulerManager = new SchedulerManager(config);
 
       const info = schedulerManager.getSchedulerInfo();
@@ -309,7 +309,7 @@ describe("SchedulerManager", () => {
       expect(typeof info.supportsRAF).toBe("boolean");
     });
 
-    test("应该返回自定义调度器的正确信息", () => {
+    test("should return correct information for custom scheduler", () => {
       const customScheduler: Scheduler = {
         kind: "custom",
         schedule: vi.fn(),
@@ -326,12 +326,12 @@ describe("SchedulerManager", () => {
     });
   });
 
-  describe("边界情况和错误处理", () => {
+  describe("Edge Cases and Error Handling", () => {
     beforeEach(() => {
       schedulerManager = new SchedulerManager(config);
     });
 
-    test("应该处理无延迟的调度", () => {
+    test("should handle scheduling without delay", () => {
       const mockFn = vi.fn();
 
       const result1 = schedulerManager.schedule(mockFn);
@@ -341,7 +341,7 @@ describe("SchedulerManager", () => {
       expect(result2.id).toBeDefined();
     });
 
-    test("应该处理负延迟", () => {
+    test("should handle negative delay", () => {
       const mockFn = vi.fn();
       const setTimeoutSpy = vi.spyOn(global, "setTimeout");
 
@@ -350,7 +350,7 @@ describe("SchedulerManager", () => {
       expect(setTimeoutSpy).toHaveBeenCalledWith(mockFn, -10);
     });
 
-    test("应该处理配置为undefined的调度器", () => {
+    test("should handle scheduler with undefined configuration", () => {
       const configWithUndefined = { ...config, scheduler: undefined };
       schedulerManager = new SchedulerManager(configWithUndefined);
 

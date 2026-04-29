@@ -1,17 +1,17 @@
 import type { EventConfiguration, Scheduler } from "./types";
 
 /**
- * 调度器管理器
- * 负责任务调度、调度器身份识别和调度策略管理
+ * Scheduler manager
+ * Responsible for task scheduling, scheduler identity recognition, and scheduling policy management
  */
 export class SchedulerManager {
-  /** 当前调度器身份标记 */
+  /** Current scheduler identity marker */
   private _schedulerId: string | undefined;
 
-  /** 当前调度器引用（用于身份比较） */
+  /** Current scheduler reference (for identity comparison) */
   private _schedulerRef: Scheduler | undefined;
 
-  /** 事件配置 */
+  /** Event configuration */
   private _config: Readonly<EventConfiguration>;
 
   constructor(config: Readonly<EventConfiguration>) {
@@ -21,11 +21,11 @@ export class SchedulerManager {
   }
 
   /**
-   * 调度一个函数执行
-   * @param fn 要执行的函数
-   * @param delay 延迟时间（毫秒）
-   * @param useRAF 是否优先使用 requestAnimationFrame
-   * @returns 调度 ID，用于取消调度
+   * Schedule a function for execution
+   * @param fn Function to execute
+   * @param delay Delay time in milliseconds
+   * @param useRAF Whether to prefer requestAnimationFrame
+   * @returns Schedule ID, used to cancel scheduling
    */
   schedule(
     fn: () => void,
@@ -35,7 +35,7 @@ export class SchedulerManager {
     id: number;
     isRAF: boolean;
   } {
-    // 优先使用注入调度器
+    // Prefer injected scheduler
     const injected = this._config.scheduler;
     if (injected) {
       const id = injected.schedule(fn, delay);
@@ -61,12 +61,12 @@ export class SchedulerManager {
   }
 
   /**
-   * 取消调度
-   * @param id 调度 ID
-   * @param isRAF 是否为 requestAnimationFrame 调度
+   * Cancel scheduling
+   * @param id Schedule ID
+   * @param isRAF Whether it's a requestAnimationFrame schedule
    */
   cancel(id: number, isRAF: boolean): void {
-    // 注入式调度器优先
+    // Injected scheduler takes precedence
     const injected = this._config.scheduler;
     if (injected) {
       injected.cancel(id);
@@ -81,16 +81,16 @@ export class SchedulerManager {
   }
 
   /**
-   * 获取调度器身份标识
+   * Get scheduler identity identifier
    */
   getSchedulerId(): string {
     return this._schedulerId || this._schedulerIdentity();
   }
 
   /**
-   * 更新配置并检查调度器是否发生变化
-   * @param newConfig 新的事件配置
-   * @returns 调度器是否发生变化
+   * Update configuration and check if scheduler has changed
+   * @param newConfig New event configuration
+   * @returns Whether scheduler has changed
    */
   updateConfiguration(newConfig: Readonly<EventConfiguration>): boolean {
     const oldSchedulerRef = this._schedulerRef;
@@ -112,7 +112,7 @@ export class SchedulerManager {
   }
 
   /**
-   * 获取当前调度器的详细信息
+   * Get current scheduler details
    */
   getSchedulerInfo(): {
     kind: string;
@@ -137,7 +137,7 @@ export class SchedulerManager {
   }
 
   /**
-   * 生成调度器身份标识
+   * Generate scheduler identity identifier
    */
   private _schedulerIdentity(): string {
     const s = this._config.scheduler;

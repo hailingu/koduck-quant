@@ -105,7 +105,7 @@ describe("ConfigLoader runtime overrides", () => {
     const loader = getConfigLoader();
     loader.setupHTTPOverrides(0);
 
-    // 等待端口分配，确保实际监听端口已准备好
+    // Wait for port allocation to ensure the actual listening port is ready
     await expect
       .poll(() => loader.getHttpPort())
       .toSatisfy((value): value is number => typeof value === "number" && value > 0);

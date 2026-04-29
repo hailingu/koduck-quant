@@ -3,48 +3,48 @@ import { logger } from "../../logger";
 import type { IConfigState } from "./types/config-state.interface";
 
 /**
- * 配置快照接口
+ * Config snapshot interface
  */
 export interface ConfigSnapshot {
-  /** 快照ID */
+  /** Snapshot ID */
   id: string;
-  /** 快照创建时间戳 */
+  /** Snapshot creation timestamp */
   timestamp: number;
-  /** 快照描述 */
+  /** Snapshot description */
   description?: string;
-  /** 完整的配置数据 */
+  /** Full configuration data */
   config: KoduckFlowConfig;
-  /** 快照元数据 */
+  /** Snapshot metadata */
   metadata: {
-    /** 创建者 */
+    /** Creator */
     actor?: string;
-    /** 触发原因 */
+    /** Trigger reason */
     trigger: string;
-    /** 版本信息 */
+    /** Version info */
     version?: string;
-    /** 校验和 */
+    /** Checksum */
     checksum: string;
   };
 }
 
 /**
- * Rollback操作结果
+ * Rollback operation result
  */
 export interface RollbackResult {
-  /** 操作是否成功 */
+  /** Whether the operation succeeded */
   success: boolean;
-  /** 恢复到的快照ID */
+  /** Snapshot ID restored to */
   snapshotId?: string;
-  /** 错误信息 */
+  /** Error message */
   error?: string;
-  /** 恢复的配置 */
+  /** Restored configuration */
   restoredConfig?: KoduckFlowConfig;
-  /** 恢复时间戳 */
+  /** Restoration timestamp */
   timestamp: number;
 }
 
 /**
- * Rollback管理器类
+ * Rollback manager class
  */
 export class RollbackManager {
   private readonly snapshots = new Map<string, ConfigSnapshot>();
@@ -55,11 +55,11 @@ export class RollbackManager {
 
   constructor(maxSnapshots: number = 10) {
     this.maxSnapshots = maxSnapshots;
-    this.autoSnapshotEnabled = true; // 默认启用自动快照
+    this.autoSnapshotEnabled = true; // Enable auto-snapshot by default
   }
 
   /**
-   * 创建配置快照
+   * Create configuration snapshot
    */
   createSnapshot(
     config: KoduckFlowConfig,
@@ -73,7 +73,7 @@ export class RollbackManager {
     }
     this.lastSnapshotTimestamp = timestamp;
 
-    // 计算配置校验和
+    // Calculate configuration checksum
     const checksum = this.calculateChecksum(config);
 
     const snapshot: ConfigSnapshot = {
@@ -91,7 +91,7 @@ export class RollbackManager {
 
     this.snapshots.set(id, snapshot);
 
-    // 清理旧快照
+    // Clean up old snapshots
     this.cleanupOldSnapshots();
 
     logger.info(`Configuration snapshot created: ${id}`, {
@@ -104,7 +104,7 @@ export class RollbackManager {
   }
 
   /**
-   * 自动创建快照（在配置变更前）
+   * Create auto-snapshot (before config change)
    */
   createAutoSnapshot(config: KoduckFlowConfig, trigger: string): ConfigSnapshot | null {
     if (!this.autoSnapshotEnabled) {
@@ -118,7 +118,7 @@ export class RollbackManager {
   }
 
   /**
-   * 回滚到指定快照
+   * Rollback to specified snapshot
    */
   rollbackToSnapshot(snapshotId: string, configState: IConfigState): RollbackResult {
     const snapshot = this.snapshots.get(snapshotId);
@@ -134,7 +134,7 @@ export class RollbackManager {
     }
 
     try {
-      // 验证快照完整性
+      // Validate snapshot integrity
       if (!this.validateSnapshot(snapshot)) {
         const error = `Snapshot validation failed: ${snapshotId}`;
         logger.error(error);
@@ -145,8 +145,8 @@ export class RollbackManager {
         };
       }
 
-      // 使用 state-manager 设置配置状态
-      // 这将自动触发所有订阅的监听器
+      // Use state-manager to set configuration state
+      // This automatically triggers all subscribed listeners
       configState.setCurrentConfig(snapshot.config);
 
       logger.info(`Configuration rolled back to snapshot: ${snapshotId}`, {
@@ -175,7 +175,7 @@ export class RollbackManager {
   }
 
   /**
-   * 回滚到上一个快照
+   * Rollback to previous snapshot
    */
   rollbackToPrevious(configState: IConfigState): RollbackResult {
     const snapshots = Array.from(this.snapshots.values()).sort((a, b) => b.timestamp - a.timestamp);
@@ -190,7 +190,7 @@ export class RollbackManager {
       };
     }
 
-    // 获取当前配置，用于过滤与当前状态相同的快照
+    // Get current config to filter snapshots identical to current state
     const currentConfig = configState.getCurrentConfig();
     const currentChecksum = this.calculateChecksum(currentConfig);
 
@@ -218,21 +218,21 @@ export class RollbackManager {
   }
 
   /**
-   * 获取所有快照
+   * Get all snapshots
    */
   getSnapshots(): ConfigSnapshot[] {
     return Array.from(this.snapshots.values()).sort((a, b) => b.timestamp - a.timestamp);
   }
 
   /**
-   * 获取指定快照
+   * Get specified snapshot
    */
   getSnapshot(id: string): ConfigSnapshot | undefined {
     return this.snapshots.get(id);
   }
 
   /**
-   * 删除快照
+   * Delete snapshot
    */
   deleteSnapshot(id: string): boolean {
     const deleted = this.snapshots.delete(id);
@@ -243,7 +243,7 @@ export class RollbackManager {
   }
 
   /**
-   * 清理旧快照
+   * Clean up old snapshots
    */
   private cleanupOldSnapshots(): void {
     const snapshots = Array.from(this.snapshots.values()).sort((a, b) => b.timestamp - a.timestamp);
@@ -258,7 +258,7 @@ export class RollbackManager {
   }
 
   /**
-   * 生成快照ID
+   * Generate snapshot ID
    */
   private generateSnapshotId(): string {
     const timestamp = Date.now();
@@ -267,7 +267,7 @@ export class RollbackManager {
   }
 
   /**
-   * 计算配置校验和
+   * Calculate configuration checksum
    */
   private calculateChecksum(config: KoduckFlowConfig): string {
     const sortedConfig = this.sortObjectKeys(config);
@@ -276,15 +276,15 @@ export class RollbackManager {
   }
 
   /**
-   * 验证快照完整性
+   * Validate snapshot integrity
    */
   private validateSnapshot(snapshot: ConfigSnapshot): boolean {
-    // 验证必需字段
+    // Validate required fields
     if (!snapshot.id || !snapshot.config || !snapshot.metadata) {
       throw new Error("Snapshot missing required fields");
     }
 
-    // 验证校验和
+    // Validate checksum
     const currentChecksum = this.calculateChecksum(snapshot.config);
     if (currentChecksum !== snapshot.metadata.checksum) {
       throw new Error("Snapshot checksum validation failed");
@@ -294,7 +294,7 @@ export class RollbackManager {
   }
 
   /**
-   * 递归排序对象键
+   * Recursively sort object keys
    */
   private sortObjectKeys(obj: unknown): unknown {
     if (obj === null || typeof obj !== "object") {
@@ -315,20 +315,20 @@ export class RollbackManager {
   }
 
   /**
-   * 简单哈希函数
+   * Simple hash function
    */
   private simpleHash(str: string): string {
     let hash = 0;
     for (const char of str) {
       const codePoint = char.codePointAt(0) ?? 0;
       hash = (hash << 5) - hash + codePoint;
-      hash = Math.trunc(hash); // 转换为32位整数
+      hash = Math.trunc(hash); // Convert to 32-bit integer
     }
     return Math.abs(hash).toString(36);
   }
 
   /**
-   * 启用/禁用自动快照
+   * Enable/disable auto-snapshot
    */
   setAutoSnapshotEnabled(enabled: boolean): void {
     this.autoSnapshotEnabled = enabled;
@@ -336,7 +336,7 @@ export class RollbackManager {
   }
 
   /**
-   * 获取统计信息
+   * Get statistics
    */
   getStats(): {
     totalSnapshots: number;
@@ -359,11 +359,11 @@ export class RollbackManager {
   }
 }
 
-// 全局实例
+// Global instance
 let globalRollbackManager: RollbackManager | null = null;
 
 /**
- * 获取全局rollback管理器实例
+ * Get global rollback manager instance
  */
 export function getRollbackManager(): RollbackManager {
   globalRollbackManager ??= new RollbackManager();
@@ -371,7 +371,7 @@ export function getRollbackManager(): RollbackManager {
 }
 
 /**
- * 创建配置快照
+ * Create configuration snapshot
  */
 export function createConfigSnapshot(
   config: KoduckFlowConfig,
@@ -382,14 +382,14 @@ export function createConfigSnapshot(
 }
 
 /**
- * 回滚到指定快照
+ * Rollback to specified snapshot
  */
 export function rollbackToSnapshot(snapshotId: string, configState: IConfigState): RollbackResult {
   return getRollbackManager().rollbackToSnapshot(snapshotId, configState);
 }
 
 /**
- * 回滚到上一个快照
+ * Rollback to previous snapshot
  */
 export function rollbackToPrevious(configState: IConfigState): RollbackResult {
   return getRollbackManager().rollbackToPrevious(configState);

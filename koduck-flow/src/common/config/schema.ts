@@ -232,11 +232,11 @@ export interface ValidationIssue {
   hint: string;
   /** Zod issue code */
   code: string;
-  /** 严重级别 */
+  /** Severity level */
   severity: "error" | "warning";
-  /** 期望值或范围描述 */
+  /** Expected value or range description */
   expected?: string;
-  /** 实际收到的值 */
+  /** Actually received value */
   received?: unknown;
 }
 
@@ -244,18 +244,18 @@ export interface ValidationIssue {
  *
  */
 export interface ValidationResult {
-  /** 是否通过验证 */
+  /** Whether validation passed */
   isValid: boolean;
-  /** 致命错误集合 */
+  /** Fatal error collection */
   errors: ValidationIssue[];
-  /** 可恢复或范围警告 */
+  /** Recoverable or range warnings */
   warnings: ValidationIssue[];
-  /** 验证耗时（毫秒） */
+  /** Validation duration (milliseconds) */
   durationMs: number;
 }
 
 /**
- * 配置源类型
+ * Configuration source type
  */
 export type ConfigSource = "defaults" | "file" | "env" | "runtime";
 
@@ -263,13 +263,13 @@ export type ConfigSource = "defaults" | "file" | "env" | "runtime";
  * Zod Schema Definitions
  */
 
-// 环境枚举
+// Environment enum
 export const EnvironmentSchema = z.enum(["development", "staging", "production"]);
 
-// 渲染器类型枚举
+// Renderer type enum
 export const RendererTypeSchema = z.enum(["react", "canvas", "webgpu"]);
 
-// 事件配置 Schema
+// Event config schema
 export const EventConfigSchema = z
   .object({
     batchSize: z.number().int().min(1, "batchSize must be >= 1"),
@@ -281,7 +281,7 @@ export const EventConfigSchema = z
   })
   .strict();
 
-// 渲染配置 Schema
+// Render config schema
 export const RenderConfigSchema = z
   .object({
     frameRate: z.number().int().min(1).max(240, "frameRate should be between 1 and 240"),
@@ -299,7 +299,7 @@ export const RenderConfigSchema = z
   })
   .strict();
 
-// 实体配置 Schema
+// Entity config schema
 export const EntityConfigSchema = z
   .object({
     maxEntities: z.number().int().min(1, "maxEntities must be >= 1"),
@@ -308,7 +308,7 @@ export const EntityConfigSchema = z
   })
   .strict();
 
-// 性能配置 Schema
+// Performance config schema
 export const PerformanceConfigSchema = z
   .object({
     enableProfiling: z.boolean(),
@@ -317,7 +317,7 @@ export const PerformanceConfigSchema = z
   })
   .strict();
 
-// 租户配置 Schema
+// Tenant config schema
 export const TenantConfigSchema = z
   .object({
     enabled: z.boolean(),
@@ -331,7 +331,7 @@ export const TenantConfigSchema = z
   })
   .strict();
 
-// 插件配置 Schema
+// Plugin config schema
 export const PluginConfigSchema = z
   .object({
     sandboxTimeout: z.number().int().min(100, "sandboxTimeout must be >= 100ms"),
@@ -351,7 +351,7 @@ export const PluginConfigSchema = z
   })
   .strict();
 
-// KoduckFlow 配置 Schema
+// KoduckFlow config schema
 export const KoduckFlowConfigSchema = z
   .object({
     environment: EnvironmentSchema,
@@ -543,7 +543,7 @@ function buildRangeExpectation(
  * @returns A draft-07 JSON Schema object for the full Koduck Flow configuration.
  */
 export function generateJsonSchema() {
-  // 使用自定义方法生成 JSON Schema，因为 Zod 的 toJSON 在某些版本中不可用
+  // Use custom method to generate JSON Schema because Zod's toJSON is unavailable in some versions
   const schema = {
     $schema: "http://json-schema.org/draft-07/schema#",
     type: "object",

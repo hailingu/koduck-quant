@@ -1,6 +1,6 @@
 /**
  * @file Flow Entity Themes Index
- * @description 主题模块导出
+ * @description Theme module exports
  */
 
 export {

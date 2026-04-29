@@ -87,7 +87,7 @@ afterEach(() => {
 });
 
 describe("WebGPUDefaultStrategyPlugin", () => {
-  it("返回 WebGPU 渲染器选择结果", () => {
+  it("returns WebGPU renderer selection result", () => {
     const renderer = createRenderer();
     const plugin = new WebGPUDefaultStrategyPlugin(renderer);
     const entity = createEntity();
@@ -99,7 +99,7 @@ describe("WebGPUDefaultStrategyPlugin", () => {
     expect(selection.confidence).toBeGreaterThan(0.5);
   });
 
-  it("缺少 Canvas 时返回不适用", () => {
+  it("returns not applicable when Canvas is missing", () => {
     const renderer = createRenderer();
     const plugin = new WebGPUDefaultStrategyPlugin(renderer);
     const entity = createEntity();
@@ -110,7 +110,7 @@ describe("WebGPUDefaultStrategyPlugin", () => {
     );
   });
 
-  it("支持自定义 predicate", () => {
+  it("supports custom predicate", () => {
     const renderer = createRenderer({
       canRender: (entity) => entity.type === "gpu-only",
     });
@@ -125,7 +125,7 @@ describe("WebGPUDefaultStrategyPlugin", () => {
     expect(selection.renderer).toBe(renderer);
   });
 
-  it("批量选择仅分组可处理实体", () => {
+  it("batch selection only groups handleable entities", () => {
     const renderer = createRenderer();
     const plugin = new WebGPUDefaultStrategyPlugin(renderer);
     const entities = [
@@ -140,7 +140,7 @@ describe("WebGPUDefaultStrategyPlugin", () => {
     expect(groupedEntities?.[0].id).toBe("1");
   });
 
-  it("不支持 WebGPU 环境下抛出不可用错误", () => {
+  it("throws not applicable error when WebGPU is not supported", () => {
     setWebGPUSupport(false);
     const renderer = createRenderer();
     const plugin = new WebGPUDefaultStrategyPlugin(renderer);

@@ -5,17 +5,17 @@ import type { IRender, RenderPerformanceStats, IRenderConfig } from "./types";
 import { meter, ScopedMeter } from "../metrics";
 
 /**
- * 所有渲染器的抽象基类
- * 统一管理性能统计、metrics、registry 等共享功能
+ * Abstract base class for all renderers
+ * Unified management of performance stats, metrics, registry, and other shared features
  *
  * @remarks
- * 此基类抽取了所有渲染器共享的功能：
- * - 性能统计跟踪
- * - Metrics 收集
- * - Registry 管理
- * - 基础接口实现
+ * This base class extracts features shared by all renderers:
+ * - Performance statistics tracking
+ * - Metrics collection
+ * - Registry management
+ * - Basic interface implementation
  *
- * 子类只需实现渲染相关的核心逻辑即可。
+ * Subclasses only need to implement core rendering logic.
  *
  * @example
  * ```typescript
@@ -31,7 +31,7 @@ import { meter, ScopedMeter } from "../metrics";
  *   render(entity: IEntity): void {
  *     const startTime = performance.now();
  *     try {
- *       // 自定义渲染逻辑
+ *       // Custom rendering logic
  *     } finally {
  *       this.recordRenderMetrics(startTime, entity);
  *     }
@@ -42,18 +42,18 @@ import { meter, ScopedMeter } from "../metrics";
  *   }
  *
  *   dispose(): void {
- *     // 清理资源
+ *     // Clean up resources
  *   }
  * }
  * ```
  */
 export abstract class BaseRenderer implements Partial<IRender> {
-  // 共享属性
+  // Shared properties
   protected registryManager: IRegistryManager<IEntity, IMeta> | undefined;
 
   /**
-   * 性能统计数据
-   * 记录渲染次数、耗时、缓存命中率等
+   * Performance statistics
+   * Records render count, duration, cache hit rate, etc.
    */
   protected performanceStats = {
     totalRenderTime: 0,
@@ -64,27 +64,27 @@ export abstract class BaseRenderer implements Partial<IRender> {
   };
 
   /**
-   * Metrics 收集器
-   * 用于向监控系统报告性能指标
+   * Metrics collector
+   * Used to report performance metrics to monitoring system
    */
   protected readonly m: ScopedMeter;
 
   /**
-   * 渲染器名称
+   * Renderer name
    */
   protected readonly rendererName: string;
 
   /**
-   * 渲染器类型
+   * Renderer type
    */
   protected readonly rendererType: string;
 
   /**
-   * 创建渲染器实例
+   * Create renderer instance
    *
-   * @param name - 渲染器名称（如 "CanvasRender"）
-   * @param type - 渲染器类型（如 "canvas"）
-   * @param registryManager - 可选的 registry 管理器
+   * @param name - Renderer name (e.g., "CanvasRender")
+   * @param type - Renderer type (e.g., "canvas")
+   * @param registryManager - Optional registry manager
    */
   constructor(name: string, type: string, registryManager?: IRegistryManager<IEntity, IMeta>) {
     this.rendererName = name;
@@ -96,30 +96,30 @@ export abstract class BaseRenderer implements Partial<IRender> {
     });
   }
 
-  // ==================== 共享方法实现 ====================
+  // ==================== Shared method implementations ====================
 
   /**
-   * 获取渲染器名称
+   * Get renderer name
    */
   getName(): string {
     return this.rendererName;
   }
 
   /**
-   * 获取渲染器类型
-   * 子类必须实现此方法以返回具体类型
+   * Get renderer type
+   * Subclasses must implement this method to return the specific type
    */
   abstract getType(): "react" | "canvas" | "svg" | "webgl" | "webgpu" | "ssr";
 
   /**
-   * 设置 registry 管理器
+   * Set registry manager
    */
   setRegistryManager(registryManager: IRegistryManager<IEntity, IMeta>): void {
     this.registryManager = registryManager;
   }
 
   /**
-   * 获取性能统计数据
+   * Get performance statistics
    */
   getPerformanceStats(): RenderPerformanceStats {
     return {
@@ -130,16 +130,16 @@ export abstract class BaseRenderer implements Partial<IRender> {
   }
 
   /**
-   * 配置渲染器（可选实现）
+   * Configure renderer (optional implementation)
    */
   configure?(config: IRenderConfig): void;
 
-  // ==================== 受保护的工具方法 ====================
+  // ==================== Protected utility methods ====================
 
   /**
-   * 更新性能统计
+   * Update performance statistics
    *
-   * @param startTime - 渲染开始时间（performance.now()）
+   * @param startTime - Render start time (performance.now())
    */
   protected updatePerformanceStats(startTime: number): void {
     const renderTime = performance.now() - startTime;
@@ -150,11 +150,11 @@ export abstract class BaseRenderer implements Partial<IRender> {
   }
 
   /**
-   * 记录渲染 metrics
+   * Record render metrics
    *
-   * @param startTime - 渲染开始时间
-   * @param entity - 被渲染的实体
-   * @param additionalAttributes - 额外的 metrics 属性
+   * @param startTime - Render start time
+   * @param entity - Entity being rendered
+   * @param additionalAttributes - Additional metrics attributes
    */
   protected recordRenderMetrics(
     startTime: number,
@@ -172,9 +172,9 @@ export abstract class BaseRenderer implements Partial<IRender> {
   }
 
   /**
-   * 记录缓存命中
+   * Record cache hit
    *
-   * @param entityType - 实体类型
+   * @param entityType - Entity type
    */
   protected recordCacheHit(entityType: string): void {
     this.performanceStats.cacheHitCount++;
@@ -182,9 +182,9 @@ export abstract class BaseRenderer implements Partial<IRender> {
   }
 
   /**
-   * 记录缓存未命中
+   * Record cache miss
    *
-   * @param entityType - 实体类型
+   * @param entityType - Entity type
    */
   protected recordCacheMiss(entityType: string): void {
     this.performanceStats.cacheMissCount++;
@@ -192,20 +192,20 @@ export abstract class BaseRenderer implements Partial<IRender> {
   }
 
   /**
-   * 记录渲染错误
+   * Record render error
    *
-   * @param entityType - 实体类型
-   * @param errorType - 错误类型
+   * @param entityType - Entity type
+   * @param errorType - Error type
    */
   protected recordRenderError(entityType: string, errorType: string): void {
     this.m.counter("render.error").add(1, { entityType, errorType });
   }
 
   /**
-   * 记录批量渲染 metrics
+   * Record batch render metrics
    *
-   * @param size - 批量大小
-   * @param duration - 耗时（毫秒）
+   * @param size - Batch size
+   * @param duration - Duration (milliseconds)
    */
   protected recordBatchMetrics(size: number, duration: number): void {
     this.m.histogram("batch.size", { unit: "count" }).record(size);
@@ -213,23 +213,23 @@ export abstract class BaseRenderer implements Partial<IRender> {
     this.m.counter("batch.count").add(1);
   }
 
-  // ==================== 抽象方法 - 子类必须实现 ====================
+  // ==================== Abstract methods - subclasses must implement ====================
 
   /**
-   * 渲染单个实体
-   * 子类必须实现此方法来定义具体的渲染逻辑
+   * Render a single entity
+   * Subclasses must implement this method to define specific rendering logic
    */
   abstract render(entity: IEntity): React.ReactElement | string | Promise<string> | null | void;
 
   /**
-   * 检查是否能渲染指定实体
-   * 子类必须实现此方法来判断渲染能力
+   * Check if specified entity can be rendered
+   * Subclasses must implement this method to determine rendering capability
    */
   abstract canRender(entity: IEntity): boolean;
 
   /**
-   * 释放资源
-   * 子类必须实现此方法来清理资源
+   * Release resources
+   * Subclasses must implement this method to clean up resources
    */
   abstract dispose(): void;
 }

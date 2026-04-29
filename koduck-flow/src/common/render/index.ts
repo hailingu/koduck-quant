@@ -1,10 +1,10 @@
 /**
- * Koduck Flow 渲染系统
+ * Koduck Flow Render System
  *
- * 统一导出所有渲染相关的模块和类型
+ * Unified exports of all rendering-related modules and types
  */
 
-// 核心渲染接口和类型
+// Core render interfaces and types
 export {
   type IRenderContext,
   type RenderPerformanceStats,
@@ -22,20 +22,20 @@ export {
   type ConcurrentRenderOptions,
 } from "./types";
 
-// 基础渲染器类
+// Base renderer class
 export { BaseRenderer } from "./base-renderer";
 
-// 缓存管理器
+// Cache manager
 export { RenderCacheManager, type CacheEntry, type CacheConfig } from "./cache-manager";
 
-// Metrics 工具
+// Metrics utilities
 export {
   createRenderMetricsRecorder,
   batchRenderWithMetrics,
   type RenderMetricsRecorder,
 } from "./render-metrics-utils";
 
-// 渲染管理器
+// Render manager
 export {
   RenderManager,
   type RenderStrategy as RenderManagerStrategy,
@@ -43,7 +43,7 @@ export {
   createRenderManager,
 } from "./render-manager/index";
 
-// 渲染管理器接口合约 (Phase 7)
+// Render manager interface contracts (Phase 7)
 export type {
   IEntityLifecycleTracker,
   IRenderCacheCoordinator,
@@ -54,20 +54,20 @@ export type {
   RenderCanvasArtifacts,
 } from "./render-manager/contracts";
 
-// Canvas 渲染器
+// Canvas renderer
 export {
   CanvasRender,
   type CanvasRenderOperation,
   type CanvasPerformanceOptimization,
 } from "./canvas-render";
 
-// WebGPU 渲染器
+// WebGPU renderer
 export { WebGPURender, type WebGPUPerformanceOptimization } from "./webgpu-render";
 
-// React 渲染器
+// React renderer
 export { ReactRender, type ReactRenderCache, type AsyncRenderCache } from "./react-render";
 
-// 渲染器选择器
+// Renderer selector
 export { RenderSelector } from "./render-selector";
 export {
   RenderStrategySelector,

@@ -1,13 +1,13 @@
 /**
- * Koduck Flow 事件管理器基类
+ * Koduck Flow Event Manager Base Class
  *
- * 提供公共的事件管理功能，作为其他事件管理器的基类。
- * 不是单例，可以被继承扩展为不同类型的事件管理器。
+ * Provides common event management functionality as a base class for other event managers.
+ * Not a singleton, can be inherited and extended into different types of event managers.
  *
  * @example
  * ```typescript
  * class CustomEventManager extends EventManager {
- *   // 自定义实现
+ *   // Custom implementation
  * }
  * ```
  */
@@ -19,25 +19,25 @@ import {
 } from "./entity-event";
 
 /**
- * 事件管理器基类
+ * Event manager base class
  *
- * 提供通用的事件管理功能，包括调试模式、批处理配置等。
- * 作为其他具体事件管理器的基类，支持继承扩展。
+ * Provides generic event management functionality, including debug mode, batch configuration, etc.
+ * Serves as the base class for other concrete event managers, supporting inheritance and extension.
  *
  * @since 1.0.0
  */
 export class EventManager<T = unknown> {
-  /** 实体添加事件 */
+  /** Entity add event */
   public readonly added = new EntityAddEvent<T>();
 
-  /** 实体移除事件 */
+  /** Entity remove event */
   public readonly removed = new EntityRemoveEvent<T>();
 
-  /** 实体更新事件 */
+  /** Entity update event */
   public readonly updated = new EntityUpdateEvent<T>();
 
   /**
-   * 为所有管理的事件设置调试模式
+   * Set debug mode for all managed events
    */
   setDebugMode(enabled: boolean): this {
     this.added.setDebugMode(enabled);
@@ -47,7 +47,7 @@ export class EventManager<T = unknown> {
   }
 
   /**
-   * 一次性配置所有事件
+   * Configure all events at once
    */
   configureAll(config: Partial<EventConfiguration>): this {
     this.added.updateConfiguration(config);
@@ -57,7 +57,7 @@ export class EventManager<T = unknown> {
   }
 
   /**
-   * 配置所有事件的批处理
+   * Configure batch processing for all events
    */
   configureBatch(
     config: Partial<
@@ -68,7 +68,7 @@ export class EventManager<T = unknown> {
   }
 
   /**
-   * 强制处理所有批次
+   * Force process all batches
    */
   flushAllBatches(): void {
     this.added.flushBatch();
@@ -77,7 +77,7 @@ export class EventManager<T = unknown> {
   }
 
   /**
-   * 清除所有事件的监听器
+   * Clear all event listeners
    */
   clearAll(): void {
     this.added.clear();
@@ -86,7 +86,7 @@ export class EventManager<T = unknown> {
   }
 
   /**
-   * 重置所有事件
+   * Reset all events
    */
   resetAll(): void {
     this.added.reset();
@@ -95,7 +95,7 @@ export class EventManager<T = unknown> {
   }
 
   /**
-   * 条件执行 - 只有满足条件时才执行回调
+   * Conditional execution - only execute callback when condition is met
    */
   when(condition: boolean, callback: (manager: this) => void): this {
     if (condition) {
@@ -105,7 +105,7 @@ export class EventManager<T = unknown> {
   }
 
   /**
-   * 析构函数 - 清理所有资源
+   * Destructor - clean up all resources
    */
   dispose(): void {
     this.added.dispose();

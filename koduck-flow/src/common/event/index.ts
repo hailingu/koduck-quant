@@ -1,21 +1,21 @@
 /**
- * Koduck Flow 事件系统统一导出
+ * Koduck Flow Event System Unified Exports
  *
- * 提供事件系统所有组件的统一入口点
+ * Provides a unified entry point for all event system components
  */
 
-// 核心事件基础设施
+// Core event infrastructure
 export { BaseEvent, GenericEvent, createEmitter } from "./event";
 export type { IEvent, IEventListener, EventConfiguration } from "./types";
 
-// 事件管理器模块
+// Event manager modules
 export { BatchManager } from "./batch-manager";
 export { DedupeManager } from "./dedupe-manager";
 export { SchedulerManager } from "./scheduler-manager";
 export { ErrorReporter } from "./error-reporter";
 export { MetricsCollector } from "./metrics-collector";
 
-// 实体事件
+// Entity events
 export {
   EntityEvent,
   EntityAddEvent,
@@ -25,11 +25,11 @@ export {
   type EntityEventTypeValue,
 } from "./entity-event";
 
-// 事件管理器
+// Event managers
 export { EventManager } from "./event-manager";
 export { EntityEventManager, createEntityEventManager } from "./entity-event-manager";
 
-// 系统事件总线
+// System event bus
 export {
   EventBus,
   LoggingEvent,
@@ -39,7 +39,7 @@ export {
   createEventBus,
 } from "./event-bus";
 
-// 渲染事件管理器（方案1）
+// Render event manager (Option 1)
 export {
   RenderEventManager,
   type RenderAllEvent,
@@ -47,6 +47,6 @@ export {
   createRenderEventManager,
 } from "./render-event-manager";
 
-// 监听器快照对象池
+// Listener snapshot pool
 export { ListenerSnapshotPool, defaultListenerSnapshotPool } from "./listener-snapshot-pool";
 export type { IListenerSnapshotPool } from "./types";

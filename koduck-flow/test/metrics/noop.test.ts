@@ -1,6 +1,6 @@
 /**
  * Noop Metrics Provider tests
- * 测试NoopMetricsProvider的功能
+ * Tests the functionality of NoopMetricsProvider
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -17,33 +17,33 @@ describe("NoopMetricsProvider", () => {
   });
 
   describe("Provider Level", () => {
-    it("应该创建NoopMetricsProvider实例", () => {
+    it("should create NoopMetricsProvider instance", () => {
       expect(provider).toBeInstanceOf(NoopMetricsProvider);
     });
 
-    it("应该返回相同的meter实例", () => {
+    it("should return the same meter instance", () => {
       const meter1 = provider.getMeter("scope1");
       const meter2 = provider.getMeter("scope2");
       const meter3 = provider.getMeter("scope1");
 
-      // NoopMetricsProvider总是返回相同的内部meter实例
+      // NoopMetricsProvider always returns the same internal meter instance
       expect(meter1).toBe(meter2);
       expect(meter1).toBe(meter3);
     });
 
-    it("应该支持collect方法", () => {
+    it("should support collect method", () => {
       expect(() => provider.collect()).not.toThrow();
     });
   });
 
   describe("Counter", () => {
-    it("应该创建counter", () => {
+    it("should create counter", () => {
       const counter = meter.counter("test_counter");
       expect(counter).toBeDefined();
       expect(typeof counter.add).toBe("function");
     });
 
-    it("应该支持add操作不抛出错误", () => {
+    it("should support add operation without throwing errors", () => {
       const counter = meter.counter("test_counter", {
         description: "Test counter",
         unit: "count",
@@ -52,10 +52,10 @@ describe("NoopMetricsProvider", () => {
       expect(() => counter.add(1)).not.toThrow();
       expect(() => counter.add(5, { service: "api" })).not.toThrow();
       expect(() => counter.add(0)).not.toThrow();
-      expect(() => counter.add(-1)).not.toThrow(); // noop应该接受任何值
+      expect(() => counter.add(-1)).not.toThrow(); // noop should accept any value
     });
 
-    it("应该处理复杂的属性", () => {
+    it("should handle complex attributes", () => {
       const counter = meter.counter("complex_counter");
       const attrs: Attributes = {
         service: "api",
@@ -70,13 +70,13 @@ describe("NoopMetricsProvider", () => {
   });
 
   describe("UpDownCounter", () => {
-    it("应该创建upDownCounter", () => {
+    it("should create upDownCounter", () => {
       const upDownCounter = meter.upDownCounter("test_updown");
       expect(upDownCounter).toBeDefined();
       expect(typeof upDownCounter.add).toBe("function");
     });
 
-    it("应该支持add操作", () => {
+    it("should support add operation", () => {
       const upDownCounter = meter.upDownCounter("test_updown", {
         description: "Test updown counter",
         unit: "count",
@@ -90,13 +90,13 @@ describe("NoopMetricsProvider", () => {
   });
 
   describe("Gauge", () => {
-    it("应该创建gauge", () => {
+    it("should create gauge", () => {
       const gauge = meter.gauge("test_gauge");
       expect(gauge).toBeDefined();
       expect(typeof gauge.set).toBe("function");
     });
 
-    it("应该支持set操作", () => {
+    it("should support set operation", () => {
       const gauge = meter.gauge("test_gauge", {
         description: "Test gauge",
         unit: "bytes",
@@ -111,13 +111,13 @@ describe("NoopMetricsProvider", () => {
   });
 
   describe("Histogram", () => {
-    it("应该创建histogram", () => {
+    it("should create histogram", () => {
       const histogram = meter.histogram("test_histogram");
       expect(histogram).toBeDefined();
       expect(typeof histogram.record).toBe("function");
     });
 
-    it("应该支持record操作", () => {
+    it("should support record operation", () => {
       const histogram = meter.histogram("test_histogram", {
         description: "Test histogram",
         unit: "ms",
@@ -134,14 +134,14 @@ describe("NoopMetricsProvider", () => {
   });
 
   describe("ObservableGauge", () => {
-    it("应该创建observableGauge", () => {
+    it("should create observableGauge", () => {
       const observableGauge = meter.observableGauge("test_observable");
       expect(observableGauge).toBeDefined();
       expect(typeof observableGauge.addCallback).toBe("function");
       expect(typeof observableGauge.removeCallback).toBe("function");
     });
 
-    it("应该支持addCallback操作", () => {
+    it("should support addCallback operation", () => {
       const observableGauge = meter.observableGauge("test_observable", {
         description: "Test observable gauge",
         unit: "ratio",
@@ -151,7 +151,7 @@ describe("NoopMetricsProvider", () => {
       expect(() => observableGauge.addCallback(callback)).not.toThrow();
     });
 
-    it("应该支持removeCallback操作", () => {
+    it("should support removeCallback operation", () => {
       const observableGauge = meter.observableGauge("test_observable");
 
       const callback = vi.fn();
@@ -159,7 +159,7 @@ describe("NoopMetricsProvider", () => {
       expect(() => observableGauge.removeCallback(callback)).not.toThrow();
     });
 
-    it("应该支持复杂的callback", () => {
+    it("should support complex callback", () => {
       const observableGauge = meter.observableGauge("complex_observable");
 
       const callback = (
@@ -175,7 +175,7 @@ describe("NoopMetricsProvider", () => {
   });
 
   describe("Time Helper", () => {
-    it("应该支持同步函数计时", async () => {
+    it("should support synchronous function timing", async () => {
       const syncFn = vi.fn(() => "sync result");
 
       const result = await meter.time("sync_operation", syncFn);
@@ -184,7 +184,7 @@ describe("NoopMetricsProvider", () => {
       expect(syncFn).toHaveBeenCalledTimes(1);
     });
 
-    it("应该支持异步函数计时", async () => {
+    it("should support asynchronous function timing", async () => {
       const asyncFn = vi.fn(async () => {
         await new Promise((resolve) => setTimeout(resolve, 10));
         return "async result";
@@ -196,7 +196,7 @@ describe("NoopMetricsProvider", () => {
       expect(asyncFn).toHaveBeenCalledTimes(1);
     });
 
-    it("应该支持带属性的计时", async () => {
+    it("should support timing with attributes", async () => {
       const fn = vi.fn(() => 42);
 
       const result = await meter.time("operation_with_attrs", fn, {
@@ -208,7 +208,7 @@ describe("NoopMetricsProvider", () => {
       expect(fn).toHaveBeenCalledTimes(1);
     });
 
-    it("应该处理函数抛出的错误", async () => {
+    it("should handle errors thrown by functions", async () => {
       const errorFn = vi.fn(() => {
         throw new Error("Test error");
       });
@@ -219,7 +219,7 @@ describe("NoopMetricsProvider", () => {
       expect(errorFn).toHaveBeenCalledTimes(1);
     });
 
-    it("应该处理异步函数抛出的错误", async () => {
+    it("should handle errors thrown by asynchronous functions", async () => {
       const asyncErrorFn = vi.fn(async () => {
         throw new Error("Async test error");
       });
@@ -232,11 +232,11 @@ describe("NoopMetricsProvider", () => {
   });
 
   describe("Collect", () => {
-    it("应该支持collect方法", () => {
+    it("should support collect method", () => {
       expect(() => meter.collect?.()).not.toThrow();
     });
 
-    it("应该支持多次collect", () => {
+    it("should support multiple collect calls", () => {
       expect(() => meter.collect?.()).not.toThrow();
       expect(() => meter.collect?.()).not.toThrow();
       expect(() => meter.collect?.()).not.toThrow();
@@ -244,7 +244,7 @@ describe("NoopMetricsProvider", () => {
   });
 
   describe("Integration", () => {
-    it("应该支持创建多种metric类型", () => {
+    it("should support creating multiple metric types", () => {
       const counter = meter.counter("test_counter");
       const upDownCounter = meter.upDownCounter("test_updown");
       const gauge = meter.gauge("test_gauge");
@@ -258,14 +258,14 @@ describe("NoopMetricsProvider", () => {
       expect(observableGauge).toBeDefined();
     });
 
-    it("应该支持复杂的使用场景", async () => {
-      // 创建各种metrics
+    it("should support complex usage scenarios", async () => {
+      // Create various metrics
       const requestCounter = meter.counter("requests_total");
       const activeConnections = meter.upDownCounter("active_connections");
       const memoryUsage = meter.gauge("memory_usage");
       const requestDuration = meter.histogram("request_duration");
 
-      // 模拟一些操作
+      // Simulate some operations
       requestCounter.add(1, { method: "GET", path: "/api/users" });
       requestCounter.add(1, { method: "POST", path: "/api/users" });
 
@@ -277,7 +277,7 @@ describe("NoopMetricsProvider", () => {
       requestDuration.record(125.5, { method: "GET" });
       requestDuration.record(89.2, { method: "POST" });
 
-      // 计时操作
+      // Timing operation
       const result = await meter.time(
         "database_query",
         async () => {
@@ -289,32 +289,32 @@ describe("NoopMetricsProvider", () => {
 
       expect(result).toBe("query result");
 
-      // 收集metrics
+      // Collect metrics
       expect(() => meter.collect?.()).not.toThrow();
     });
 
-    it("应该处理极端值", () => {
+    it("should handle extreme values", () => {
       const counter = meter.counter("extreme_counter");
       const gauge = meter.gauge("extreme_gauge");
       const histogram = meter.histogram("extreme_histogram");
 
-      // 测试极大值
+      // Test maximum values
       expect(() => counter.add(Number.MAX_SAFE_INTEGER)).not.toThrow();
       expect(() => gauge.set(Number.MAX_VALUE)).not.toThrow();
       expect(() => histogram.record(Number.MAX_VALUE)).not.toThrow();
 
-      // 测试极小值
+      // Test minimum values
       expect(() => counter.add(Number.MIN_SAFE_INTEGER)).not.toThrow();
       expect(() => gauge.set(-Number.MAX_VALUE)).not.toThrow();
       expect(() => histogram.record(0)).not.toThrow();
 
-      // 测试特殊值
+      // Test special values
       expect(() => counter.add(Infinity)).not.toThrow();
       expect(() => gauge.set(-Infinity)).not.toThrow();
       expect(() => histogram.record(NaN)).not.toThrow();
     });
 
-    it("应该处理大量属性", () => {
+    it("should handle a large number of attributes", () => {
       const counter = meter.counter("many_attrs_counter");
 
       const manyAttrs: Attributes = {};

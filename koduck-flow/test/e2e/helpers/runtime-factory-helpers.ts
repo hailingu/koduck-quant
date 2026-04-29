@@ -31,33 +31,34 @@ import { Page, expect } from "@playwright/test";
 /**
  * RuntimeFactoryHelpers
  *
- * 负责测试运行时工厂、配额管理和多租户隔离的辅助方法集合。
+ * Collection of helper methods for testing runtime factory, quota management,
+ * and multi-tenant isolation.
  *
- * **核心职责**:
- * - 配额初始化: seedTenantWithQuota - 为租户设置初始配额限制
- * - 配额测试: attemptQuotaOverage - 尝试超出配额限制的操作
- * - 错误验证: verifyQuotaError - 验证预期的配额错误
- * - 隔离验证: verifyTenantIsolation - 验证多租户数据隔离
- * - 状态查询: getQuotaUsage, getTenantContext - 查询当前配额/租户状态
- * - 清理操作: resetQuotas - 重置配额用于下一个测试
+ * **Core Responsibilities**:
+ * - Quota initialization: seedTenantWithQuota - set initial quota limits for a tenant
+ * - Quota testing: attemptQuotaOverage - attempt operations that exceed quota limits
+ * - Error verification: verifyQuotaError - verify expected quota errors
+ * - Isolation verification: verifyTenantIsolation - verify multi-tenant data isolation
+ * - Status queries: getQuotaUsage, getTenantContext - query current quota/tenant status
+ * - Cleanup: resetQuotas - reset quotas for the next test
  *
  * @example
  * ```typescript
  * const helpers = new RuntimeFactoryHelpers();
  *
- * // 种子配额测试
+ * // Seed quota test
  * await helpers.seedTenantWithQuota(page, 'tenant-1', { maxEntities: 5 });
  *
- * // 尝试超出限制
+ * // Attempt to exceed limit
  * await helpers.attemptQuotaOverage(page, 'createEntity', 6);
  *
- * // 验证错误
+ * // Verify error
  * await helpers.verifyQuotaError(page, 'quotaExceeded');
  *
- * // 验证隔离
+ * // Verify isolation
  * await helpers.verifyTenantIsolation(page, 'tenant-1', 'isolated');
  *
- * // 重置
+ * // Reset
  * await helpers.resetQuotas(page);
  * ```
  *

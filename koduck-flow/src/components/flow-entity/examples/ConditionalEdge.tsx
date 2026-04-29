@@ -1,8 +1,8 @@
 /**
- * @file ConditionalEdge - 条件边示例
+ * @file ConditionalEdge - Conditional edge example
  * @description
- * 条件边用于表示流程图中的条件分支连接。
- * 边上显示条件标签，支持自定义路径样式。
+ * Conditional edge represents a conditional branch connection in the flow diagram.
+ * Displays a condition label on the edge and supports custom path styles.
  *
  * @example
  * ```tsx
@@ -27,22 +27,22 @@ import type { FlowEdgeTheme, PathType } from "../types";
 // ============================================================================
 
 /**
- * 条件边配置
+ * Conditional edge configuration
  */
 export interface ConditionalEdgeConfig {
-  /** 源节点ID */
+  /** Source node ID */
   source: string;
-  /** 源端口ID */
+  /** Source port ID */
   sourcePort: string;
-  /** 目标节点ID */
+  /** Target node ID */
   target: string;
-  /** 目标端口ID */
+  /** Target port ID */
   targetPort: string;
-  /** 条件表达式 */
+  /** Condition expression */
   condition?: string;
-  /** 条件结果（true/false） */
+  /** Condition result (true/false) */
   conditionResult?: boolean;
-  /** 标签 */
+  /** Label */
   label?: string;
 }
 
@@ -51,7 +51,7 @@ export interface ConditionalEdgeConfig {
 // ============================================================================
 
 /**
- * 条件边主题 - 真值分支（绿色）
+ * Conditional edge theme - true branch (green)
  */
 const TRUE_EDGE_THEME: Partial<FlowEdgeTheme> = {
   strokeColor: "#10B981",
@@ -60,7 +60,7 @@ const TRUE_EDGE_THEME: Partial<FlowEdgeTheme> = {
 };
 
 /**
- * 条件边主题 - 假值分支（红色）
+ * Conditional edge theme - false branch (red)
  */
 const FALSE_EDGE_THEME: Partial<FlowEdgeTheme> = {
   strokeColor: "#EF4444",
@@ -69,7 +69,7 @@ const FALSE_EDGE_THEME: Partial<FlowEdgeTheme> = {
 };
 
 /**
- * 默认路径类型
+ * Default path type
  */
 const DEFAULT_PATH_TYPE: PathType = "smoothstep";
 
@@ -78,14 +78,14 @@ const DEFAULT_PATH_TYPE: PathType = "smoothstep";
 // ============================================================================
 
 /**
- * 创建条件边实体
+ * Create conditional edge entity
  *
- * @param config - 边配置
- * @returns FlowEdgeEntity 实例
+ * @param config - Edge configuration
+ * @returns FlowEdgeEntity instance
  *
  * @example
  * ```tsx
- * // 创建真值分支边
+ * // Create true branch edge
  * const trueEdge = createConditionalEdge({
  *   source: 'decision-1',
  *   sourcePort: 'true-output',
@@ -95,7 +95,7 @@ const DEFAULT_PATH_TYPE: PathType = "smoothstep";
  *   conditionResult: true
  * });
  *
- * // 创建假值分支边
+ * // Create false branch edge
  * const falseEdge = createConditionalEdge({
  *   source: 'decision-1',
  *   sourcePort: 'false-output',
@@ -117,10 +117,10 @@ export function createConditionalEdge(config: ConditionalEdgeConfig): FlowEdgeEn
     label,
   } = config;
 
-  // 根据条件结果选择主题
+  // Select theme based on condition result
   const theme = conditionResult ? TRUE_EDGE_THEME : FALSE_EDGE_THEME;
 
-  // 生成标签
+  // Generate label
   const edgeLabel = label || (conditionResult ? "是" : "否");
 
   return new FlowEdgeEntity({

@@ -92,7 +92,7 @@ describe("main bootstrap", () => {
     expect(registryManager.hasRegistry).toHaveBeenCalled();
     expect(createRootMock).toHaveBeenCalledWith(root);
     expect(renderSpy).toHaveBeenCalledTimes(1);
-    expect(loggerMock.info).toHaveBeenCalledWith("🚀 应用启动 - 检查UML注册表状态");
+    expect(loggerMock.info).toHaveBeenCalledWith("🚀 App startup - checking UML registry status");
     expect(loggerMock.error).not.toHaveBeenCalledWith(
       "Root container '#root' was not found. Skipping render bootstrap."
     );

@@ -360,12 +360,12 @@ export class EntityManager implements IManager, IDisposable {
    */
   constructor({ registryBroker, renderEvents, entityEvents }: EntityManagerDependencies) {
     this.registryBroker = registryBroker;
-    // 注册自己到 broker 中，以便 RegistryManager 可以通过 broker 访问 EntityManager 的方法
+    // Register itself to the broker so RegistryManager can access EntityManager methods via the broker
     this.registryBroker.registerEntityManager({
       getEntityTypeRegistry: this.getEntityTypeRegistry.bind(this),
     });
 
-    // 设置事件监听器，监听注册表变更事件
+    // Set up event listeners to listen for registry change events
     this.registryChangeUnsubscribe = this.registryBroker.onRegistryChange(
       this.handleRegistryChange.bind(this)
     );

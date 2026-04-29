@@ -29,22 +29,22 @@ export type PluginFactory = (
   | (() => PluginLifecycle | Promise<PluginLifecycle>);
 
 export interface PluginSandboxRunnerOptions {
-  /** 唯一插件 ID，用于日志和错误提示 */
+  /** Unique plugin ID, used for logging and error messages */
   id: string;
-  /** 插件源码（打包后脚本），将在沙箱内执行 */
+  /** Plugin source code (bundled script), will be executed inside the sandbox */
   code: string;
   /**
-   * 脚本执行与生命周期调用的超时（毫秒）。
-   * 超时后会中断并抛出 PluginLifecycleTimeoutError。
+   * Timeout for script execution and lifecycle invocations (milliseconds).
+   * After timeout, execution is interrupted and PluginLifecycleTimeoutError is thrown.
    */
   timeoutMs?: number;
-  /** 自定义注入到沙箱的全局变量集合 */
+  /** Custom global variables injected into the sandbox */
   globals?: Record<string, unknown>;
-  /** 插件自定义元数据，将通过 helpers.metadata 提供给插件 */
+  /** Plugin custom metadata, made available to the plugin via helpers.metadata */
   metadata?: Record<string, unknown>;
-  /** 自定义日志适配器，默认使用全局 logger */
+  /** Custom logging adapter, defaults to the global logger */
   logger?: LoggerContextAdapter;
-  /** 沙箱 API 名称。默认值：__koduckFlowSandbox */
+  /** Sandbox API name. Default: __koduckFlowSandbox */
   apiName?: string;
 }
 

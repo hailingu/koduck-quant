@@ -6,7 +6,7 @@ import type { IEntity } from "../../src/common/entity";
 describe("RegistryManager", () => {
   let manager: RegistryManager;
 
-  // 简单Mock实体和注册表
+  // Simple mock entity and registry
   class MockEntity implements IEntity {
     readonly id = "mock-entity";
     readonly type = "MockEntity";
@@ -22,75 +22,75 @@ describe("RegistryManager", () => {
     manager = createRegistryManager();
   });
 
-  test("addRegistry 正常添加", () => {
+  test("addRegistry normal add", () => {
     manager.addRegistry("mock", mockRegistry);
     expect(manager.hasRegistry("mock")).toBe(true);
     expect(manager.getRegistry("mock")).toBe(mockRegistry);
   });
 
-  test("addRegistry 重复添加同名注册表", () => {
+  test("addRegistry duplicate add with same name", () => {
     manager.addRegistry("mock", mockRegistry);
-    // 再次添加同名应无效
+    // Adding same name again should be invalid
     manager.addRegistry("mock", mockRegistry);
     expect(manager.getRegistryNames().filter((n) => n === "mock").length).toBe(1);
   });
 
-  test("addRegistry 无效名称", () => {
+  test("addRegistry invalid name", () => {
     manager.addRegistry("", mockRegistry);
     expect(manager.hasRegistry("")).toBe(false);
   });
 
-  test("addRegistry 无效注册表", () => {
-    // @ts-expect-error 测试无效参数
+  test("addRegistry invalid registry", () => {
+    // @ts-expect-error test invalid parameter
     manager.addRegistry("invalid", undefined);
     expect(manager.hasRegistry("invalid")).toBe(false);
   });
 
-  test("setDefaultRegistry 设置和获取默认注册表", () => {
+  test("setDefaultRegistry set and get default registry", () => {
     manager.addRegistry("mock", mockRegistry);
     manager.setDefaultRegistry("mock");
     expect(manager.getDefaultRegistry()).toBe(mockRegistry);
   });
 
-  test("setDefaultRegistry 设置不存在的名称", () => {
+  test("setDefaultRegistry set non-existent name", () => {
     manager.setDefaultRegistry("not-exist");
     expect(manager.getDefaultRegistry()).toBeUndefined();
   });
 
-  test("removeRegistry 正常移除", () => {
+  test("removeRegistry normal remove", () => {
     manager.addRegistry("mock", mockRegistry);
     expect(manager.hasRegistry("mock")).toBe(true);
     manager.removeRegistry("mock");
     expect(manager.hasRegistry("mock")).toBe(false);
   });
 
-  test("removeRegistry 移除不存在的注册表", () => {
+  test("removeRegistry remove non-existent registry", () => {
     expect(manager.removeRegistry("not-exist")).toBe(false);
   });
 
-  test("bindTypeToRegistry 和 getRegistryForType", () => {
+  test("bindTypeToRegistry and getRegistryForType", () => {
     manager.addRegistry("mock", mockRegistry);
     manager.bindTypeToRegistry("MockEntity", "mock");
     expect(manager.getRegistryForType("MockEntity")).toBe(mockRegistry);
   });
 
-  test("unbindType 解绑类型", () => {
+  test("unbindType unbind type", () => {
     manager.addRegistry("mock", mockRegistry);
     manager.bindTypeToRegistry("MockEntity", "mock");
     manager.unbindType("MockEntity");
-    expect(manager.getRegistryForType("MockEntity")).toBe(mockRegistry); // fallback到名称
+    expect(manager.getRegistryForType("MockEntity")).toBe(mockRegistry); // fallback to name
   });
 
-  test("getRegistryForEntity 按类型查找", () => {
+  test("getRegistryForEntity find by type", () => {
     manager.addRegistry("mock", mockRegistry);
     const entity = new MockEntity();
     expect(manager.getRegistryForEntity(entity)).toBe(mockRegistry);
   });
 
-  test("getRegistryForEntity fallback 默认", () => {
+  test("getRegistryForEntity fallback default", () => {
     manager.addRegistry("mock", mockRegistry);
     manager.setDefaultRegistry("mock");
-    // 未绑定类型，返回默认
+    // Unbound type, return default
     expect(manager.getRegistryForEntity(null as unknown as IEntity)).toBe(mockRegistry);
   });
 
@@ -101,26 +101,26 @@ describe("RegistryManager", () => {
     expect(manager.getRegistryCount()).toBe(1);
   });
 
-  test("getRegistryEntries 返回所有条目", () => {
+  test("getRegistryEntries return all entries", () => {
     manager.addRegistry("mock", mockRegistry);
     expect(manager.getRegistryEntries()).toEqual([["mock", mockRegistry]]);
   });
 
-  test("clearRegistries 清空所有注册表", () => {
+  test("clearRegistries clear all registries", () => {
     manager.addRegistry("mock", mockRegistry);
     manager.clearRegistries();
     // After optimization: clearRegistries truly clears everything
     expect(manager.getRegistryCount()).toBe(0);
   });
 
-  test("dispose 清理所有资源", () => {
+  test("dispose clean up all resources", () => {
     manager.addRegistry("mock", mockRegistry);
     manager.dispose();
     expect(manager.getRegistryCount()).toBe(0);
     expect(manager.getDefaultRegistry()).toBeUndefined();
   });
 
-  test("meta 属性", () => {
+  test("meta property", () => {
     expect(manager.meta.type).toBe("RegistryManager");
     expect(manager.meta.description).toContain("Koduck Flow");
   });
@@ -128,9 +128,9 @@ describe("RegistryManager", () => {
   test("addPendingEntity/processPendingEntities", () => {
     const entity = new MockEntity();
     manager.addPendingEntity(entity);
-    // 注册表添加后应处理pending实体
+    // After registry is added, pending entities should be processed
     manager.addRegistry("mock", mockRegistry);
-    // pending实体应被清空
+    // pending entities should be cleared
     expect((manager as unknown as { _pendingEntities: Set<IEntity> })._pendingEntities.size).toBe(
       0
     );

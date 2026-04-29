@@ -5,48 +5,48 @@ import type { IRender, IRenderContext, IRenderStrategy, RenderSelection } from "
 import type { RenderStrategySelectorOptions } from "./strategy-selector-options";
 
 /**
- * 插件能力描述：用于声明策略所支持的渲染模式、特性与依赖项。
+ * Plugin capability descriptor: used to declare the rendering modes, features, and dependencies supported by a strategy.
  */
 export interface RenderStrategyCapabilityDescriptor {
-  /** 插件唯一标识 */
+  /** Plugin unique identifier */
   id: string;
-  /** 友好名称（用于 UI 展示） */
+  /** Friendly name (for UI display) */
   displayName: string;
-  /** 插件版本，便于审计 */
+  /** Plugin version, for auditing purposes */
   version: string;
-  /** 支持的渲染模式，例如 react、canvas、webgpu 等 */
+  /** Supported rendering modes, e.g., react, canvas, webgpu, etc. */
   supportedModes: Array<RenderSelection["mode"] | string>;
-  /** 可选的标签，描述策略擅长的场景（高并发、低功耗等） */
+  /** Optional tags describing scenarios the strategy excels at (high concurrency, low power, etc.) */
   tags?: string[];
-  /** 插件依赖的运行时能力，如 "webgpu", "offscreen-canvas" 等 */
+  /** Runtime capabilities required by the plugin, e.g., "webgpu", "offscreen-canvas", etc. */
   requiredCapabilities?: string[];
-  /** 插件可选利用的能力 */
+  /** Optional capabilities the plugin can leverage */
   optionalCapabilities?: string[];
-  /** 数值越大优先级越高，用于排序 */
+  /** Higher value means higher priority, used for sorting */
   priority: number;
-  /** 扩展元数据 */
+  /** Extended metadata */
   metadata?: Record<string, unknown>;
-  /** 描述信息 */
+  /** Description */
   description?: string;
 }
 
 /**
- * 渲染策略插件接口，扩展 IRenderStrategy 并暴露能力描述。
+ * Render strategy plugin interface, extends IRenderStrategy and exposes capability descriptors.
  */
 export interface IRenderStrategyPlugin extends IRenderStrategy {
-  /** 策略唯一标识 */
+  /** Strategy unique identifier */
   readonly id: string;
-  /** 能力描述 */
+  /** Capability descriptor */
   readonly descriptor: RenderStrategyCapabilityDescriptor;
   /**
-   * 可选的预检查，用于快速判断是否适配当前实体与上下文。
-   * 返回 false 表示策略不适用，将跳过 selectOptimalRenderer 调用。
+   * Optional pre-check to quickly determine if the strategy is suitable for the current entity and context.
+   * Returning false means the strategy is not applicable, and selectOptimalRenderer will be skipped.
    */
   canHandle?(entity: IEntity, context: IRenderContext): boolean;
 }
 
 /**
- * 当策略声明不适用当前实体时抛出的错误类型，用于区分真实异常。
+ * Error type thrown when a strategy declares it is not applicable to the current entity, used to distinguish from real exceptions.
  */
 export class RenderStrategyNotApplicableError extends Error {
   constructor(message: string) {
@@ -56,7 +56,7 @@ export class RenderStrategyNotApplicableError extends Error {
 }
 
 /**
- * RenderStrategySelector 负责注册、管理并选择最合适的渲染策略插件。
+ * RenderStrategySelector is responsible for registering, managing, and selecting the most suitable render strategy plugin.
  */
 export class RenderStrategySelector implements IRenderStrategy {
   private readonly strategies = new Map<string, IRenderStrategyPlugin>();
@@ -77,13 +77,13 @@ export class RenderStrategySelector implements IRenderStrategy {
     plugins.forEach((plugin) => this.registerStrategy(plugin));
   }
 
-  /** 策略名称用于与 RenderManager 兼容 */
+  /** Strategy name for compatibility with RenderManager */
   getStrategyName(): string {
     return "RenderStrategySelector";
   }
 
   /**
-   * 注册策略插件。
+   * Register a strategy plugin.
    */
   registerStrategy(plugin: IRenderStrategyPlugin): void {
     if (this.strategies.has(plugin.id) && !this.allowOverride) {
@@ -99,7 +99,7 @@ export class RenderStrategySelector implements IRenderStrategy {
   }
 
   /**
-   * 注销策略插件。
+   * Unregister a strategy plugin.
    */
   unregisterStrategy(id: string): boolean {
     const removed = this.strategies.delete(id);
@@ -114,21 +114,21 @@ export class RenderStrategySelector implements IRenderStrategy {
   }
 
   /**
-   * 列出当前注册的策略能力描述，按优先级降序排列。
+   * List currently registered strategy capability descriptors, sorted by priority in descending order.
    */
   listStrategyDescriptors(): RenderStrategyCapabilityDescriptor[] {
     return this.getOrderedStrategies().map((strategy) => strategy.descriptor);
   }
 
   /**
-   * 获取某个策略实例。
+   * Get a specific strategy instance.
    */
   getStrategy(id: string): IRenderStrategyPlugin | undefined {
     return this.strategies.get(id);
   }
 
   /**
-   * IRenderStrategy 接口实现：选择最优渲染器。
+   * IRenderStrategy interface implementation: select the optimal renderer.
    */
   selectOptimalRenderer(entity: IEntity, context: IRenderContext): RenderSelection {
     const errors: Error[] = [];
@@ -169,7 +169,7 @@ export class RenderStrategySelector implements IRenderStrategy {
   }
 
   /**
-   * IRenderStrategy 接口实现：批量选择策略并按渲染器分组。
+   * IRenderStrategy interface implementation: batch selection and group by renderer.
    */
   selectForBatch(entities: IEntity[]): Map<IRender, IEntity[]> {
     const groups = new Map<IRender, IEntity[]>();
@@ -191,7 +191,7 @@ export class RenderStrategySelector implements IRenderStrategy {
   }
 
   /**
-   * 获取策略能力概览，按标签归类。
+   * Get a strategy capability overview, categorized by tags.
    */
   summarizeCapabilities(): Record<string, RenderStrategyCapabilityDescriptor[]> {
     const summary: Record<string, RenderStrategyCapabilityDescriptor[]> = {};

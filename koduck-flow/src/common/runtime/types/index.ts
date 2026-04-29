@@ -1,9 +1,9 @@
 /**
- * Runtime 类型定义统一导出
+ * Runtime type definitions unified export
  * @module runtime/types
  */
 
-// Manager 初始化相关类型
+// Manager initialization-related types
 export { DEFAULT_MANAGER_INITIALIZATION_CONFIG } from "./manager-initialization";
 
 export type {
@@ -13,7 +13,7 @@ export type {
   NormalizedManagerInitializationConfig,
 } from "./manager-initialization";
 
-// Manager 生命周期相关类型
+// Manager lifecycle-related types
 export {
   MANAGER_LIFECYCLE_STATUS,
   ManagerInitializationError,
@@ -27,7 +27,7 @@ export type {
   CoreManagerKey,
 } from "./manager-lifecycle";
 
-// Runtime 选项相关类型
+// Runtime options-related types
 export type { KoduckFlowRuntimeOptions, CoreManagers } from "./runtime-options";
 
 export { TENANT_ENTITY_QUOTA_KEY } from "./runtime-options";

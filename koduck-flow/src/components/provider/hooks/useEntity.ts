@@ -143,7 +143,7 @@ export function useEntity(options: UseEntityOptions = {}): UseEntityResult {
     }
   }, []);
 
-  // 创建实体
+  // Create entity
   const create = useCallback(
     (type: string, props?: Record<string, unknown>) => {
       try {
@@ -165,7 +165,7 @@ export function useEntity(options: UseEntityOptions = {}): UseEntityResult {
     [refresh]
   );
 
-  // 创建并渲染实体
+  // Create and render entity
   const createAndRenderEntity = useCallback(
     (type: string, props?: Record<string, unknown>) => {
       try {
@@ -187,7 +187,7 @@ export function useEntity(options: UseEntityOptions = {}): UseEntityResult {
     [autoRender, refresh]
   );
 
-  // 获取实体
+  // Get entity
   const get = useCallback((id: string): IEntity | null => {
     try {
       setError(null);
@@ -199,7 +199,7 @@ export function useEntity(options: UseEntityOptions = {}): UseEntityResult {
     }
   }, []);
 
-  // 移除实体
+  // Remove entity
   const remove = useCallback(
     (id: string) => {
       try {
@@ -222,7 +222,7 @@ export function useEntity(options: UseEntityOptions = {}): UseEntityResult {
     [entity?.id, refresh]
   );
 
-  // 移除并停止渲染
+  // Remove and stop rendering
   const removeAndStopRenderEntity = useCallback(
     (id: string) => {
       try {
@@ -245,7 +245,7 @@ export function useEntity(options: UseEntityOptions = {}): UseEntityResult {
     [autoRender, entity?.id, refresh]
   );
 
-  // 检查实体是否存在
+  // Check if entity exists
   const exists = useCallback((id: string) => {
     try {
       return hasEntity(id);
@@ -255,7 +255,7 @@ export function useEntity(options: UseEntityOptions = {}): UseEntityResult {
     }
   }, []);
 
-  // 清理所有管理的实体
+  // Cleanup all managed entities
   const cleanup = useCallback(() => {
     try {
       const entitiesToClean = Array.from(managedEntitiesRef.current);
@@ -274,7 +274,7 @@ export function useEntity(options: UseEntityOptions = {}): UseEntityResult {
     }
   }, [autoRender, refresh]);
 
-  // 清理函数 - 只在卸载时运行
+  // Cleanup function - only runs on unmount
   useEffect(() => {
     return () => {
       if (autoCleanup) {

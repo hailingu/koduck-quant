@@ -53,25 +53,25 @@ describe("RuntimeManagerCoordinator", () => {
     );
   });
 
-  describe("构造函数和初始化", () => {
-    it("应该成功创建实例", () => {
+  describe("Constructor and Initialization", () => {
+    it("should successfully create an instance", () => {
       expect(coordinator).toBeDefined();
       expect(coordinator).toBeInstanceOf(RuntimeManagerCoordinator);
     });
 
-    it("应该正确设置核心 Manager 键", () => {
+    it("should correctly set core Manager keys", () => {
       const mockManager = createMockManager({ name: "entity" });
 
-      // 尝试注册核心 Manager 应该被阻止
+      // Attempting to register core Manager should be blocked
       coordinator.registerManager("entity", mockManager);
 
-      // 不应该被添加到注册列表
+      // Should not be added to registration list
       expect(coordinator.getRegisteredManagers()).not.toContain("entity");
     });
   });
 
-  describe("registerManager() - 注册 Manager", () => {
-    it("应该成功注册一个 Manager", () => {
+  describe("registerManager() - Register Manager", () => {
+    it("should successfully register a Manager", () => {
       const manager = createMockManager({ name: "spatial" });
 
       coordinator.registerManager("spatial", manager);
@@ -80,7 +80,7 @@ describe("RuntimeManagerCoordinator", () => {
       expect(coordinator.getRegisteredManagers()).toContain("spatial");
     });
 
-    it("应该阻止重复注册", () => {
+    it("should prevent duplicate registration", () => {
       const manager1 = createMockManager({ name: "spatial" });
       const manager2 = createMockManager({ name: "spatial" });
 
@@ -91,7 +91,7 @@ describe("RuntimeManagerCoordinator", () => {
       expect(managers.filter((name) => name === "spatial")).toHaveLength(1);
     });
 
-    it("应该记录依赖关系", () => {
+    it("should record dependency relationships", () => {
       const manager = createMockManager({ name: "spatial", shouldInitialize: true });
 
       coordinator.registerManager("spatial", manager, {
@@ -101,35 +101,35 @@ describe("RuntimeManagerCoordinator", () => {
       expect(coordinator.hasManager("spatial")).toBe(true);
     });
 
-    it("应该在非懒加载时自动初始化", async () => {
+    it("should auto-initialize when not lazy loading", async () => {
       const manager = createMockManager({ name: "spatial", shouldInitialize: true });
 
       coordinator.registerManager("spatial", manager, {
         lazy: false,
       });
 
-      // 等待异步初始化
+      // Wait for async initialization
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(manager.initialize).toHaveBeenCalled();
     });
 
-    it("应该在懒加载时不自动初始化", async () => {
+    it("should not auto-initialize when lazy loading", async () => {
       const manager = createMockManager({ name: "spatial", shouldInitialize: true });
 
       coordinator.registerManager("spatial", manager, {
         lazy: true,
       });
 
-      // 等待一段时间
+      // Wait for a while
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(manager.initialize).not.toHaveBeenCalled();
     });
   });
 
-  describe("unregisterManager() - 卸载 Manager", () => {
-    it("应该成功卸载 Manager", () => {
+  describe("unregisterManager() - Unregister Manager", () => {
+    it("should successfully unregister a Manager", () => {
       const manager = createMockManager({ name: "spatial" });
 
       coordinator.registerManager("spatial", manager);
@@ -139,7 +139,7 @@ describe("RuntimeManagerCoordinator", () => {
       expect(coordinator.hasManager("spatial")).toBe(false);
     });
 
-    it("应该调用 Manager 的 dispose 方法", () => {
+    it("should call Manager's dispose method", () => {
       const manager = createMockManager({ name: "spatial" });
 
       coordinator.registerManager("spatial", manager);
@@ -148,16 +148,16 @@ describe("RuntimeManagerCoordinator", () => {
       expect(manager.dispose).toHaveBeenCalled();
     });
 
-    it("应该阻止卸载核心 Manager", () => {
+    it("should prevent unregistering core Manager", () => {
       coordinator.unregisterManager("entity");
-      // 不应该抛出错误，只是被阻止
+      // Should not throw error, just blocked
       expect(coordinator.hasManager("entity")).toBe(false);
       expect(coordinator.getRegisteredManagers()).not.toContain("entity");
     });
   });
 
-  describe("getManager() - 获取 Manager", () => {
-    it("应该返回已注册的 Manager", () => {
+  describe("getManager() - Get Manager", () => {
+    it("should return registered Manager", () => {
       const manager = createMockManager({ name: "spatial" });
 
       coordinator.registerManager("spatial", manager);
@@ -166,27 +166,27 @@ describe("RuntimeManagerCoordinator", () => {
       expect(retrieved).toBe(manager);
     });
 
-    it("应该在 Manager 不存在时返回 undefined", () => {
+    it("should return undefined when Manager does not exist", () => {
       const manager = coordinator.getManager("nonexistent");
       expect(manager).toBeUndefined();
     });
 
-    it("应该在访问时触发懒加载初始化", async () => {
+    it("should trigger lazy initialization on access", async () => {
       const manager = createMockManager({ name: "spatial", shouldInitialize: true });
 
       coordinator.registerManager("spatial", manager, { lazy: true });
 
       coordinator.getManager("spatial");
 
-      // 等待异步初始化
+      // Wait for async initialization
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(manager.initialize).toHaveBeenCalled();
     });
   });
 
-  describe("initializeManager() - 初始化 Manager", () => {
-    it("应该成功初始化 Manager", async () => {
+  describe("initializeManager() - Initialize Manager", () => {
+    it("should successfully initialize Manager", async () => {
       const manager = createMockManager({ name: "spatial", shouldInitialize: true });
 
       coordinator.registerManager("spatial", manager, { lazy: true });
@@ -197,11 +197,11 @@ describe("RuntimeManagerCoordinator", () => {
       expect(coordinator.getInitializedManagers()).toContain("spatial");
     });
 
-    it("应该在 Manager 不存在时抛出错误", async () => {
+    it("should throw an error when Manager does not exist", async () => {
       await expect(coordinator.initializeManager("nonexistent")).rejects.toThrow();
     });
 
-    it("应该在初始化失败时抛出错误", async () => {
+    it("should throw an error when initialization fails", async () => {
       const manager = createMockManager({
         name: "spatial",
         shouldInitialize: true,
@@ -213,7 +213,7 @@ describe("RuntimeManagerCoordinator", () => {
       await expect(coordinator.initializeManager("spatial")).rejects.toThrow();
     });
 
-    it("应该支持重试机制", async () => {
+    it("should support retry mechanism", async () => {
       let attempts = 0;
       const manager = createMockManager({ name: "spatial", shouldInitialize: true });
       manager.initialize = vi.fn(async () => {
@@ -236,7 +236,7 @@ describe("RuntimeManagerCoordinator", () => {
       expect(coordinator.getInitializedManagers()).toContain("spatial");
     });
 
-    it("应该在没有 initialize 方法时成功完成", async () => {
+    it("should complete successfully when no initialize method", async () => {
       const manager = createMockManager({ name: "spatial", shouldInitialize: false });
 
       coordinator.registerManager("spatial", manager, { lazy: true });
@@ -246,7 +246,7 @@ describe("RuntimeManagerCoordinator", () => {
       expect(coordinator.getInitializedManagers()).toContain("spatial");
     });
 
-    it("应该避免重复初始化", async () => {
+    it("should avoid duplicate initialization", async () => {
       const manager = createMockManager({ name: "spatial", shouldInitialize: true });
 
       coordinator.registerManager("spatial", manager, { lazy: true });
@@ -258,8 +258,8 @@ describe("RuntimeManagerCoordinator", () => {
     });
   });
 
-  describe("依赖解析", () => {
-    it("应该在初始化前解析单个依赖", async () => {
+  describe("Dependency Resolution", () => {
+    it("should resolve single dependency before initialization", async () => {
       const dep = createMockManager({ name: "dependency", shouldInitialize: true });
       const target = createMockManager({ name: "target", shouldInitialize: true });
 
@@ -275,7 +275,7 @@ describe("RuntimeManagerCoordinator", () => {
       expect(coordinator.getInitializedManagers()).toContain("target");
     });
 
-    it("应该在初始化前解析多个依赖", async () => {
+    it("should resolve multiple dependencies before initialization", async () => {
       const dep1 = createMockManager({ name: "dep1", shouldInitialize: true });
       const dep2 = createMockManager({ name: "dep2", shouldInitialize: true });
       const target = createMockManager({ name: "target", shouldInitialize: true });
@@ -294,7 +294,7 @@ describe("RuntimeManagerCoordinator", () => {
       expect(coordinator.getInitializedManagers()).toContain("target");
     });
 
-    it("应该检测并阻止循环依赖", async () => {
+    it("should detect and prevent circular dependencies", async () => {
       const a = createMockManager({ name: "a", shouldInitialize: true });
       const b = createMockManager({ name: "b", shouldInitialize: true });
 
@@ -305,7 +305,7 @@ describe("RuntimeManagerCoordinator", () => {
         await coordinator.initializeManager("a");
         expect.fail("Expected circular dependency error");
       } catch (error) {
-        // 循环依赖错误应该在 cause 中
+        // Circular dependency error should be in cause
         expect(error).toBeInstanceOf(Error);
         const err = error as Error & { cause?: Error };
         expect(err.message).toContain("dependency 'b' failed to initialize");
@@ -314,7 +314,7 @@ describe("RuntimeManagerCoordinator", () => {
       }
     });
 
-    it("应该在依赖缺失时抛出错误", async () => {
+    it("should throw an error when dependency is missing", async () => {
       const target = createMockManager({ name: "target", shouldInitialize: true });
 
       coordinator.registerManager("target", target, {
@@ -326,8 +326,8 @@ describe("RuntimeManagerCoordinator", () => {
     });
   });
 
-  describe("dispose() - 释放资源", () => {
-    it("应该释放所有已注册的 Manager", () => {
+  describe("dispose() - Release Resources", () => {
+    it("should release all registered Managers", () => {
       const manager1 = createMockManager({ name: "m1" });
       const manager2 = createMockManager({ name: "m2" });
 
@@ -340,7 +340,7 @@ describe("RuntimeManagerCoordinator", () => {
       expect(manager2.dispose).toHaveBeenCalled();
     });
 
-    it("应该清空所有内部映射表", () => {
+    it("should clear all internal mappings", () => {
       const manager = createMockManager({ name: "spatial" });
 
       coordinator.registerManager("spatial", manager);
@@ -352,7 +352,7 @@ describe("RuntimeManagerCoordinator", () => {
   });
 
   describe("getManagerInitializationDefaults()", () => {
-    it("应该返回默认初始化配置", () => {
+    it("should return default initialization config", () => {
       const defaults = coordinator.getManagerInitializationDefaults();
 
       expect(defaults).toHaveProperty("retries");

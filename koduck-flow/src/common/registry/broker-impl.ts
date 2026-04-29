@@ -51,7 +51,7 @@ import { ensureAutoRegistry } from "../../utils/decorator/auto-registry";
 import { RegistryManager } from "./registry-manager";
 
 /**
- * RegistryBroker 事件定义
+ * RegistryBroker event definitions
  */
 export const RegistryBrokerEvent = {
   RegistryManagerRegistered: "registry-broker:registry-manager-registered",
@@ -64,10 +64,10 @@ export const RegistryBrokerEvent = {
 } as const;
 
 /**
- * RegistryBroker 实现
+ * RegistryBroker implementation
  *
- * 使用中介者模式和事件驱动架构来解耦 RegistryManager 和 EntityManager。
- * 通过事件总线协调注册表查询和管理操作，避免直接依赖。
+ * Uses the Mediator pattern and event-driven architecture to decouple RegistryManager and EntityManager.
+ * Coordinates registry queries and management operations via the event bus to avoid direct dependencies.
  */
 export class RegistryBroker implements IRegistryBroker {
   private readonly eventEmitter = new LightweightEventEmitter<EventPayloadMap>();
@@ -75,7 +75,7 @@ export class RegistryBroker implements IRegistryBroker {
   private entityManager?: { getEntityTypeRegistry: (type: string) => unknown } | undefined;
 
   /**
-   * 注册 RegistryManager 实例
+   * Register RegistryManager instance
    */
   registerRegistryManager(manager: IRegistryManager<IEntity>): void {
     this.registryManager = manager;
@@ -83,7 +83,7 @@ export class RegistryBroker implements IRegistryBroker {
   }
 
   /**
-   * 注册 EntityManager 实例
+   * Register EntityManager instance
    */
   registerEntityManager(manager: { getEntityTypeRegistry: (type: string) => unknown }): void {
     this.entityManager = manager;
@@ -91,10 +91,10 @@ export class RegistryBroker implements IRegistryBroker {
   }
 
   /**
-   * 根据实体类型获取注册表
+   * Get registry by entity type
    */
   getRegistryForType(type: string): IRegistry<IEntity> | undefined {
-    // 优先使用 RegistryManager
+    // Prefer using RegistryManager
     if (this.registryManager) {
       const registry = this.registryManager.getRegistryForType(type);
       if (registry) {
@@ -109,7 +109,7 @@ export class RegistryBroker implements IRegistryBroker {
       }
     }
 
-    // 回退到 EntityManager（如果有的话）
+    // Fallback to EntityManager (if available)
     if (this.entityManager) {
       const registry = this.entityManager.getEntityTypeRegistry(type);
       return registry as IRegistry<IEntity> | undefined;
@@ -119,7 +119,7 @@ export class RegistryBroker implements IRegistryBroker {
   }
 
   /**
-   * 根据实体实例获取注册表
+   * Get registry by entity instance
    */
   getRegistryForEntity(entity: IEntity): IRegistry<IEntity> | undefined {
     if (this.registryManager) {
@@ -136,22 +136,22 @@ export class RegistryBroker implements IRegistryBroker {
       }
     }
 
-    // 如果没有 RegistryManager，通过实体类型回退
+    // If no RegistryManager, fallback via entity type
     return this.getRegistryForType(entity.type || entity.constructor?.name);
   }
 
   /**
-   * 获取默认注册表
+   * Get default registry
    */
   getDefaultRegistry(): IRegistry<IEntity> | undefined {
     return this.registryManager?.getDefaultRegistry();
   }
 
   /**
-   * 检查注册表是否存在
+   * Check if registry exists
    */
   hasRegistry(name: string): boolean {
-    // 通过尝试获取注册表来检查是否存在
+    // Check existence by attempting to get the registry
     if (!this.registryManager) {
       return false;
     }
@@ -172,10 +172,10 @@ export class RegistryBroker implements IRegistryBroker {
   }
 
   /**
-   * 获取所有注册表名称
+   * Get all registry names
    */
   getRegistryNames(): string[] {
-    // 如果 RegistryManager 有扩展方法，使用它；否则返回空数组
+    // If RegistryManager has an extended method, use it; otherwise return an empty array
     const manager = this.registryManager as IRegistryManager<IEntity> & {
       getRegistryNames?: () => string[];
     };
@@ -183,7 +183,7 @@ export class RegistryBroker implements IRegistryBroker {
   }
 
   /**
-   * 添加注册表
+   * Add registry
    */
   addRegistry(name: string, registry: IRegistry<IEntity>): void {
     if (this.registryManager) {
@@ -196,7 +196,7 @@ export class RegistryBroker implements IRegistryBroker {
   }
 
   /**
-   * 移除注册表
+   * Remove registry
    */
   removeRegistry(name: string): boolean {
     if (this.registryManager) {
@@ -213,7 +213,7 @@ export class RegistryBroker implements IRegistryBroker {
   }
 
   /**
-   * 设置默认注册表
+   * Set default registry
    */
   setDefaultRegistry(name: string): void {
     if (this.registryManager) {
@@ -226,7 +226,7 @@ export class RegistryBroker implements IRegistryBroker {
   }
 
   /**
-   * 绑定实体类型到注册表
+   * Bind entity type to registry
    */
   bindTypeToRegistry(type: string, name: string): void {
     if (this.registryManager?.bindTypeToRegistry) {
@@ -239,7 +239,7 @@ export class RegistryBroker implements IRegistryBroker {
   }
 
   /**
-   * 解除类型绑定
+   * Unbind type
    */
   unbindType(type: string): void {
     if (this.registryManager?.unbindType) {
@@ -252,14 +252,14 @@ export class RegistryBroker implements IRegistryBroker {
   }
 
   /**
-   * 获取事件发射器，用于监听 broker 事件
+   * Get event emitter for listening to broker events
    */
   getEventEmitter(): LightweightEventEmitter<EventPayloadMap> {
     return this.eventEmitter;
   }
 
   /**
-   * 订阅注册表变更事件
+   * Subscribe to registry change events
    */
   onRegistryChange(listener: (event: RegistryEvent) => void): () => void {
     this.eventEmitter.on("registry-change", listener);
@@ -267,7 +267,7 @@ export class RegistryBroker implements IRegistryBroker {
   }
 
   /**
-   * 订阅实体变更事件
+   * Subscribe to entity change events
    */
   onEntityChange(listener: (event: EntityEvent) => void): () => void {
     this.eventEmitter.on("entity-change", listener);
@@ -275,7 +275,7 @@ export class RegistryBroker implements IRegistryBroker {
   }
 
   /**
-   * 清理资源
+   * Clean up resources
    */
   dispose(): void {
     this.eventEmitter.removeAllListeners();
@@ -285,7 +285,7 @@ export class RegistryBroker implements IRegistryBroker {
 }
 
 /**
- * 创建 RegistryBroker 实例
+ * Create a RegistryBroker instance
  */
 export function createRegistryBroker(): RegistryBroker {
   return new RegistryBroker();

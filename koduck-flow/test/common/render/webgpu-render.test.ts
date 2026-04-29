@@ -5,7 +5,7 @@ import type { IEntity } from "../../../src/common/entity/types";
 import type { IRenderContext } from "../../../src/common/render/types";
 import { logger } from "../../../src/common/logger";
 
-// Mock 依赖
+// Mock dependencies
 vi.mock("../../../src/common/logger", () => {
   const debug = vi.fn();
   const info = vi.fn();
@@ -128,55 +128,55 @@ describe("WebGPURender", () => {
     vi.clearAllMocks();
   });
 
-  describe("构造函数和初始化", () => {
-    test("应该正确初始化 WebGPURender", () => {
+  describe("Constructor and Initialization", () => {
+    test("should correctly initialize WebGPURender", () => {
       expect(webGPURender).toBeDefined();
       expect(webGPURender.getName()).toBe("WebGPURender");
       expect(webGPURender.getType()).toBe("canvas");
     });
 
-    test("应该初始化性能统计", () => {
+    test("should initialize performance stats", () => {
       const stats = webGPURender.getPerformanceStats();
       expect(stats).toBeDefined();
       expect(stats.type).toBe("canvas");
       expect(stats.name).toBe("WebGPURender");
     });
 
-    test("应该有默认的优先级", () => {
+    test("should have default priority", () => {
       expect(webGPURender.getPriority()).toBeGreaterThan(0);
     });
   });
 
-  describe("渲染上下文管理", () => {
-    test("应该能够设置渲染上下文", () => {
+  describe("Render Context Management", () => {
+    test("should be able to set render context", () => {
       expect(() => webGPURender.setRenderContext(mockRenderContext)).not.toThrow();
     });
 
-    test("应该能够获取渲染上下文", () => {
+    test("should be able to get render context", () => {
       webGPURender.setRenderContext(mockRenderContext);
       const context = webGPURender.getRenderContext();
       expect(context).toBe(mockRenderContext);
     });
 
-    test("应该能够更新渲染上下文", () => {
+    test("should be able to update render context", () => {
       webGPURender.setRenderContext(mockRenderContext);
       const updates = { width: 1024, height: 768 };
       expect(() => webGPURender.updateRenderContext(updates)).not.toThrow();
     });
   });
 
-  describe("WebGPU 支持检测", () => {
-    test("canHandle 应该根据上下文判断是否能处理", () => {
+  describe("WebGPU Support Detection", () => {
+    test("canHandle should determine capability based on context", () => {
       expect(webGPURender.canHandle(mockRenderContext)).toBe(true);
     });
 
-    test("canHandle 应该处理无效上下文", () => {
+    test("canHandle should handle invalid context", () => {
       const invalidContext = {} as IRenderContext;
       expect(webGPURender.canHandle(invalidContext)).toBe(false);
     });
   });
 
-  describe("实体渲染", () => {
+  describe("Entity Rendering", () => {
     const mockEntity = {
       id: "webgpu-entity",
       type: "webgpu-rectangle",
@@ -184,7 +184,7 @@ describe("WebGPURender", () => {
       dispose: vi.fn(),
     } as unknown as IEntity;
 
-    test("render 应该处理 WebGPU 实体", () => {
+    test("render should handle WebGPU entities", () => {
       webGPURender.setRenderContext(mockRenderContext);
 
       // Mock registry with render capability
@@ -197,11 +197,11 @@ describe("WebGPURender", () => {
       expect(() => webGPURender.render(mockEntity)).not.toThrow();
     });
 
-    test("render 应该处理没有渲染上下文的情况", () => {
+    test("render should handle the case without render context", () => {
       expect(() => webGPURender.render(mockEntity)).not.toThrow();
     });
 
-    test("render 应该处理没有注册表的情况", () => {
+    test("render should handle the case without registry", () => {
       webGPURender.setRenderContext(mockRenderContext);
       mockRegistryManager.getRegistryForEntity = vi.fn().mockReturnValue(null);
 
@@ -209,15 +209,15 @@ describe("WebGPURender", () => {
     });
   });
 
-  describe("注册表管理器设置", () => {
-    test("setRegistryManager 应该设置注册表管理器", () => {
+  describe("Registry Manager Setup", () => {
+    test("setRegistryManager should set the registry manager", () => {
       const newRegistryManager = createRegistryManager();
       expect(() => webGPURender.setRegistryManager(newRegistryManager)).not.toThrow();
     });
   });
 
-  describe("性能统计", () => {
-    test("getPerformanceStats 应该返回 WebGPU 性能统计信息", () => {
+  describe("Performance Stats", () => {
+    test("getPerformanceStats should return WebGPU performance stats", () => {
       const stats = webGPURender.getPerformanceStats();
 
       expect(stats).toHaveProperty("renderCount");
@@ -227,7 +227,7 @@ describe("WebGPURender", () => {
       expect(stats).toHaveProperty("name", "WebGPURender");
     });
 
-    test("渲染操作应该更新性能统计", () => {
+    test("render operations should update performance stats", () => {
       webGPURender.setRenderContext(mockRenderContext);
 
       const mockRegistry = {
@@ -249,19 +249,19 @@ describe("WebGPURender", () => {
     });
   });
 
-  describe("资源清理", () => {
-    test("dispose 应该清理资源", () => {
+  describe("Resource Cleanup", () => {
+    test("dispose should clean up resources", () => {
       expect(() => webGPURender.dispose()).not.toThrow();
     });
 
-    test("dispose 应该可重复调用", () => {
+    test("dispose should be callable multiple times", () => {
       webGPURender.dispose();
       expect(() => webGPURender.dispose()).not.toThrow();
     });
   });
 
-  describe("边界情况", () => {
-    test("应该处理无效的实体输入", () => {
+  describe("Edge Cases", () => {
+    test("should handle invalid entity input", () => {
       const invalidEntity = null as unknown as IEntity;
 
       expect(() => webGPURender.render(invalidEntity)).not.toThrow();
@@ -274,7 +274,7 @@ describe("WebGPURender", () => {
       );
     });
 
-    test("应该处理没有数据的实体", () => {
+    test("should handle entities without data", () => {
       webGPURender.setRenderContext(mockRenderContext);
 
       const entityWithoutData = {
@@ -292,7 +292,7 @@ describe("WebGPURender", () => {
       expect(() => webGPURender.render(entityWithoutData)).not.toThrow();
     });
 
-    test("应该处理渲染上下文更新时的错误", () => {
+    test("should handle errors during render context update", () => {
       const invalidCanvas = {
         getContext: vi.fn().mockReturnValue(null),
       } as unknown as HTMLCanvasElement;
@@ -306,8 +306,8 @@ describe("WebGPURender", () => {
     });
   });
 
-  describe("WebGPU 硬件能力检测", () => {
-    test("canHandle 应该检查 canvas 存在", () => {
+  describe("WebGPU Hardware Capability Detection", () => {
+    test("canHandle should check for canvas presence", () => {
       const contextWithoutCanvas = {
         nodes: [],
         viewport: { x: 0, y: 0, zoom: 1, width: 800, height: 600 },

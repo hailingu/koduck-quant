@@ -1,13 +1,13 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
-// 确保UML实体在应用启动时就被加载，避免竞态条件
+// Ensure UML entities are loaded at app startup to avoid race conditions
 import "./components/demo/FlowDemo/uml-entities-new-decorator";
 import App from "./App.tsx";
 import { logger } from "./common/logger";
 import { DEFAULT_KODUCKFLOW_ENVIRONMENT, getRuntimeForEnvironment } from "./common/global-runtime";
 
-// 在应用启动时立即检查注册表状态
+// Check registry status immediately at app startup
 logger.info("🚀 应用启动 - 检查UML注册表状态");
 const runtime = getRuntimeForEnvironment(DEFAULT_KODUCKFLOW_ENVIRONMENT);
 const registryManager = runtime.RegistryManager;

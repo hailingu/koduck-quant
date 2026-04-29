@@ -1,100 +1,100 @@
 /**
- * 事件系统公共类型
+ * Event system public types
  *
- * Logger 接口已迁移为 LoggerCore（来自 common/logger）。
- * 如需最小日志协议，请从 "../logger" 导入 LoggerCore。
+ * Logger interface has been migrated to LoggerCore (from common/logger).
+ * For minimal logging protocol, import LoggerCore from "../logger".
  */
 import type { LoggerCore } from "../logger";
-/** @deprecated 保留旧名兼容期，可直接使用 LoggerCore */
+/** @deprecated Retained for backward compatibility, use LoggerCore directly */
 export type Logger = LoggerCore;
 
 export interface Scheduler {
-  /** 调度一个回调（可选延时参数仅对 timeout 类有效） */
+  /** Schedule a callback (optional delay parameter only valid for timeout type) */
   schedule: (fn: () => void, delay?: number) => number;
-  /** 取消调度 */
+  /** Cancel scheduling */
   cancel: (id: number) => void;
-  /** 调度器类型，用于内部优化或统计 */
+  /** Scheduler type, for internal optimization or statistics */
   kind: "raf" | "timeout" | "custom";
 }
 
 /**
- * 事件负载去重配置（可选）
+ * Event payload deduplication configuration (optional)
  */
 export interface PayloadDedupeConfig {
-  /** 是否启用去重（默认禁用） */
+  /** Whether to enable deduplication (disabled by default) */
   enabled: boolean;
-  /** 去重时间窗口（毫秒） */
+  /** Deduplication time window in milliseconds */
   ttl: number;
-  /** 去重缓存的最大条目数（可选） */
+  /** Maximum entries in deduplication cache (optional) */
   maxEntries?: number;
-  /** 生成去重 key 的函数（默认对 payload 执行 JSON.stringify） */
+  /** Function to generate deduplication key (defaults to JSON.stringify on payload) */
   key?: (data: unknown) => string;
 }
 
 /**
- * 事件监听器函数接口
- * @template T 事件数据类型
+ * Event listener function interface
+ * @template T Event data type
  */
 export type IEventListener<T> = (args: T) => void;
 
 /**
- * 事件注册函数接口
- * @template T 事件数据类型
+ * Event registration function interface
+ * @template T Event data type
  */
 export type IEvent<T> = (listener: IEventListener<T>) => () => void;
 
 /**
- * 事件系统配置接口
- * 控制事件的行为、性能和安全限制
+ * Event system configuration interface
+ * Controls event behavior, performance, and security limits
  */
 export interface EventConfiguration {
-  // 批处理配置
-  /** 是否启用批处理 */
+  // Batch configuration
+  /** Whether to enable batch processing */
   enableBatching: boolean;
-  /** 批处理大小 */
+  /** Batch size */
   batchSize: number;
-  /** 批处理间隔时间（毫秒） */
+  /** Batch interval time in milliseconds */
   batchInterval: number;
 
-  // 自动优化配置
-  /** 是否启用自动优化 */
+  // Auto-optimization configuration
+  /** Whether to enable auto-optimization */
   enableAutoOptimization: boolean;
-  /** 自动优化触发的监听器数量阈值 */
+  /** Listener count threshold to trigger auto-optimization */
   autoOptimizeThreshold: number;
 
-  // 安全限制
-  /** 最大监听器数量 */
+  // Security limits
+  /** Maximum number of listeners */
   maxListeners: number;
 
-  // 调试选项
-  /** 是否启用调试模式 */
+  // Debug options
+  /** Whether to enable debug mode */
   enableDebugMode: boolean;
 
-  // 并发选项（仅影响 fireAsync）
-  /** 并发执行策略：串行、并行或受限并发 */
+  // Concurrency options (only affects fireAsync)
+  /** Concurrency execution strategy: series, parallel, or limited */
   concurrencyMode: "series" | "parallel" | "limited";
-  /** 并发上限（仅在 limited 模式下生效） */
+  /** Concurrency limit (only effective in limited mode) */
   concurrencyLimit: number;
 
-  // 可插拔依赖
-  /** 注入式日志器（默认使用 console） */
+  // Pluggable dependencies
+  /** Injected logger (defaults to console) */
   logger?: LoggerCore;
-  /** 注入式调度器（默认内部依据 rAF/timeout 选择） */
+  /** Injected scheduler (defaults to internal rAF/timeout selection) */
   scheduler?: Scheduler;
 
-  // 监听器运行控制（主要用于 limited 并发增强）
-  /** 单个监听器的超时时间（毫秒），0 或未设置表示不超时 */
+  // Listener execution control (mainly for limited concurrency enhancement)
+  /** Single listener timeout in milliseconds, 0 or unset means no timeout */
   listenerTimeout?: number;
-  /** 监听器超时时的取消回调（软取消，无法中断监听器执行，仅做通知） */
+  /** Listener timeout cancellation callback (soft cancel, cannot interrupt listener execution, notification only) */
   onListenerCancel?: (info: {
     eventName: string;
     index: number;
-    elapsed: number; // 实际已用时（毫秒）
+    elapsed: number; // Actual elapsed time in milliseconds
     mode: "limited" | "parallel" | "series";
   }) => void;
 
-  // 负载去重（短 TTL 幂等）
-  /** 事件负载去重配置（默认禁用） */
+  // Payload deduplication (short TTL idempotency)
+  /** Event payload deduplication configuration (disabled by default) */
   payloadDedupe?: PayloadDedupeConfig;
 }
 

@@ -1,67 +1,67 @@
 /**
- * 配置状态管理接口
- * 用于集中管理配置状态，解耦各模块间的状态依赖
+ * Config state management interface
+ * Used to centralize config state management and decouple state dependencies between modules
  */
 
 import type { KoduckFlowConfig } from "../../schema.js";
 
 /**
- * 配置变更监听器类型
+ * Config change listener type
  */
 export type ConfigChangeListener = (config: KoduckFlowConfig, previousConfig: KoduckFlowConfig) => void;
 
 /**
- * 配置状态管理器接口
- * 提供配置状态的读写、订阅和历史记录功能
+ * Config state manager interface
+ * Provides read/write, subscription, and history tracking for config state
  */
 export interface IConfigState {
   /**
-   * 获取当前配置状态
-   * @returns 当前的配置对象
+   * Get current config state
+   * @returns Current config object
    */
   getCurrentConfig(): KoduckFlowConfig;
 
   /**
-   * 设置配置状态
-   * @param config - 新的配置对象
-   * @param silent - 是否静默更新（不触发监听器）
+   * Set config state
+   * @param config - New config object
+   * @param silent - Whether to update silently (without triggering listeners)
    */
   setCurrentConfig(config: KoduckFlowConfig, silent?: boolean): void;
 
   /**
-   * 获取上一次的配置状态
-   * @returns 上一次的配置对象，如果不存在返回 undefined
+   * Get previous config state
+   * @returns Previous config object, or undefined if not available
    */
   getPreviousConfig(): KoduckFlowConfig | undefined;
 
   /**
-   * 订阅配置变更事件
-   * @param listener - 配置变更监听器
-   * @returns 取消订阅的函数
+   * Subscribe to config change events
+   * @param listener - Config change listener
+   * @returns Unsubscribe function
    */
   subscribe(listener: ConfigChangeListener): () => void;
 
   /**
-   * 取消订阅配置变更事件
-   * @param listener - 要取消的监听器
+   * Unsubscribe from config change events
+   * @param listener - Listener to unsubscribe
    */
   unsubscribe(listener: ConfigChangeListener): void;
 
   /**
-   * 获取所有监听器
-   * @returns 当前注册的所有监听器
+   * Get all listeners
+   * @returns All currently registered listeners
    */
   getListeners(): ReadonlyArray<ConfigChangeListener>;
 
   /**
-   * 清空所有监听器
+   * Clear all listeners
    */
   clearListeners(): void;
 
   /**
-   * 获取配置历史记录
-   * @param limit - 返回的历史记录数量限制
-   * @returns 配置历史记录数组
+   * Get config history
+   * @param limit - Limit on the number of history entries to return
+   * @returns Config history array
    */
   getHistory(limit?: number): ReadonlyArray<{
     config: KoduckFlowConfig;
@@ -70,7 +70,7 @@ export interface IConfigState {
   }>;
 
   /**
-   * 清空配置历史记录
+   * Clear config history
    */
   clearHistory(): void;
 }

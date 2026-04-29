@@ -9,7 +9,7 @@
         "staging",
         "production"
       ],
-      "description": "环境标识符"
+      "description": "Environment identifier"
     },
     "event": {
       "type": "object",
@@ -17,31 +17,31 @@
         "batchSize": {
           "type": "number",
           "minimum": 1,
-          "description": "批处理大小"
+          "description": "Batch size"
         },
         "batchInterval": {
           "type": "number",
           "minimum": 0,
-          "description": "批处理间隔 (ms)"
+          "description": "Batch interval (ms)"
         },
         "maxQueueSize": {
           "type": "number",
           "minimum": 1,
-          "description": "最大队列大小"
+          "description": "Maximum queue size"
         },
         "enableDedup": {
           "type": "boolean",
-          "description": "启用去重"
+          "description": "Enable deduplication"
         },
         "concurrencyLimit": {
           "type": "number",
           "minimum": 1,
-          "description": "并发限制"
+          "description": "Concurrency limit"
         },
         "maxListeners": {
           "type": "number",
           "minimum": 1,
-          "description": "最大监听器数量"
+          "description": "Maximum number of listeners"
         }
       },
       "required": [
@@ -61,17 +61,17 @@
           "type": "number",
           "minimum": 1,
           "maximum": 240,
-          "description": "目标帧率"
+          "description": "Target frame rate"
         },
         "cacheTTL": {
           "type": "number",
           "minimum": 0,
-          "description": "缓存TTL (ms)"
+          "description": "Cache TTL (ms)"
         },
         "maxCacheSize": {
           "type": "number",
           "minimum": 1,
-          "description": "最大缓存条目数"
+          "description": "Maximum cache entries"
         },
         "defaultRenderer": {
           "type": "string",
@@ -80,11 +80,11 @@
             "canvas",
             "webgpu"
           ],
-          "description": "默认渲染器"
+          "description": "Default renderer"
         },
         "enableDirtyRegion": {
           "type": "boolean",
-          "description": "启用脏区域优化"
+          "description": "Enable dirty region optimization"
         },
         "constants": {
           "type": "object",
@@ -126,16 +126,16 @@
         "maxEntities": {
           "type": "number",
           "minimum": 1,
-          "description": "最大实体数量"
+          "description": "Maximum number of entities"
         },
         "gcInterval": {
           "type": "number",
           "minimum": 1000,
-          "description": "GC间隔 (ms)"
+          "description": "GC interval (ms)"
         },
         "enableEntityPool": {
           "type": "boolean",
-          "description": "启用实体池"
+          "description": "Enable entity pool"
         }
       },
       "required": [
@@ -150,16 +150,16 @@
       "properties": {
         "enableProfiling": {
           "type": "boolean",
-          "description": "启用性能分析"
+          "description": "Enable performance profiling"
         },
         "metricsInterval": {
           "type": "number",
           "minimum": 100,
-          "description": "指标收集间隔 (ms)"
+          "description": "Metrics collection interval (ms)"
         },
         "enableVerboseLogging": {
           "type": "boolean",
-          "description": "启用详细日志"
+          "description": "Enable verbose logging"
         }
       },
       "required": [
@@ -174,7 +174,7 @@
       "properties": {
         "enabled": {
           "type": "boolean",
-          "description": "启用多租户"
+          "description": "Enable multi-tenancy"
         },
         "defaultQuota": {
           "type": "object",
@@ -212,7 +212,7 @@
         "sandboxTimeout": {
           "type": "number",
           "minimum": 100,
-          "description": "沙盒运行器超时 (ms)"
+          "description": "Sandbox runner timeout (ms)"
         },
         "capabilityCache": {
           "type": "object",

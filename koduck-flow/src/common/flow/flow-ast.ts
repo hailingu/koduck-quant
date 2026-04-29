@@ -3,13 +3,13 @@ import { BaseNode } from "./base-node";
 import { meter, ScopedMeter } from "../metrics";
 
 /**
- * FlowAST 的默认实现
- * 基于 IFlowAST 接口，实现树形结构的 AST 管理。
+ * Default implementation of FlowAST
+ * Based on the IFlowAST interface, implements AST management for tree structures.
  */
 export class FlowAST<T extends INode = BaseNode> implements IFlowAST<T> {
   private readonly m = new ScopedMeter(meter("flow"), { component: "FlowAST" });
   /**
-   * 根节点
+   * Root node
    */
   root: T | undefined;
 
@@ -19,13 +19,13 @@ export class FlowAST<T extends INode = BaseNode> implements IFlowAST<T> {
   constructor() {}
 
   /**
-   * 写锁状态标识
+   * Write lock status indicator
    * @private
    */
   private _writeLocked = false;
 
   /**
-   * 执行需要写锁的操作
+   * Execute operations requiring write lock
    * @private
    */
   private withWriteLock<R>(f: () => R): R {
@@ -50,26 +50,26 @@ export class FlowAST<T extends INode = BaseNode> implements IFlowAST<T> {
   }
 
   /**
-   * 添加子节点到目标节点
+   * Add child node to target node
    */
   addChild(targetNode: T, addedNode: T, index?: number): T {
     return this.withWriteLock(() => {
-      // 如果没有根节点，设置 addedNode 为根
+      // If no root node, set addedNode as root
       if (!this.root) {
         this.root = addedNode;
         this.m.counter("root.set").add(1);
         return addedNode;
       }
 
-      // 如果 addedNode 有父节点，先移除
+      // If addedNode has a parent, remove it first
       if (addedNode.parent) {
         addedNode.parent.removeChild(addedNode);
       }
 
-      // 计算插入位置
+      // Calculate insertion position
       const idx = index !== undefined ? index : targetNode.getChildCount();
 
-      // 使用节点的 insertChildAt 或 setChild
+      // Use node's insertChildAt or setChild
       if (idx >= targetNode.getChildCount()) {
         targetNode.addChild(addedNode);
       } else {
@@ -82,7 +82,7 @@ export class FlowAST<T extends INode = BaseNode> implements IFlowAST<T> {
   }
 
   /**
-   * 从流程树中移除指定节点
+   * Remove specified node from flow tree
    */
   removeNode(node: T): boolean {
     return this.withWriteLock(() => {
@@ -105,7 +105,7 @@ export class FlowAST<T extends INode = BaseNode> implements IFlowAST<T> {
   }
 
   /**
-   * 深度优先遍历流程树
+   * Depth-first traversal of flow tree
    */
   traverse(f: NodeTraversalFn<T>, node?: T, depth = 0): void {
     const startNode = node ?? (this.root);
@@ -134,7 +134,7 @@ export class FlowAST<T extends INode = BaseNode> implements IFlowAST<T> {
   }
 
   /**
-   * 移动单个节点到新的父节点下
+   * Move single node under new parent
    */
   moveNode(node: T, newParent: T, index?: number): boolean {
     if (!node || !newParent) return false;
@@ -156,7 +156,7 @@ export class FlowAST<T extends INode = BaseNode> implements IFlowAST<T> {
   }
 
   /**
-   * 批量移动多个节点到新的父节点下
+   * Batch move multiple nodes under new parent
    */
   moveNodes(nodes: T[], newParent: T, startIndex?: number): boolean {
     if (!nodes || !newParent) return false;
@@ -185,7 +185,7 @@ export class FlowAST<T extends INode = BaseNode> implements IFlowAST<T> {
   }
 
   /**
-   * 查找满足条件的节点
+   * Find node matching condition
    */
   findNode(predicate: (node: T) => boolean, startNode?: T): T | undefined {
     let found: T | undefined;
@@ -193,7 +193,7 @@ export class FlowAST<T extends INode = BaseNode> implements IFlowAST<T> {
     this.traverse((node) => {
       if (predicate(node)) {
         found = node;
-        return false; // 停止遍历
+        return false; // Stop traversal
       }
     }, startNode);
 
@@ -201,7 +201,7 @@ export class FlowAST<T extends INode = BaseNode> implements IFlowAST<T> {
   }
 
   /**
-   * 获取从根到指定节点的路径
+   * Get path from root to specified node
    */
   getPath(node: T): T[] {
     // Check if node is in the tree by traversing up to root
@@ -231,7 +231,7 @@ export class FlowAST<T extends INode = BaseNode> implements IFlowAST<T> {
   }
 
   /**
-   * 序列化整个流程树为 JSON
+   * Serialize entire flow tree to JSON
    */
   toJSON(options?: { maxDepth?: number; visited?: Set<unknown> }): Record<string, unknown> {
     const maxDepth = options?.maxDepth ?? 10;

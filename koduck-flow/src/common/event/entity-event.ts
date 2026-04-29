@@ -1,8 +1,8 @@
 /**
- * Flow 实体事件系统
+ * Flow Entity Event System
  *
- * 专门处理实体生命周期相关的事件，包括添加、移除、更新等操作。
- * 所有实体事件都继承自 BaseEvent，享受批处理和性能优化特性。
+ * Handles entity lifecycle events, including add, remove, update, and other operations.
+ * All entity events inherit from BaseEvent, benefiting from batching and performance optimizations.
  *
  * @example
  * ```typescript
@@ -15,7 +15,7 @@
 import { BaseEvent } from "./event";
 
 /**
- * 实体事件类型常量
+ * Entity event type constants
  */
 export const EntityEventType = {
   ADD: "EntityAdd",
@@ -27,12 +27,12 @@ export type EntityEventTypeValue =
   (typeof EntityEventType)[keyof typeof EntityEventType];
 
 /**
- * 通用实体事件类
+ * Generic entity event class
  *
- * 使用泛型工厂模式替代重复的实体事件类实现，减少代码冗余。
- * 支持所有实体生命周期事件类型：添加、移除、更新。
+ * Uses generic factory pattern to replace repetitive entity event class implementations, reducing code redundancy.
+ * Supports all entity lifecycle event types: add, remove, update.
  *
- * @template T - 实体数据类型
+ * @template T - Entity data type
  * @since 1.0.0
  */
 export class EntityEvent<T = unknown> extends BaseEvent<T> {
@@ -41,37 +41,37 @@ export class EntityEvent<T = unknown> extends BaseEvent<T> {
   }
 }
 
-/** 实体添加事件类 */
+/** Entity add event class */
 export class EntityAddEvent<E = unknown> extends EntityEvent<E> {
   constructor() {
     super(EntityEventType.ADD);
   }
 
-  /** 触发实体添加事件 */
+  /** Fire entity added event */
   fireEntityAdded(entityData: E): void {
     this.fire(entityData);
   }
 }
 
-/** 实体移除事件类 */
+/** Entity remove event class */
 export class EntityRemoveEvent<E = unknown> extends EntityEvent<E> {
   constructor() {
     super(EntityEventType.REMOVE);
   }
 
-  /** 触发实体移除事件 */
+  /** Fire entity removed event */
   fireEntityRemoved(entityData: E): void {
     this.fire(entityData);
   }
 }
 
-/** 实体更新事件类 */
+/** Entity update event class */
 export class EntityUpdateEvent<E = unknown> extends EntityEvent<E> {
   constructor() {
     super(EntityEventType.UPDATE);
   }
 
-  /** 触发实体更新事件 */
+  /** Fire entity updated event */
   fireEntityUpdated(entityData: E): void {
     this.fire(entityData);
   }

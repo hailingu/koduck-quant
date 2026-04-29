@@ -81,7 +81,7 @@ afterEach(() => {
 });
 
 describe("SSRDefaultStrategyPlugin", () => {
-  it("返回 SSR 渲染器选择结果并提供 renderToString", async () => {
+  it("returns SSR renderer selection result and provides renderToString", async () => {
     const renderer = createRenderer();
     const plugin = new SSRDefaultStrategyPlugin(renderer);
     const entity = createEntity();
@@ -97,7 +97,7 @@ describe("SSRDefaultStrategyPlugin", () => {
     expect(output).toContain(entity.id);
   });
 
-  it("浏览器环境下默认判定为不可用", () => {
+  it("defaults to not applicable in browser environment", () => {
     setServerEnvironment(false);
     const renderer = createRenderer();
     const plugin = new SSRDefaultStrategyPlugin(renderer);
@@ -109,7 +109,7 @@ describe("SSRDefaultStrategyPlugin", () => {
     );
   });
 
-  it("支持自定义 predicate", () => {
+  it("supports custom predicate", () => {
     const renderer = createRenderer({
       canRender: (entity) => entity.type === "ssr-only",
     });
@@ -124,7 +124,7 @@ describe("SSRDefaultStrategyPlugin", () => {
     expect(selection.mode).toBe("ssr");
   });
 
-  it("selectForBatch 仅分组可处理实体", () => {
+  it("selectForBatch only groups handleable entities", () => {
     const renderer = createRenderer();
     const plugin = new SSRDefaultStrategyPlugin(renderer);
     const entities = [
@@ -138,7 +138,7 @@ describe("SSRDefaultStrategyPlugin", () => {
     expect(groupedEntities?.map((item) => item.id)).toEqual(["ssr-1"]);
   });
 
-  it("renderer 无 renderToString 时抛出不可用错误", () => {
+  it("throws not applicable error when renderer has no renderToString", () => {
     const renderer = createRenderer({
       renderToString: undefined as unknown as ISSRRenderer["renderToString"],
     });

@@ -3,8 +3,8 @@ import type { IRenderContext, RenderSelection } from "./types";
 import { ENTITY_COUNT_THRESHOLDS } from "./render-constants";
 
 /**
- * 选择上下文
- * 包含实体和性能指标等信息
+ * Selection context
+ * Contains entity and performance metrics information
  */
 export interface SelectionContext {
   entity: IEntity;
@@ -13,7 +13,7 @@ export interface SelectionContext {
 }
 
 /**
- * 性能指标接口
+ * Performance metrics interface
  */
 export interface PerformanceMetrics {
   fps: number;
@@ -22,7 +22,7 @@ export interface PerformanceMetrics {
 }
 
 /**
- * 缓存项接口
+ * Cache entry interface
  */
 export interface CacheEntry<T> {
   value: T;
@@ -31,27 +31,27 @@ export interface CacheEntry<T> {
 }
 
 /**
- * 选择器核心工具类
- * 提供选择器之间共享的实用方法
+ * Selector core utility class
+ * Provides shared utility methods between selectors
  */
 export class SelectionCore {
   /**
-   * 分析实体复杂度
-   * 返回 0-1 之间的复杂度分数
+   * Analyze entity complexity
+   * Returns a complexity score between 0 and 1
    *
-   * @param entity 要分析的实体
-   * @returns 复杂度分数，0 表示最简单，1 表示最复杂
+   * @param entity Entity to analyze
+   * @returns Complexity score, 0 means simplest, 1 means most complex
    */
   static analyzeComplexity(entity: IEntity): number {
     const entityData = entity.data?.toJSON() || {};
-    let complexity = 0.1; // 基础复杂度
+    let complexity = 0.1; // Base complexity
 
-    // 顶点数量复杂度
+    // Vertex count complexity
     if (typeof entityData.vertexCount === "number") {
       complexity += Math.min(entityData.vertexCount / ENTITY_COUNT_THRESHOLDS.ULTRA_LARGE, 0.5);
     }
 
-    // 实体类型复杂度
+    // Entity type complexity
     if (entity.type?.includes("3d") || entity.type?.includes("mesh")) {
       complexity += 0.4;
     }
@@ -60,7 +60,7 @@ export class SelectionCore {
       complexity += 0.3;
     }
 
-    // 数据复杂度
+    // Data complexity
     if (typeof entityData.complexity === "number") {
       complexity += entityData.complexity / 10;
     }
@@ -69,10 +69,10 @@ export class SelectionCore {
   }
 
   /**
-   * 创建默认渲染上下文
+   * Create default render context
    *
-   * @param entity 实体
-   * @returns 默认的渲染上下文
+   * @param entity Entity
+   * @returns Default render context
    */
   static createDefaultContext(entity: IEntity): IRenderContext {
     return {
@@ -83,13 +83,13 @@ export class SelectionCore {
   }
 
   /**
-   * 生成缓存键
-   * 基于实体特征和性能指标生成稳定的缓存键
+   * Generate cache key
+   * Generates a stable cache key based on entity characteristics and performance metrics
    *
-   * @param entity 实体
-   * @param metrics 可选的性能指标
-   * @param additionalFactors 额外的缓存因素（如设备能力）
-   * @returns 缓存键字符串
+   * @param entity Entity
+   * @param metrics Optional performance metrics
+   * @param additionalFactors Additional cache factors (e.g., device capabilities)
+   * @returns Cache key string
    */
   static generateCacheKey(
     entity: IEntity,
@@ -102,7 +102,7 @@ export class SelectionCore {
 
     let key = `${entity.type}_${entity.id ?? "unknown"}_${complexity}_${fps}_${memory}`;
 
-    // 添加额外因素
+    // Add additional factors
     if (additionalFactors) {
       const factors = Object.entries(additionalFactors)
         .sort(([a], [b]) => a.localeCompare(b))
@@ -115,11 +115,11 @@ export class SelectionCore {
   }
 
   /**
-   * 验证缓存是否有效
+   * Validate whether cache is valid
    *
-   * @param entry 缓存项
-   * @param maxAge 最大缓存时间（毫秒），默认 30000
-   * @returns 是否有效
+   * @param entry Cache entry
+   * @param maxAge Maximum cache age (milliseconds), default 30000
+   * @returns Whether valid
    */
   static isCacheValid<T>(entry: CacheEntry<T> | undefined, maxAge = 30000): boolean {
     if (!entry) return false;
@@ -129,10 +129,10 @@ export class SelectionCore {
   }
 
   /**
-   * 创建缓存项
+   * Create cache entry
    *
-   * @param value 缓存值
-   * @returns 缓存项
+   * @param value Cache value
+   * @returns Cache entry
    */
   static createCacheEntry<T>(value: T): CacheEntry<T> {
     return {
@@ -143,10 +143,10 @@ export class SelectionCore {
   }
 
   /**
-   * 更新缓存项访问计数
+   * Update cache entry access count
    *
-   * @param entry 缓存项
-   * @returns 更新后的缓存项
+   * @param entry Cache entry
+   * @returns Updated cache entry
    */
   static touchCacheEntry<T>(entry: CacheEntry<T>): CacheEntry<T> {
     return {
@@ -156,71 +156,71 @@ export class SelectionCore {
   }
 
   /**
-   * LRU 缓存淘汰策略
-   * 根据访问次数和时间戳淘汰最少使用的缓存项
+   * LRU cache eviction policy
+   * Evicts least recently used cache entries based on access count and timestamp
    *
-   * @param cache 缓存 Map
-   * @param maxSize 最大缓存大小
+   * @param cache Cache Map
+   * @param maxSize Maximum cache size
    */
   static evictLRU<K, V>(cache: Map<K, CacheEntry<V>>, maxSize: number): void {
     if (cache.size <= maxSize) return;
 
-    // 按访问次数和时间戳排序，找出最少使用的
+    // Sort by access count and timestamp to find least recently used
     const entries = Array.from(cache.entries()).sort(([, a], [, b]) => {
-      // 优先按访问次数排序
+      // Prioritize sorting by access count
       if (a.accessCount !== b.accessCount) {
         return a.accessCount - b.accessCount;
       }
-      // 访问次数相同时按时间戳排序（旧的先淘汰）
+      // When access counts are equal, sort by timestamp (older evicted first)
       return a.timestamp - b.timestamp;
     });
 
-    // 淘汰最少使用的项，直到满足大小限制
-    const toRemove = cache.size - maxSize + Math.floor(maxSize * 0.1); // 多淘汰 10% 以减少频繁淘汰
+    // Evict least recently used items until size limit is met
+    const toRemove = cache.size - maxSize + Math.floor(maxSize * 0.1); // Evict extra 10% to reduce frequent evictions
     for (let i = 0; i < toRemove && i < entries.length; i++) {
       cache.delete(entries[i][0]);
     }
   }
 
   /**
-   * 验证选择结果的置信度
+   * Validate selection result confidence
    *
-   * @param selection 选择结果
-   * @param minConfidence 最小置信度阈值
-   * @returns 是否满足最小置信度
+   * @param selection Selection result
+   * @param minConfidence Minimum confidence threshold
+   * @returns Whether minimum confidence is met
    */
   static isConfidentSelection(selection: RenderSelection, minConfidence = 0.75): boolean {
     return selection.confidence >= minConfidence;
   }
 
   /**
-   * 比较两个选择结果，返回更好的选择
+   * Compare two selection results and return the better one
    *
-   * @param a 选择结果 A
-   * @param b 选择结果 B
-   * @returns 更好的选择结果
+   * @param a Selection result A
+   * @param b Selection result B
+   * @returns Better selection result
    */
   static compareSelections(a: RenderSelection, b: RenderSelection): RenderSelection {
-    // 优先选择置信度更高的
+    // Prefer higher confidence
     if (a.confidence !== b.confidence) {
       return a.confidence > b.confidence ? a : b;
     }
 
-    // 置信度相同时，选择有更详细原因的
+    // When confidence is equal, prefer the one with a more detailed reason
     if (a.reason && !b.reason) return a;
     if (!a.reason && b.reason) return b;
 
-    // 都相同时返回第一个
+    // Return the first one when all else is equal
     return a;
   }
 
   /**
-   * 批量分组实体
-   * 根据选择结果将实体分组到不同的渲染器
+   * Batch group entities
+   * Group entities into different renderers based on selection results
    *
-   * @param entities 实体数组
-   * @param selectFn 选择函数
-   * @returns 按渲染器分组的实体 Map
+   * @param entities Entity array
+   * @param selectFn Selection function
+   * @returns Entity Map grouped by renderer
    */
   static groupEntitiesByRenderer<T extends { renderer: unknown }>(
     entities: IEntity[],
@@ -238,8 +238,8 @@ export class SelectionCore {
         }
         groups.get(renderer)!.push(entity);
       } catch {
-        // 选择失败的实体会被忽略，可以在这里记录日志
-        // 调用者可以决定如何处理失败的实体
+        // Entities that fail selection will be ignored; logging can be added here
+        // Caller can decide how to handle failed entities
       }
     });
 
@@ -247,28 +247,28 @@ export class SelectionCore {
   }
 
   /**
-   * 估算批量渲染的最佳分组大小
+   * Estimate optimal batch size for batch rendering
    *
-   * @param totalCount 总实体数量
-   * @param avgComplexity 平均复杂度
-   * @returns 建议的批次大小
+   * @param totalCount Total entity count
+   * @param avgComplexity Average complexity
+   * @returns Recommended batch size
    */
   static estimateBatchSize(totalCount: number, avgComplexity: number): number {
-    // 基础批次大小
+    // Base batch size
     let batchSize = 100;
 
-    // 根据复杂度调整
+    // Adjust based on complexity
     if (avgComplexity > 0.7) {
-      batchSize = 50; // 高复杂度，小批次
+      batchSize = 50; // High complexity, small batches
     } else if (avgComplexity < 0.3) {
-      batchSize = 200; // 低复杂度，大批次
+      batchSize = 200; // Low complexity, large batches
     }
 
-    // 根据总数量调整
+    // Adjust based on total count
     if (totalCount < 100) {
-      batchSize = totalCount; // 少量实体，一次处理
+      batchSize = totalCount; // Small number of entities, process all at once
     } else if (totalCount > 10000) {
-      batchSize = Math.max(50, Math.floor(totalCount / 100)); // 大量实体，分更多批次
+      batchSize = Math.max(50, Math.floor(totalCount / 100)); // Large number of entities, split into more batches
     }
 
     return batchSize;

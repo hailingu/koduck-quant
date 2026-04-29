@@ -35,12 +35,12 @@ describe("ErrorReporter", () => {
     vi.restoreAllMocks();
   });
 
-  describe("构造函数和配置", () => {
-    test("应该正确初始化错误报告器", () => {
+  describe("Constructor and configuration", () => {
+    test("should correctly initialize error reporter", () => {
       expect(errorReporter).toBeDefined();
     });
 
-    test("应该能更新配置", () => {
+    test("should be able to update configuration", () => {
       const newConfig = { ...config, enableDebugMode: true };
 
       expect(() => {
@@ -49,8 +49,8 @@ describe("ErrorReporter", () => {
     });
   });
 
-  describe("基础错误报告", () => {
-    test("应该报告监听器执行错误", () => {
+  describe("Basic error reporting", () => {
+    test("should report listener execution errors", () => {
       const errors = [
         { index: 0, error: new Error("Test error 1") },
         { index: 1, error: new Error("Test error 2") },
@@ -69,16 +69,16 @@ describe("ErrorReporter", () => {
       );
     });
 
-    test("应该处理空错误数组", () => {
+    test("should handle empty error arrays", () => {
       errorReporter.reportErrors([]);
 
       expect(mockLogger.error).not.toHaveBeenCalled();
     });
 
-    test("应该防止递归错误报告", () => {
+    test("should prevent recursive error reporting", () => {
       const recursiveLogger: Logger = {
         error: vi.fn().mockImplementation(() => {
-          // 模拟在报告错误时又触发错误
+          // Simulate triggering an error while reporting an error
           errorReporter.reportErrors([
             { index: 2, error: new Error("Recursive error") },
           ]);
@@ -98,11 +98,11 @@ describe("ErrorReporter", () => {
         { index: 0, error: new Error("Initial error") },
       ]);
 
-      // 只应该调用一次，递归调用应该被阻止
+      // Should only be called once, recursive calls should be blocked
       expect(recursiveLogger.error).toHaveBeenCalledTimes(1);
     });
 
-    test("应该处理Logger出错的情况", () => {
+    test("should handle Logger errors", () => {
       const faultyLogger: Logger = {
         error: vi.fn().mockImplementation(() => {
           throw new Error("Logger error");
@@ -136,8 +136,8 @@ describe("ErrorReporter", () => {
     });
   });
 
-  describe("异步错误报告", () => {
-    test("应该在调试模式下报告异步监听器警告", () => {
+  describe("Async error reporting", () => {
+    test("should report async listener warnings in debug mode", () => {
       const debugConfig = { ...config, enableDebugMode: true };
       const debugReporter = new ErrorReporter("DebugEvent", debugConfig);
 
@@ -149,13 +149,13 @@ describe("ErrorReporter", () => {
       );
     });
 
-    test("应该在非调试模式下不报告异步监听器警告", () => {
+    test("should not report async listener warnings in non-debug mode", () => {
       errorReporter.reportAsyncWarning(1, new Error("Async error"), "parallel");
 
       expect(mockLogger.warn).not.toHaveBeenCalled();
     });
 
-    test("应该在调试模式下报告超时警告", () => {
+    test("should report timeout warnings in debug mode", () => {
       const debugConfig = { ...config, enableDebugMode: true };
       const debugReporter = new ErrorReporter("DebugEvent", debugConfig);
 
@@ -166,7 +166,7 @@ describe("ErrorReporter", () => {
       );
     });
 
-    test("应该在调试模式下报告批量超时警告", () => {
+    test("should report batch timeout warnings in debug mode", () => {
       const debugConfig = { ...config, enableDebugMode: true };
       const debugReporter = new ErrorReporter("DebugEvent", debugConfig);
 
@@ -178,8 +178,8 @@ describe("ErrorReporter", () => {
     });
   });
 
-  describe("配置和验证错误", () => {
-    test("应该报告配置错误", () => {
+  describe("Configuration and validation errors", () => {
+    test("should report configuration errors", () => {
       errorReporter.reportConfigError("Invalid maxListeners value");
 
       expect(mockLogger.error).toHaveBeenCalledWith(
@@ -188,7 +188,7 @@ describe("ErrorReporter", () => {
       );
     });
 
-    test("应该在调试模式下报告验证失败", () => {
+    test("should report validation failures in debug mode", () => {
       const debugConfig = { ...config, enableDebugMode: true };
       const debugReporter = new ErrorReporter("DebugEvent", debugConfig);
 
@@ -199,15 +199,15 @@ describe("ErrorReporter", () => {
       );
     });
 
-    test("应该在非调试模式下不报告验证失败", () => {
+    test("should not report validation failures in non-debug mode", () => {
       errorReporter.reportValidationFailure();
 
       expect(mockLogger.warn).not.toHaveBeenCalled();
     });
   });
 
-  describe("统计和调试信息", () => {
-    test("应该在调试模式下报告去重统计", () => {
+  describe("Statistics and debug information", () => {
+    test("should report deduplication statistics in debug mode", () => {
       const debugConfig = { ...config, enableDebugMode: true };
       const debugReporter = new ErrorReporter("DebugEvent", debugConfig);
 
@@ -218,7 +218,7 @@ describe("ErrorReporter", () => {
       );
     });
 
-    test("应该在没有被丢弃事件时不报告去重统计", () => {
+    test("should not report deduplication statistics when no events were dropped", () => {
       const debugConfig = { ...config, enableDebugMode: true };
       const debugReporter = new ErrorReporter("DebugEvent", debugConfig);
 
@@ -227,7 +227,7 @@ describe("ErrorReporter", () => {
       expect(mockLogger.debug).not.toHaveBeenCalled();
     });
 
-    test("应该在调试模式下报告批处理统计", () => {
+    test("should report batch statistics in debug mode", () => {
       const debugConfig = { ...config, enableDebugMode: true };
       const debugReporter = new ErrorReporter("DebugEvent", debugConfig);
 
@@ -238,7 +238,7 @@ describe("ErrorReporter", () => {
       );
     });
 
-    test("应该在没有处理事件时不报告批处理统计", () => {
+    test("should not report batch statistics when no events were processed", () => {
       const debugConfig = { ...config, enableDebugMode: true };
       const debugReporter = new ErrorReporter("DebugEvent", debugConfig);
 
@@ -247,7 +247,7 @@ describe("ErrorReporter", () => {
       expect(mockLogger.debug).not.toHaveBeenCalled();
     });
 
-    test("应该在调试模式下报告清理信息", () => {
+    test("should report cleanup information in debug mode", () => {
       const debugConfig = { ...config, enableDebugMode: true };
       const debugReporter = new ErrorReporter("DebugEvent", debugConfig);
 
@@ -258,7 +258,7 @@ describe("ErrorReporter", () => {
       );
     });
 
-    test("应该测试所有清理类型", () => {
+    test("should test all cleanup types", () => {
       const debugConfig = { ...config, enableDebugMode: true };
       const debugReporter = new ErrorReporter("DebugEvent", debugConfig);
 
@@ -273,7 +273,7 @@ describe("ErrorReporter", () => {
       );
     });
 
-    test("应该在没有清理项目时不报告清理信息", () => {
+    test("should not report cleanup information when there are no items to clean", () => {
       const debugConfig = { ...config, enableDebugMode: true };
       const debugReporter = new ErrorReporter("DebugEvent", debugConfig);
 
@@ -283,8 +283,8 @@ describe("ErrorReporter", () => {
     });
   });
 
-  describe("性能和调试报告", () => {
-    test("应该在调试模式下报告性能警告", () => {
+  describe("Performance and debug reporting", () => {
+    test("should report performance warnings in debug mode", () => {
       const debugConfig = { ...config, enableDebugMode: true };
       const debugReporter = new ErrorReporter("DebugEvent", debugConfig);
 
@@ -295,7 +295,7 @@ describe("ErrorReporter", () => {
       );
     });
 
-    test("应该在调试模式下报告性能警告和指标", () => {
+    test("should report performance warnings and metrics in debug mode", () => {
       const debugConfig = { ...config, enableDebugMode: true };
       const debugReporter = new ErrorReporter("DebugEvent", debugConfig);
 
@@ -311,7 +311,7 @@ describe("ErrorReporter", () => {
       );
     });
 
-    test("应该在调试模式下报告调试信息", () => {
+    test("should report debug information in debug mode", () => {
       const debugConfig = { ...config, enableDebugMode: true };
       const debugReporter = new ErrorReporter("DebugEvent", debugConfig);
 
@@ -322,7 +322,7 @@ describe("ErrorReporter", () => {
       );
     });
 
-    test("应该在调试模式下报告调试信息和数据", () => {
+    test("should report debug information and data in debug mode", () => {
       const debugConfig = { ...config, enableDebugMode: true };
       const debugReporter = new ErrorReporter("DebugEvent", debugConfig);
 
@@ -335,21 +335,21 @@ describe("ErrorReporter", () => {
       expect(mockLogger.debug).toHaveBeenCalledWith("Debug data:", debugData);
     });
 
-    test("应该在非调试模式下不报告性能警告", () => {
+    test("should not report performance warnings in non-debug mode", () => {
       errorReporter.reportPerformanceWarning("Performance issue");
 
       expect(mockLogger.warn).not.toHaveBeenCalled();
     });
 
-    test("应该在非调试模式下不报告调试信息", () => {
+    test("should not report debug information in non-debug mode", () => {
       errorReporter.reportDebugInfo("Debug message");
 
       expect(mockLogger.debug).not.toHaveBeenCalled();
     });
   });
 
-  describe("默认Logger处理", () => {
-    test("应该在没有配置Logger时使用默认Logger", () => {
+  describe("Default Logger handling", () => {
+    test("should use default Logger when no Logger is configured", () => {
       const configWithoutLogger = { ...config };
       delete configWithoutLogger.logger;
 
@@ -358,7 +358,7 @@ describe("ErrorReporter", () => {
         configWithoutLogger
       );
 
-      // 这应该不会抛出错误，因为会使用默认logger
+      // This should not throw because default logger will be used
       expect(() => {
         defaultLoggerReporter.reportErrors([
           { index: 0, error: new Error("Test") },
@@ -366,12 +366,12 @@ describe("ErrorReporter", () => {
       }).not.toThrow();
     });
 
-    test("应该处理Logger缺少debug方法的情况", () => {
+    test("should handle Logger missing debug method", () => {
       const incompleteLogger: Partial<Logger> = {
         error: vi.fn(),
         warn: vi.fn(),
         info: vi.fn(),
-        // 缺少debug方法
+        // Missing debug method
       };
 
       const incompleteConfig = {
@@ -384,15 +384,15 @@ describe("ErrorReporter", () => {
         incompleteConfig
       );
 
-      // 应该不会抛出错误，即使logger没有debug方法
+      // Should not throw even if logger has no debug method
       expect(() => {
         incompleteReporter.reportDebugInfo("Test debug");
       }).not.toThrow();
     });
   });
 
-  describe("边界情况", () => {
-    test("应该处理不同并发模式", () => {
+  describe("Edge cases", () => {
+    test("should handle different concurrency modes", () => {
       const debugConfig = { ...config, enableDebugMode: true };
       const debugReporter = new ErrorReporter("DebugEvent", debugConfig);
 
@@ -407,7 +407,7 @@ describe("ErrorReporter", () => {
       );
     });
 
-    test("应该处理各种错误类型", () => {
+    test("should handle various error types", () => {
       const errors = [
         { index: 0, error: new Error("Standard error") },
         { index: 1, error: "String error" },
@@ -429,7 +429,7 @@ describe("ErrorReporter", () => {
       });
     });
 
-    test("应该处理极大的索引值", () => {
+    test("should handle extremely large index values", () => {
       const debugConfig = { ...config, enableDebugMode: true };
       const debugReporter = new ErrorReporter("DebugEvent", debugConfig);
 

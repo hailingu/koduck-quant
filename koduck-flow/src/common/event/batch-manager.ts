@@ -1,41 +1,41 @@
 import type { EventConfiguration } from "./types";
 
 /**
- * 批处理管理器
- * 负责事件的批量处理、缓冲区管理和调度
+ * Batch manager
+ * Responsible for event batch processing, buffer management, and scheduling
  */
 export class BatchManager<T> {
-  /** 批处理循环缓冲区 */
+  /** Batch circular buffer */
   private _batchBuffer: T[];
 
-  /** 批处理缓冲区起始索引 */
+  /** Batch buffer start index */
   private _batchStartIndex = 0;
 
-  /** 批处理缓冲区结束索引 */
+  /** Batch buffer end index */
   private _batchEndIndex = 0;
 
-  /** 当前批处理数量 */
+  /** Current batch count */
   private _batchCount = 0;
 
-  /** 批处理定时器句柄 */
+  /** Batch timer handle */
   private _batchTimer: number | null = null;
 
-  /** 批处理是否使用 rAF（用于正确取消） */
+  /** Whether batch uses rAF (for proper cancellation) */
   private _batchTimerIsRAF: boolean = false;
 
-  /** 事件配置 */
+  /** Event configuration */
   private _config: Readonly<EventConfiguration>;
 
   constructor(config: Readonly<EventConfiguration>) {
     this._config = config;
-    // 动态分配缓冲区大小，避免内存浪费
+    // Dynamically allocate buffer size to avoid memory waste
     const bufferSize = Math.max(this._config.batchSize * 2, 50);
     this._batchBuffer = new Array(bufferSize);
   }
 
   /**
-   * 判断是否应该使用批处理
-   * @param listenerCount 当前监听器数量
+   * Determine whether batch processing should be used
+   * @param listenerCount Current listener count
    */
   shouldUseBatchProcessing(listenerCount: number): boolean {
     if (!this._config.enableBatching) return false;
@@ -44,30 +44,30 @@ export class BatchManager<T> {
   }
 
   /**
-   * 添加事件到批处理队列
-   * @param eventData 事件数据
-   * @param onProcessItem 处理单个事件项的回调
+   * Add event to batch queue
+   * @param eventData Event data
+   * @param onProcessItem Callback to process a single event item
    */
   addToBatch(eventData: T, onProcessItem: (data: T) => void): void {
-    // 添加到循环缓冲区
+    // Add to circular buffer
     this._batchBuffer[this._batchEndIndex] = eventData;
     this._batchEndIndex = (this._batchEndIndex + 1) % this._batchBuffer.length;
 
-    // 简化计数逻辑
+    // Simplify count logic
     this._batchCount = Math.min(this._batchCount + 1, this._batchBuffer.length);
 
-    // 如果缓冲区满，自动调整起始位置
+    // If buffer is full, auto-adjust start position
     if (this._batchCount === this._batchBuffer.length) {
       this._batchStartIndex = this._batchEndIndex;
     }
 
-    // 如果队列达到批处理大小，立即处理
+    // If queue reaches batch size, process immediately
     if (this._batchCount >= this._config.batchSize) {
       this._processBatchWithCallback(onProcessItem);
       return;
     }
 
-    // 根据配置与环境调度（rAF 或 setTimeout）
+    // Schedule based on config and environment (rAF or setTimeout)
     if (!this._batchTimer) {
       this._batchTimer = this._scheduleBatch(() => {
         this._processBatchWithCallback(onProcessItem);
@@ -76,61 +76,61 @@ export class BatchManager<T> {
   }
 
   /**
-   * 处理批处理队列
-   * @param onProcessItem 处理单个事件的回调
+   * Process batch queue
+   * @param onProcessItem Callback to process a single event
    */
   processBatch(onProcessItem: () => void): void {
     if (this._batchCount === 0) {
       return;
     }
 
-    // 清除定时器
+    // Clear timer
     if (this._batchTimer) {
       this._cancelBatch(this._batchTimer);
       this._batchTimer = null;
     }
 
-    // 处理循环缓冲区中的事件
+    // Process events in circular buffer
     const currentBatchCount = this._batchCount;
     for (let i = 0; i < currentBatchCount; i++) {
-      // 获取并移除队首事件
+      // Get and remove front event
       this._batchStartIndex =
         (this._batchStartIndex + 1) % this._batchBuffer.length;
       this._batchCount--;
-      // 通过回调处理单个事件
+      // Process single event via callback
       onProcessItem();
     }
   }
 
   /**
-   * 使用回调处理批处理队列中的具体数据
-   * @param onProcessItem 处理单个事件数据的回调
+   * Process concrete data in batch queue using callback
+   * @param onProcessItem Callback to process a single event data
    */
   private _processBatchWithCallback(onProcessItem: (data: T) => void): void {
     if (this._batchCount === 0) {
       return;
     }
 
-    // 清除定时器
+    // Clear timer
     if (this._batchTimer) {
       this._cancelBatch(this._batchTimer);
       this._batchTimer = null;
     }
 
-    // 处理循环缓冲区中的事件
+    // Process events in circular buffer
     const currentBatchCount = this._batchCount;
     for (let i = 0; i < currentBatchCount; i++) {
       const eventData = this._batchBuffer[this._batchStartIndex];
       this._batchStartIndex =
         (this._batchStartIndex + 1) % this._batchBuffer.length;
       this._batchCount--;
-      // 通过回调处理具体的事件数据
+      // Process concrete event data via callback
       onProcessItem(eventData);
     }
   }
 
   /**
-   * 获取当前批次中的事件数据
+   * Get event data in current batch
    */
   getBatchData(): T[] {
     const result: T[] = [];
@@ -142,8 +142,8 @@ export class BatchManager<T> {
   }
 
   /**
-   * 强制处理当前批次
-   * @param onProcessItem 处理单个事件的回调
+   * Force process current batch
+   * @param onProcessItem Callback to process a single event
    */
   flushBatch(onProcessItem: () => void): void {
     if (this._batchCount > 0) {
@@ -152,25 +152,25 @@ export class BatchManager<T> {
   }
 
   /**
-   * 获取当前批次数量
+   * Get current batch count
    */
   get batchCount(): number {
     return this._batchCount;
   }
 
   /**
-   * 更新配置
+   * Update configuration
    */
   updateConfiguration(newConfig: Readonly<EventConfiguration>): void {
     const oldConfig = this._config;
     this._config = newConfig;
 
-    // 如果批处理大小改变，重新分配缓冲区
+    // If batch size changes, reallocate buffer
     if (newConfig.batchSize !== oldConfig.batchSize) {
       this._resizeBatchBuffer();
     }
 
-    // 若批处理间隔改变，且存在未处理批次，则按新策略重置调度
+    // If batch interval changes and there are unprocessed batches, reset scheduling with new policy
     if (
       newConfig.batchInterval !== oldConfig.batchInterval &&
       this._batchCount > 0 &&
@@ -178,19 +178,19 @@ export class BatchManager<T> {
     ) {
       this._cancelBatch(this._batchTimer);
       this._batchTimer = this._scheduleBatch(() => {
-        // 需要从外部传入处理函数，这里先保留空实现
+        // Processing function needs to be passed from outside; keep empty implementation here
       });
     }
   }
 
   /**
-   * 清理批处理状态
+   * Clear batch processing state
    */
   clear(): void {
-    // 清理批处理缓冲区中的引用
+    // Clear references in batch buffer
     if (this._batchBuffer) {
       for (let i = 0; i < this._batchBuffer.length; i++) {
-        this._batchBuffer[i] = undefined as unknown as T; // 清除引用
+        this._batchBuffer[i] = undefined as unknown as T; // Clear reference
       }
     }
 
@@ -205,7 +205,7 @@ export class BatchManager<T> {
   }
 
   /**
-   * 重新分配批处理缓冲区
+   * Reallocate batch buffer
    */
   private _resizeBatchBuffer(): void {
     const newSize = Math.max(this._config.batchSize * 2, 50);
@@ -213,7 +213,7 @@ export class BatchManager<T> {
 
     this._batchBuffer = new Array(newSize);
     if (this._batchCount > 0) {
-      // 保留现有数据
+      // Preserve existing data
       for (let i = 0; i < this._batchCount; i++) {
         const sourceIndex = (this._batchStartIndex + i) % oldBuffer.length;
         this._batchBuffer[i] = oldBuffer[sourceIndex];
@@ -224,10 +224,10 @@ export class BatchManager<T> {
   }
 
   /**
-   * 根据配置与环境调度批处理任务（rAF 或 setTimeout）
+   * Schedule batch processing task based on config and environment (rAF or setTimeout)
    */
   private _scheduleBatch(fn: () => void): number {
-    // 优先使用注入调度器
+    // Prefer injected scheduler
     const injected = this._config.scheduler;
     if (injected) {
       this._batchTimerIsRAF = injected.kind === "raf";
@@ -251,10 +251,10 @@ export class BatchManager<T> {
   }
 
   /**
-   * 取消批处理定时
+   * Cancel batch timer
    */
   private _cancelBatch(id: number): void {
-    // 注入式调度器优先
+    // Injected scheduler takes priority
     const injected = this._config.scheduler;
     if (injected) {
       injected.cancel(id);

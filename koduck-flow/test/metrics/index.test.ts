@@ -1,6 +1,6 @@
 /**
  * Metrics Index tests
- * 测试metrics模块的导出和API表面
+ * Tests the exports and API surface of the metrics module
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
@@ -8,13 +8,13 @@ import * as MetricsIndex from "../../src/common/metrics/index";
 
 describe("Metrics Index", () => {
   beforeEach(() => {
-    // 在每个测试前重置配置
+    // Reset configuration before each test
     MetricsIndex.configureMetrics({});
   });
 
   describe("Module Exports", () => {
-    it("应该导出所有必需的类型", () => {
-      // 检查类型是否可以被引用（编译时检查）
+    it("should export all required types", () => {
+      // Check if types can be referenced (compile-time check)
       const checkTypes = () => {
         const _attr: MetricsIndex.Attributes = { key: "value" };
         const _options: MetricsIndex.MetricOptions = { description: "test" };
@@ -31,7 +31,7 @@ describe("Metrics Index", () => {
           boundaries: [1],
         };
 
-        // 避免未使用变量的警告
+        // Avoid unused variable warnings
         void _attr;
         void _options;
         void _observation;
@@ -44,7 +44,7 @@ describe("Metrics Index", () => {
       expect(() => checkTypes()).not.toThrow();
     });
 
-    it("应该导出MetricData类型", () => {
+    it("should export MetricData type", () => {
       const checkMetricData = () => {
         const _metricData: MetricsIndex.MetricData<MetricsIndex.CounterPoint> =
           {
@@ -59,7 +59,7 @@ describe("Metrics Index", () => {
       expect(() => checkMetricData()).not.toThrow();
     });
 
-    it("应该导出Snapshot类型", () => {
+    it("should export Snapshot type", () => {
       const checkSnapshots = () => {
         const _meterSnapshot: MetricsIndex.MeterSnapshot = {
           scope: "test",
@@ -80,10 +80,10 @@ describe("Metrics Index", () => {
       expect(() => checkSnapshots()).not.toThrow();
     });
 
-    it("应该导出接口类型", () => {
-      // 这是编译时检查，确保接口类型可用
+    it("should export interface types", () => {
+      // This is a compile-time check to ensure interface types are available
       const checkInterfaces = () => {
-        // 模拟实现检查类型兼容性
+        // Mock implementation to check type compatibility
         const mockCounter: MetricsIndex.Counter = {
           add: () => void 0,
         };
@@ -135,14 +135,14 @@ describe("Metrics Index", () => {
       expect(() => checkInterfaces()).not.toThrow();
     });
 
-    it("应该导出配置函数", () => {
+    it("should export configuration functions", () => {
       expect(typeof MetricsIndex.configureMetrics).toBe("function");
       expect(typeof MetricsIndex.getMetricsConfig).toBe("function");
       expect(typeof MetricsIndex.filterAttributes).toBe("function");
       expect(typeof MetricsIndex.shouldSample).toBe("function");
     });
 
-    it("应该导出配置类型", () => {
+    it("should export configuration types", () => {
       const checkConfigTypes = () => {
         const _governanceConfig: MetricsIndex.MetricsGovernanceConfig = {
           seriesLimitPerMetric: 1000,
@@ -169,27 +169,27 @@ describe("Metrics Index", () => {
       expect(() => checkConfigTypes()).not.toThrow();
     });
 
-    it("应该导出实现类", () => {
+    it("should export implementation classes", () => {
       expect(typeof MetricsIndex.NoopMetricsProvider).toBe("function");
       expect(typeof MetricsIndex.InMemoryMetricsProvider).toBe("function");
       expect(typeof MetricsIndex.ScopedMeter).toBe("function");
     });
 
-    it("应该导出全局函数", () => {
+    it("should export global functions", () => {
       expect(typeof MetricsIndex.setMetricsProvider).toBe("function");
       expect(typeof MetricsIndex.getMetricsProvider).toBe("function");
       expect(typeof MetricsIndex.meter).toBe("function");
       expect(typeof MetricsIndex.collect).toBe("function");
     });
 
-    it("应该导出工具函数", () => {
+    it("should export utility functions", () => {
       expect(typeof MetricsIndex.renderPrometheusExposition).toBe("function");
     });
   });
 
   describe("Module Integration", () => {
-    it("应该支持完整的metrics工作流", () => {
-      // 配置metrics
+    it("should support complete metrics workflow", () => {
+      // Configure metrics
       MetricsIndex.configureMetrics({
         governance: {
           samplingRate: 1.0,
@@ -199,16 +199,16 @@ describe("Metrics Index", () => {
         },
       });
 
-      // 创建provider
+      // Create provider
       const provider = new MetricsIndex.InMemoryMetricsProvider();
       MetricsIndex.setMetricsProvider(provider);
 
-      // 使用全局meter
+      // Use global meter
       const testMeter = MetricsIndex.meter("integration_test");
       const counter = testMeter.counter("test_counter");
       counter.add(42, { test: "integration" });
 
-      // 收集和导出
+      // Collect and export
       MetricsIndex.collect();
       const snapshot = provider.snapshot();
       const prometheus = MetricsIndex.renderPrometheusExposition(snapshot);
@@ -219,7 +219,7 @@ describe("Metrics Index", () => {
       expect(prometheus).toContain('scope="integration_test"');
     });
 
-    it("应该支持作用域meter", () => {
+    it("should support scoped meter", () => {
       const provider = new MetricsIndex.InMemoryMetricsProvider();
       const baseMeter = provider.getMeter("base");
       const scopedMeter = new MetricsIndex.ScopedMeter(baseMeter, {
@@ -236,11 +236,11 @@ describe("Metrics Index", () => {
       );
     });
 
-    it("应该支持noop provider", () => {
+    it("should support noop provider", () => {
       const noopProvider = new MetricsIndex.NoopMetricsProvider();
       const meter = noopProvider.getMeter("noop");
 
-      // 这些操作不应该抛出错误
+      // These operations should not throw errors
       const counter = meter.counter("noop_counter");
       const gauge = meter.gauge("noop_gauge");
       const histogram = meter.histogram("noop_histogram");
@@ -255,23 +255,23 @@ describe("Metrics Index", () => {
         observableGauge.addCallback(() => void 0);
       }).not.toThrow();
 
-      // Noop provider应该有collect方法但不返回任何内容
+      // Noop provider should have collect method but return nothing
       expect(noopProvider.collect).toBeDefined();
       expect(typeof noopProvider.collect).toBe("function");
     });
   });
 
   describe("Type Safety", () => {
-    it("应该支持泛型类型安全", () => {
+    it("should support generic type safety", () => {
       const provider = new MetricsIndex.InMemoryMetricsProvider();
       const meter = provider.getMeter("type_safe");
 
-      // 应该接受正确的属性类型
+      // Should accept correct attribute types
       const counter = meter.counter("typed_counter");
       const gauge = meter.gauge("typed_gauge");
       const histogram = meter.histogram("typed_histogram");
 
-      // 这些调用应该通过类型检查
+      // These calls should pass type checking
       counter.add(1, {
         string_attr: "value",
         number_attr: 42,
@@ -294,7 +294,7 @@ describe("Metrics Index", () => {
       expect(histogram).toBeDefined();
     });
 
-    it("应该支持复杂的metrics配置类型", () => {
+    it("should support complex metrics configuration types", () => {
       const complexConfig: MetricsIndex.MetricsConfig = {
         governance: {
           seriesLimitPerMetric: 10000,
@@ -318,29 +318,29 @@ describe("Metrics Index", () => {
   });
 
   describe("Error Handling", () => {
-    it("应该正常处理配置错误", () => {
-      // 配置无效的采样率
+    it("should correctly handle configuration errors", () => {
+      // Configure invalid sampling rate
       expect(() => {
         MetricsIndex.configureMetrics({
           governance: {
-            samplingRate: -1, // 负数
+            samplingRate: -1, // negative number
           },
         });
       }).not.toThrow();
 
-      // shouldSample应该处理无效值
+      // shouldSample should handle invalid values
       expect(typeof MetricsIndex.shouldSample()).toBe("boolean");
     });
 
-    it("应该处理attributes过滤", () => {
-      // 测试边界情况
+    it("should handle attributes filtering", () => {
+      // Test edge cases
       expect(MetricsIndex.filterAttributes(undefined)).toBe(undefined);
       expect(MetricsIndex.filterAttributes({})).toEqual({});
 
-      // 重置配置确保干净状态
+      // Reset configuration to ensure clean state
       MetricsIndex.configureMetrics({});
 
-      // 测试白名单功能
+      // Test whitelist functionality
       MetricsIndex.configureMetrics({
         governance: {
           labelWhitelist: ["allowed"],
@@ -353,7 +353,7 @@ describe("Metrics Index", () => {
       });
       expect(filtered).toEqual({ allowed: "keep" });
 
-      // 重置并测试黑名单 - 需要显式设置labelWhitelist为undefined
+      // Reset and test blacklist - need to explicitly set labelWhitelist to undefined
       MetricsIndex.configureMetrics({
         governance: {
           labelWhitelist: undefined,
@@ -367,11 +367,11 @@ describe("Metrics Index", () => {
       });
       expect(filtered2).toEqual({ other: "keep" });
 
-      // 最终重置配置
+      // Finally reset configuration
       MetricsIndex.configureMetrics({});
     });
 
-    it("应该处理provider切换", () => {
+    it("should handle provider switching", () => {
       const provider1 = new MetricsIndex.InMemoryMetricsProvider();
       const provider2 = new MetricsIndex.NoopMetricsProvider();
 
@@ -381,14 +381,14 @@ describe("Metrics Index", () => {
       MetricsIndex.setMetricsProvider(provider2);
       expect(MetricsIndex.getMetricsProvider()).toBe(provider2);
 
-      // 切换后的meter应该使用新的provider
+      // Meter after switching should use the new provider
       const meter = MetricsIndex.meter("switch_test");
       expect(meter).toBeDefined();
     });
   });
 
   describe("Performance", () => {
-    it("应该高效处理大量metrics操作", () => {
+    it("should efficiently handle large number of metrics operations", () => {
       const provider = new MetricsIndex.InMemoryMetricsProvider();
       MetricsIndex.setMetricsProvider(provider);
 
@@ -399,7 +399,7 @@ describe("Metrics Index", () => {
 
       const start = Date.now();
 
-      // 执行大量操作
+      // Perform a large number of operations
       for (let i = 0; i < 1000; i++) {
         counter.add(1, { iteration: String(i % 10) });
         gauge.set(Math.random() * 100, { batch: String(Math.floor(i / 100)) });
@@ -410,10 +410,10 @@ describe("Metrics Index", () => {
 
       const elapsed = Date.now() - start;
 
-      // 操作应该在合理时间内完成（这是一个粗略的性能测试）
-      expect(elapsed).toBeLessThan(1000); // 1秒内完成1000次操作
+      // Operations should complete within reasonable time (this is a rough performance test)
+      expect(elapsed).toBeLessThan(1000); // complete 1000 operations within 1 second
 
-      // 验证数据正确性
+      // Verify data correctness
       const snapshot = provider.snapshot();
       expect(snapshot.meters[0].counters).toHaveLength(1);
       expect(snapshot.meters[0].gauges).toHaveLength(1);

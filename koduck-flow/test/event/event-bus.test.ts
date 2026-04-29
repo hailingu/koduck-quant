@@ -20,19 +20,19 @@ describe("EventBus Event System", () => {
       loggingEvent.dispose();
     });
 
-    test("应该正确初始化日志事件", () => {
+    test("should correctly initialize logging event", () => {
       expect(loggingEvent).toBeInstanceOf(BaseEvent);
-      // 测试事件名称通过构造函数参数传递
+      // Test event name passed via constructor argument
     });
 
-    test("应该正确配置批处理", () => {
+    test("should correctly configure batching", () => {
       const config = loggingEvent.configuration;
       expect(config.enableBatching).toBe(true);
       expect(config.batchSize).toBe(50);
       expect(config.batchInterval).toBe(500);
     });
 
-    test("应该正确记录debug日志", () => {
+    test("should correctly record debug logs", () => {
       const listener = vi.fn();
       loggingEvent.addEventListener(listener);
 
@@ -48,7 +48,7 @@ describe("EventBus Event System", () => {
       });
     });
 
-    test("应该正确记录info日志", () => {
+    test("should correctly record info logs", () => {
       const listener = vi.fn();
       loggingEvent.addEventListener(listener);
 
@@ -64,7 +64,7 @@ describe("EventBus Event System", () => {
       });
     });
 
-    test("应该正确记录warn日志", () => {
+    test("should correctly record warn logs", () => {
       const listener = vi.fn();
       loggingEvent.addEventListener(listener);
 
@@ -80,7 +80,7 @@ describe("EventBus Event System", () => {
       });
     });
 
-    test("应该正确记录error日志", () => {
+    test("should correctly record error logs", () => {
       const listener = vi.fn();
       loggingEvent.addEventListener(listener);
 
@@ -102,7 +102,7 @@ describe("EventBus Event System", () => {
       });
     });
 
-    test("应该正确记录fatal日志", () => {
+    test("should correctly record fatal logs", () => {
       const listener = vi.fn();
       loggingEvent.addEventListener(listener);
 
@@ -124,11 +124,11 @@ describe("EventBus Event System", () => {
       });
     });
 
-    test("应该支持所有日志级别", () => {
+    test("should support all log levels", () => {
       const listener = vi.fn();
       loggingEvent.addEventListener(listener);
 
-      // 手动调用各个日志方法
+      // Manually call each log method
       loggingEvent.debug("debug message");
       loggingEvent.info("info message");
       loggingEvent.warn("warn message");
@@ -160,17 +160,17 @@ describe("EventBus Event System", () => {
       systemEventBus.dispose();
     });
 
-    test("应该正确初始化系统事件总线", () => {
+    test("should correctly initialize system event bus", () => {
       expect(systemEventBus).toBeInstanceOf(BaseEvent);
-      // 系统事件总线继承自BaseEvent
+      // System event bus inherits from BaseEvent
     });
 
-    test("应该禁用批处理", () => {
+    test("should disable batching", () => {
       const config = systemEventBus.configuration;
       expect(config.enableBatching).toBe(false);
     });
 
-    test("应该正确触发startup事件", () => {
+    test("should correctly trigger startup event", () => {
       const listener = vi.fn();
       systemEventBus.addEventListener(listener);
 
@@ -185,7 +185,7 @@ describe("EventBus Event System", () => {
       });
     });
 
-    test("应该正确触发shutdown事件", () => {
+    test("should correctly trigger shutdown event", () => {
       const listener = vi.fn();
       systemEventBus.addEventListener(listener);
 
@@ -200,7 +200,7 @@ describe("EventBus Event System", () => {
       });
     });
 
-    test("应该正确触发systemError事件", () => {
+    test("should correctly trigger systemError event", () => {
       const listener = vi.fn();
       systemEventBus.addEventListener(listener);
 
@@ -215,7 +215,7 @@ describe("EventBus Event System", () => {
       });
     });
 
-    test("应该正确触发systemWarning事件", () => {
+    test("should correctly trigger systemWarning event", () => {
       const listener = vi.fn();
       systemEventBus.addEventListener(listener);
 
@@ -230,7 +230,7 @@ describe("EventBus Event System", () => {
       });
     });
 
-    test("应该正确触发configChange事件", () => {
+    test("should correctly trigger configChange event", () => {
       const listener = vi.fn();
       systemEventBus.addEventListener(listener);
 
@@ -245,11 +245,11 @@ describe("EventBus Event System", () => {
       });
     });
 
-    test("应该支持所有系统事件类型", () => {
+    test("should support all system event types", () => {
       const listener = vi.fn();
       systemEventBus.addEventListener(listener);
 
-      // 手动调用各个系统事件方法
+      // Manually call each system event method
       systemEventBus.startup({ test: true }, "test-source");
       systemEventBus.shutdown({ test: true }, "test-source");
       systemEventBus.systemError({ test: true }, "test-source");
@@ -277,8 +277,8 @@ describe("EventBus Event System", () => {
     });
   });
 
-  describe("EventBus 实例", () => {
-    test("工厂函数应该创建 EventBus 实例", () => {
+  describe("EventBus instance", () => {
+    test("factory function should create EventBus instance", () => {
       const factoryInstance = createEventBus();
 
       expect(factoryInstance).toBeInstanceOf(EventBus);
@@ -288,7 +288,7 @@ describe("EventBus Event System", () => {
       factoryInstance.dispose();
     });
 
-    test("构造函数应该创建独立实例", () => {
+    test("constructor should create independent instances", () => {
       const instance1 = new EventBus();
       const instance2 = new EventBus();
 
@@ -312,7 +312,7 @@ describe("EventBus Event System", () => {
       eventBus.dispose();
     });
 
-    test("应该为所有事件设置调试模式", () => {
+    test("should set debug mode for all events", () => {
       const setDebugModeSpy = vi.spyOn(eventBus.logging, "setDebugMode");
       const systemSetDebugModeSpy = vi.spyOn(eventBus.system, "setDebugMode");
 
@@ -322,7 +322,7 @@ describe("EventBus Event System", () => {
       expect(systemSetDebugModeSpy).toHaveBeenCalledWith(true);
     });
 
-    test("应该返回自身以支持链式调用", () => {
+    test("should return itself to support chaining", () => {
       const result = eventBus.setDebugMode(true);
       expect(result).toBe(eventBus);
     });
@@ -339,7 +339,7 @@ describe("EventBus Event System", () => {
       eventBus.dispose();
     });
 
-    test("应该为所有事件配置参数", () => {
+    test("should configure parameters for all events", () => {
       const config = { enableBatching: false, batchSize: 10 };
       const updateConfigSpy = vi.spyOn(eventBus.logging, "updateConfiguration");
       const systemUpdateConfigSpy = vi.spyOn(
@@ -353,7 +353,7 @@ describe("EventBus Event System", () => {
       expect(systemUpdateConfigSpy).toHaveBeenCalledWith(config);
     });
 
-    test("应该返回自身以支持链式调用", () => {
+    test("should return itself to support chaining", () => {
       const result = eventBus.configureAll({ enableBatching: false });
       expect(result).toBe(eventBus);
     });
@@ -370,7 +370,7 @@ describe("EventBus Event System", () => {
       eventBus.dispose();
     });
 
-    test("应该刷新所有事件的批次", () => {
+    test("should flush batches for all events", () => {
       const flushBatchSpy = vi.spyOn(eventBus.logging, "flushBatch");
       const systemFlushBatchSpy = vi.spyOn(eventBus.system, "flushBatch");
 
@@ -392,7 +392,7 @@ describe("EventBus Event System", () => {
       eventBus.dispose();
     });
 
-    test("应该清除所有事件监听器", () => {
+    test("should clear all event listeners", () => {
       const clearSpy = vi.spyOn(eventBus.logging, "clear");
       const systemClearSpy = vi.spyOn(eventBus.system, "clear");
 
@@ -402,7 +402,7 @@ describe("EventBus Event System", () => {
       expect(systemClearSpy).toHaveBeenCalled();
     });
 
-    test("应该重置所有事件", () => {
+    test("should reset all events", () => {
       const resetSpy = vi.spyOn(eventBus.logging, "reset");
       const systemResetSpy = vi.spyOn(eventBus.system, "reset");
 
@@ -412,7 +412,7 @@ describe("EventBus Event System", () => {
       expect(systemResetSpy).toHaveBeenCalled();
     });
 
-    test("应该释放所有事件资源", () => {
+    test("should dispose all event resources", () => {
       const disposeSpy = vi.spyOn(eventBus.logging, "dispose");
       const systemDisposeSpy = vi.spyOn(eventBus.system, "dispose");
 
@@ -434,13 +434,13 @@ describe("EventBus Event System", () => {
       eventBus.dispose();
     });
 
-    test("应该返回统计信息", () => {
+    test("should return statistics", () => {
       const stats = eventBus.getAllStats();
 
       expect(stats).toEqual({
         managerType: "EventBus",
         timestamp: expect.any(Number),
-        message: "统计功能已移除",
+        message: "Statistics feature removed",
       });
     });
   });
@@ -456,7 +456,7 @@ describe("EventBus Event System", () => {
       eventBus.dispose();
     });
 
-    test("应该注册自定义事件", () => {
+    test("should register custom events", () => {
       const customEvent = new GenericEvent<string>("test-event");
       eventBus.registerEvent("test", customEvent);
 
@@ -464,7 +464,7 @@ describe("EventBus Event System", () => {
       expect(retrievedEvent).toBe(customEvent);
     });
 
-    test("应该注销自定义事件", () => {
+    test("should unregister custom events", () => {
       const customEvent = new GenericEvent<string>("test-event");
       const disposeSpy = vi.spyOn(customEvent, "dispose");
 
@@ -476,12 +476,12 @@ describe("EventBus Event System", () => {
       expect(eventBus.getEvent("test")).toBeUndefined();
     });
 
-    test("应该处理注销不存在的事件", () => {
+    test("should handle unregistering non-existent events", () => {
       const result = eventBus.unregisterEvent("non-existent");
       expect(result).toBe(false);
     });
 
-    test("应该获取不存在的自定义事件返回undefined", () => {
+    test("should return undefined for non-existent custom events", () => {
       const event = eventBus.getEvent("non-existent");
       expect(event).toBeUndefined();
     });
@@ -498,18 +498,18 @@ describe("EventBus Event System", () => {
       eventBus.dispose();
     });
 
-    test("应该支持on方法监听事件", () => {
+    test("should support on method for event listening", () => {
       const listener = vi.fn();
       const unsubscribe = eventBus.on<string>("test-event", listener);
 
       expect(typeof unsubscribe).toBe("function");
 
-      // 验证事件已自动创建
+      // Verify event was auto-created
       const event = eventBus.getEvent<string>("test-event");
       expect(event).toBeInstanceOf(GenericEvent);
     });
 
-    test("应该支持off方法移除监听器", () => {
+    test("should support off method for removing listeners", () => {
       const listener = vi.fn();
       eventBus.on<string>("test-event", listener);
 
@@ -517,13 +517,13 @@ describe("EventBus Event System", () => {
       expect(result).toBe(true);
     });
 
-    test("应该处理移除不存在事件的监听器", () => {
+    test("should handle removing listeners for non-existent events", () => {
       const listener = vi.fn();
       const result = eventBus.off<string>("non-existent", listener);
       expect(result).toBe(false);
     });
 
-    test("应该支持emit方法触发事件", () => {
+    test("should support emit method for firing events", () => {
       const listener = vi.fn();
       eventBus.on<string>("test-event", listener);
 
@@ -532,14 +532,14 @@ describe("EventBus Event System", () => {
       expect(listener).toHaveBeenCalledWith("test payload");
     });
 
-    test("应该处理触发不存在的事件", () => {
-      // 不应该抛出错误
+    test("should handle firing non-existent events", () => {
+      // Should not throw an error
       expect(() => {
         eventBus.emit<string>("non-existent", "test");
       }).not.toThrow();
     });
 
-    test("应该为自定义事件设置调试模式", () => {
+    test("should set debug mode for custom events", () => {
       const customEvent = new GenericEvent<string>("test-event");
       const setDebugModeSpy = vi.spyOn(customEvent, "setDebugMode");
 
@@ -549,7 +549,7 @@ describe("EventBus Event System", () => {
       expect(setDebugModeSpy).toHaveBeenCalledWith(true);
     });
 
-    test("应该为自定义事件配置参数", () => {
+    test("should configure parameters for custom events", () => {
       const customEvent = new GenericEvent<string>("test-event");
       const updateConfigSpy = vi.spyOn(customEvent, "updateConfiguration");
       const config = { enableBatching: false };
@@ -560,7 +560,7 @@ describe("EventBus Event System", () => {
       expect(updateConfigSpy).toHaveBeenCalledWith(config);
     });
 
-    test("应该刷新自定义事件批次", () => {
+    test("should flush custom event batches", () => {
       const customEvent = new GenericEvent<string>("test-event");
       const flushBatchSpy = vi.spyOn(customEvent, "flushBatch");
 
@@ -570,7 +570,7 @@ describe("EventBus Event System", () => {
       expect(flushBatchSpy).toHaveBeenCalled();
     });
 
-    test("应该清除自定义事件监听器", () => {
+    test("should clear custom event listeners", () => {
       const customEvent = new GenericEvent<string>("test-event");
       const clearSpy = vi.spyOn(customEvent, "clear");
 
@@ -580,7 +580,7 @@ describe("EventBus Event System", () => {
       expect(clearSpy).toHaveBeenCalled();
     });
 
-    test("应该重置自定义事件", () => {
+    test("should reset custom events", () => {
       const customEvent = new GenericEvent<string>("test-event");
       const resetSpy = vi.spyOn(customEvent, "reset");
 
@@ -590,7 +590,7 @@ describe("EventBus Event System", () => {
       expect(resetSpy).toHaveBeenCalled();
     });
 
-    test("应该释放自定义事件资源", () => {
+    test("should dispose custom event resources", () => {
       const customEvent = new GenericEvent<string>("test-event");
       const disposeSpy = vi.spyOn(customEvent, "dispose");
 
@@ -612,8 +612,8 @@ describe("EventBus Event System", () => {
       eventBus.dispose();
     });
 
-    test("应该支持完整的事件生命周期", () => {
-      // 日志事件测试
+    test("should support full event lifecycle", () => {
+      // Logging event test
       const logListener = vi.fn();
       eventBus.logging.addEventListener(logListener);
       eventBus.logging.info("Test log message");
@@ -625,7 +625,7 @@ describe("EventBus Event System", () => {
         })
       );
 
-      // 系统事件测试
+      // System event test
       const systemListener = vi.fn();
       eventBus.system.addEventListener(systemListener);
       eventBus.system.startup({ version: "1.0" }, "app");
@@ -638,7 +638,7 @@ describe("EventBus Event System", () => {
         })
       );
 
-      // 自定义事件测试
+      // Custom event test
       const customListener = vi.fn();
       eventBus.on<number>("custom-event", customListener);
       eventBus.emit<number>("custom-event", 42);
@@ -646,28 +646,28 @@ describe("EventBus Event System", () => {
       expect(customListener).toHaveBeenCalledWith(42);
     });
 
-    test("应该正确处理混合事件操作", () => {
-      // 注册多个事件
+    test("should correctly handle mixed event operations", () => {
+      // Register multiple events
       const event1 = new GenericEvent<string>("event1");
       const event2 = new GenericEvent<number>("event2");
 
       eventBus.registerEvent("test1", event1);
       eventBus.registerEvent("test2", event2);
 
-      // 设置调试模式
+      // Set debug mode
       eventBus.setDebugMode(true);
 
-      // 配置所有事件
+      // Configure all events
       eventBus.configureAll({ enableBatching: false });
 
-      // 刷新批次
+      // Flush batches
       eventBus.flushAllBatches();
 
-      // 清理所有资源
+      // Clean up all resources
       eventBus.clearAll();
       eventBus.resetAll();
 
-      // 验证事件仍然存在但已清理
+      // Verify events still exist but are cleaned
       expect(eventBus.getEvent("test1")).toBe(event1);
       expect(eventBus.getEvent("test2")).toBe(event2);
     });

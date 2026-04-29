@@ -1,59 +1,59 @@
 import { meter, ScopedMeter } from "../metrics";
 
 /**
- * 通用缓存项接口
+ * Generic cache entry interface
  */
 export interface CacheEntry<T> {
-  /** 缓存的值 */
+  /** Cached value */
   value: T;
-  /** 缓存创建时间戳 */
+  /** Cache creation timestamp */
   timestamp: number;
-  /** 可选的版本号 */
+  /** Optional version number */
   version?: number;
-  /** 可选的大小（字节） */
+  /** Optional size (bytes) */
   size?: number;
 }
 
 /**
- * 缓存配置选项
+ * Cache configuration options
  */
 export interface CacheConfig {
-  /** 最大缓存条目数，默认 1000 */
+  /** Max cache entries, default 1000 */
   maxSize?: number;
-  /** 最大缓存时间（毫秒），默认 5 分钟 */
+  /** Max cache age (milliseconds), default 5 minutes */
   maxAge?: number;
-  /** 是否启用 metrics 收集，默认 true */
+  /** Whether to enable metrics collection, default true */
   enableMetrics?: boolean;
 }
 
 /**
- * 统一的渲染缓存管理器
+ * Unified render cache manager
  *
  * @remarks
- * 提供通用的缓存功能，包括：
- * - 基于大小的 LRU 淘汰策略
- * - 基于时间的过期机制
- * - Metrics 收集
- * - 泛型类型支持
+ * Provides generic caching features, including:
+ * - Size-based LRU eviction policy
+ * - Time-based expiration mechanism
+ * - Metrics collection
+ * - Generic type support
  *
- * @typeParam K - 缓存键类型
- * @typeParam V - 缓存值类型
+ * @typeParam K - Cache key type
+ * @typeParam V - Cache value type
  *
  * @example
  * ```typescript
- * // 创建 ImageData 缓存
+ * // Create ImageData cache
  * const cache = new RenderCacheManager<string, ImageData>("canvas-cache", {
  *   maxSize: 500,
- *   maxAge: 3 * 60 * 1000, // 3 分钟
+ *   maxAge: 3 * 60 * 1000, // 3 minutes
  * });
  *
- * // 设置缓存
+ * // Set cache
  * cache.set("entity-123", imageData, { version: 1, size: 1024 });
  *
- * // 获取缓存
+ * // Get cache
  * const cached = cache.get("entity-123");
  * if (cached) {
- *   // 使用缓存数据
+ *   // Use cached data
  * }
  * ```
  */
@@ -64,10 +64,10 @@ export class RenderCacheManager<K, V> {
   private readonly cacheType: string;
 
   /**
-   * 创建缓存管理器实例
+   * Create cache manager instance
    *
-   * @param cacheType - 缓存类型标识（用于 metrics）
-   * @param config - 可选的缓存配置
+   * @param cacheType - Cache type identifier (for metrics)
+   * @param config - Optional cache configuration
    */
   constructor(cacheType: string, config?: CacheConfig) {
     this.cacheType = cacheType;
@@ -87,16 +87,16 @@ export class RenderCacheManager<K, V> {
   }
 
   /**
-   * 设置缓存项
+   * Set cache entry
    *
-   * @param key - 缓存键
-   * @param value - 缓存值
-   * @param metadata - 可选的元数据（版本号、大小）
+   * @param key - Cache key
+   * @param value - Cache value
+   * @param metadata - Optional metadata (version, size)
    */
   set(key: K, value: V, metadata?: { version?: number; size?: number }): void {
     const keyStr = this.keyToString(key);
 
-    // 检查缓存大小限制
+    // Check cache size limit
     if (this.cache.size >= this.config.maxSize) {
       this.evictOldest();
       if (this.config.enableMetrics) {
@@ -124,10 +124,10 @@ export class RenderCacheManager<K, V> {
   }
 
   /**
-   * 获取缓存项
+   * Get cache entry
    *
-   * @param key - 缓存键
-   * @returns 缓存值，如果不存在或已过期则返回 undefined
+   * @param key - Cache key
+   * @returns Cache value, or undefined if not found or expired
    */
   get(key: K): V | undefined {
     const keyStr = this.keyToString(key);
@@ -140,7 +140,7 @@ export class RenderCacheManager<K, V> {
       return undefined;
     }
 
-    // 检查过期
+    // Check expiration
     if (Date.now() - entry.timestamp > this.config.maxAge) {
       this.cache.delete(keyStr);
       if (this.config.enableMetrics) {
@@ -158,20 +158,20 @@ export class RenderCacheManager<K, V> {
   }
 
   /**
-   * 检查缓存是否包含指定键
+   * Check if cache contains specified key
    *
-   * @param key - 缓存键
-   * @returns 如果缓存存在且未过期则返回 true
+   * @param key - Cache key
+   * @returns true if cache exists and has not expired
    */
   has(key: K): boolean {
     return this.get(key) !== undefined;
   }
 
   /**
-   * 删除指定的缓存项
+   * Delete specified cache entry
    *
-   * @param key - 缓存键
-   * @returns 如果删除成功返回 true
+   * @param key - Cache key
+   * @returns true if deletion succeeded
    */
   delete(key: K): boolean {
     const keyStr = this.keyToString(key);
@@ -183,7 +183,7 @@ export class RenderCacheManager<K, V> {
   }
 
   /**
-   * 清空所有缓存
+   * Clear all cache
    */
   clear(): void {
     const count = this.cache.size;
@@ -195,14 +195,14 @@ export class RenderCacheManager<K, V> {
   }
 
   /**
-   * 获取当前缓存大小
+   * Get current cache size
    */
   size(): number {
     return this.cache.size;
   }
 
   /**
-   * 获取缓存统计信息
+   * Get cache statistics
    */
   getStats(): {
     size: number;
@@ -217,20 +217,20 @@ export class RenderCacheManager<K, V> {
   }
 
   /**
-   * 将键转换为字符串
+   * Convert key to string
    */
   private keyToString(key: K): string {
     if (typeof key === "string") return key;
     if (typeof key === "object" && key !== null) {
-      // 对于对象，使用 JSON 序列化（适用于简单对象）
-      // 对于复杂对象，子类可以重写此方法
+      // For objects, use JSON serialization (suitable for simple objects)
+      // For complex objects, subclasses can override this method
       return JSON.stringify(key);
     }
     return String(key);
   }
 
   /**
-   * 淘汰最旧的缓存项（LRU）
+   * Evict oldest cache entry (LRU)
    */
   private evictOldest(): void {
     let oldest: [string, CacheEntry<V>] | undefined;
@@ -247,10 +247,10 @@ export class RenderCacheManager<K, V> {
   }
 
   /**
-   * 设置 metrics 收集
+   * Setup metrics collection
    */
   private setupMetrics(): void {
-    // Observable gauge 用于监控缓存大小
+    // Observable gauge for monitoring cache size
     const sizeGauge = this.m.observableGauge("size", {
       description: `Cache size for ${this.cacheType}`,
       unit: "count",
@@ -260,12 +260,12 @@ export class RenderCacheManager<K, V> {
       observe({ value: this.cache.size });
     });
 
-    // 缓存命中率可以通过 hit 和 miss counter 计算
-    // 在监控系统中配置计算规则
+    // Cache hit rate can be calculated from hit and miss counters
+    // Configure calculation rules in monitoring system
   }
 
   /**
-   * 释放资源
+   * Release resources
    */
   dispose(): void {
     this.clear();

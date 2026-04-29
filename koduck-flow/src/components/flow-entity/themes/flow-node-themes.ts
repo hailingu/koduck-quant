@@ -1,8 +1,8 @@
 /**
- * @file Flow Node Themes - 共享主题配置
+ * @file Flow Node Themes - Shared theme configuration
  * @description
- * 定义 Flow 节点（Start, Action, Decision, End）的主题样式，
- * 供 TSX 组件和 Canvas 渲染两种模式共享使用。
+ * Defines theme styles for Flow nodes (Start, Action, Decision, End),
+ * Shared between TSX components and Canvas rendering modes.
  *
  * @see docs/design/flow-node-canvas-integration-plan.md
  */
@@ -12,29 +12,29 @@
 // ============================================================================
 
 /**
- * 节点形状类型
+ * Node shape type
  */
 export type FlowNodeShape = "circle" | "rectangle" | "diamond";
 
 /**
- * 单个节点的主题配置
+ * Theme configuration for a single node
  */
 export interface FlowNodeThemeConfig {
-  /** 背景色 */
+  /** Background color */
   backgroundColor: string;
-  /** 边框色 */
+  /** Border color */
   borderColor: string;
-  /** 标题栏颜色 */
+  /** Header color */
   headerColor: string;
-  /** 文字颜色 */
+  /** Text color */
   textColor: string;
-  /** 边框圆角 */
+  /** Border radius */
   borderRadius: number;
-  /** 节点形状 */
+  /** Node shape */
   shape: FlowNodeShape;
-  /** 默认宽度 */
+  /** Default width */
   defaultWidth: number;
-  /** 默认高度 */
+  /** Default height */
   defaultHeight: number;
 }
 
@@ -43,7 +43,7 @@ export interface FlowNodeThemeConfig {
 // ============================================================================
 
 /**
- * Flow 节点主题配置
+ * Flow node theme configuration
  *
  * @example
  * ```typescript
@@ -55,8 +55,8 @@ export interface FlowNodeThemeConfig {
  */
 export const FLOW_NODE_THEMES = {
   /**
-   * 开始节点 - 绿色圆角矩形卡片
-   * 包含表单内容，可直接交互
+   * Start node - green rounded rectangle card
+   * Contains form content, directly interactive
    */
   start: {
     backgroundColor: "#ffffff",
@@ -70,7 +70,7 @@ export const FLOW_NODE_THEMES = {
   },
 
   /**
-   * 操作节点 - 蓝色圆角矩形
+   * Action node - blue rounded rectangle
    */
   action: {
     backgroundColor: "#DBEAFE",
@@ -84,7 +84,7 @@ export const FLOW_NODE_THEMES = {
   },
 
   /**
-   * 判断节点 - 黄色菱形
+   * Decision node - yellow diamond
    */
   decision: {
     backgroundColor: "#FEF3C7",
@@ -98,7 +98,7 @@ export const FLOW_NODE_THEMES = {
   },
 
   /**
-   * 结束节点 - 红色双圆环
+   * End node - red double circle
    */
   end: {
     backgroundColor: "#FEE2E2",
@@ -113,21 +113,21 @@ export const FLOW_NODE_THEMES = {
 } as const satisfies Record<string, FlowNodeThemeConfig>;
 
 /**
- * Flow 节点类型
+ * Flow node type
  */
 export type FlowNodeType = keyof typeof FLOW_NODE_THEMES;
 
 /**
- * 获取节点主题配置
- * @param type - 节点类型
- * @returns 主题配置
+ * Get node theme configuration
+ * @param type - Node type
+ * @returns Theme configuration
  */
 export function getFlowNodeTheme(type: FlowNodeType): FlowNodeThemeConfig {
   return FLOW_NODE_THEMES[type];
 }
 
 /**
- * 所有节点类型列表
+ * List of all node types
  */
 export const FLOW_NODE_TYPES: readonly FlowNodeType[] = [
   "start",

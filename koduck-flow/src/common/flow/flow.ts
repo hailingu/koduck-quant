@@ -68,31 +68,31 @@ export class Flow<
   EE extends IFlowEdgeEntity<E> = IFlowEdgeEntity<E>,
 > implements IFlow<N, E, NE, EE>
 {
-  /** Entity Management器,负责管理所有实体的 Lifecycle */
+  /** Entity manager, responsible for managing the lifecycle of all entities */
   entityManager: EntityManager;
 
   /** Flow unique identifier */
   id: string;
 
-  /** 流程 optional 名称 */
+  /** Flow optional name */
   name: string | undefined;
 
-  /** Flow creation time (ISO 8601 格式) */
+  /** Flow creation time (ISO 8601 format) */
   createdAt: string;
 
-  /** 流程最后 Updated 时间 (ISO 8601 格式) */
+  /** Flow last updated time (ISO 8601 format) */
   updatedAt: string | undefined;
 
   /** Flow metadata */
   metadata: FlowMetadata | undefined;
 
-  /** 流程的抽象语法树 (AST) 表示 */
+  /** Flow abstract syntax tree (AST) representation */
   private _flowAST: IFlowAST<N> | undefined;
 
   /** Core Subsystem Coordinator */
   private readonly core: FlowCore<N, E, NE, EE>;
 
-  // 从 core 提取的 child 系统引用 (用于快速访问)
+  // Child system references extracted from core (for quick access)
   private readonly metrics: FlowMetrics;
   private readonly hooks: FlowHooks<NE>;
   private readonly registry: EntityRegistry<N, E, NE, EE>;
@@ -117,7 +117,7 @@ export class Flow<
   /**
    * Set Flow Graph AST
    *
-   * @param graph - 新的 flow graph object
+   * @param graph - New flow graph object
    */
   set flowGraph(graph: FlowGraphAST | undefined) {
     this.graphCoordinator.setGraph(graph);
@@ -126,7 +126,7 @@ export class Flow<
   /**
    * Get Flow Abstract Representation
    *
-   * @returns Flow AST, 用于 Serialization 或分析
+   * @returns Flow AST, for serialization or analysis
    */
   get flowAST(): IFlowAST<N> | undefined {
     return this._flowAST;
@@ -135,18 +135,18 @@ export class Flow<
   /**
    * Set Flow Abstract Representation
    *
-   * @param ast - 新的 Flow AST
+   * @param ast - New Flow AST
    */
   set flowAST(ast: IFlowAST<N> | undefined) {
     this._flowAST = ast;
   }
 
   /**
-   * 是否启用 Lifecycle hooks
+   * Whether lifecycle hooks are enabled
    *
    * @description
-   * When set to false, 所有 Lifecycle 事件都不会被触发.
-   * 用于 Performance 优化, can disable hooks during batch operations.
+   * When set to false, all lifecycle events will not be triggered.
+   * Used for performance optimization, can disable hooks during batch operations.
    *
    * @returns whether hooks are enabled
    * @example
@@ -164,7 +164,7 @@ export class Flow<
   }
 
   /**
-   * 设置是否启用 Lifecycle hooks
+   * Set whether to enable lifecycle hooks
    *
    * @param value - true enable hooks, false disable hooks
    */
@@ -176,7 +176,7 @@ export class Flow<
    * Hook Execution Depth Limit
    *
    * @description
-   * 防止深层递归导致的 Performance 问题. Default is 5 levels.
+   * Prevents performance issues caused by deep recursion. Default is 5 levels.
    * @returns maximum recursion depth for hooks
    */
   get hookDepthLimit(): number {
@@ -184,7 +184,7 @@ export class Flow<
   }
 
   /**
-   * 设置 Hook Execution Depth Limit
+   * Set hook execution depth limit
    *
    * @param value - maximum recursion depth
    */
@@ -210,7 +210,7 @@ export class Flow<
   }
 
   /**
-   * 设置 Entity Added Event Handler
+   * Set entity added event handler
    *
    * @param handler - handler function
    */
@@ -230,7 +230,7 @@ export class Flow<
   }
 
   /**
-   * 设置 Entity Removed Event Handler
+   * Set entity removed event handler
    *
    * @param handler - handler function
    */
@@ -250,7 +250,7 @@ export class Flow<
   }
 
   /**
-   * 设置 Flow Loaded Event Handler
+   * Set flow loaded event handler
    *
    * @param handler - handler function
    */
@@ -270,7 +270,7 @@ export class Flow<
   }
 
   /**
-   * 设置 Flow Saved Event Handler
+   * Set flow saved event handler
    *
    * @param handler - handler function
    */
@@ -283,15 +283,15 @@ export class Flow<
    *
    * Create a new Flow instance, initializing all internal subsystems.
    *
-   * @param entityManager - Entity Management器实例, 负责管理实体 Lifecycle
+   * @param entityManager - Entity manager instance, responsible for managing entity lifecycle
    * @param id - flow ID (optional). if not provided, automatically generate `flow-{timestamp}`
    *
    * @example
    * ```typescript
-   * // 创建带默认 ID 的流程
+   * // Create flow with default ID
    * const flow1 = new Flow(entityManager);
    *
-   * // 创建带自定义 ID 的流程
+   * // Create flow with custom ID
    * const flow2 = new Flow(entityManager, 'my-workflow');
    * ```
    */
@@ -316,7 +316,7 @@ export class Flow<
     this.enableHooks = true;
     this.hookDepthLimit = 5;
 
-    // 初始化 operations 层实例
+    // Initialize operations layer instances
     const hookAdapter = new HookAdapter<NE>(this.hooks);
     const metricsAdapter = new MetricsAdapter(this.metrics);
 
@@ -364,7 +364,7 @@ export class Flow<
   }
 
   /**
-   * Traverse the flow graph 中的所有节点
+   * Traverse all nodes in the flow graph
    *
    * using depth-first search (DFS) algorithm Traverse the flow graph, starting from specified node or from root node.
    * provided callback is called for each node.
@@ -396,11 +396,11 @@ export class Flow<
    * ```
    *
    * @see {@link getAllNodes} directly get all nodes array
-   * @see {@link FlowTraversal.traverse} 低级遍历实现
+   * @see {@link FlowTraversal.traverse} Low-level traversal implementation
    */
   traverse(f: NodeTraversalFn<N>, node?: N, _depth?: number): void {
     if (typeof _depth === "number") {
-      // depth 参数目前仅 for backward compatibility
+      // depth parameter is currently only for backward compatibility
     }
     const start = performance.now();
     try {
@@ -557,24 +557,24 @@ export class Flow<
   /**
    * Get specified entity
    *
-   * 获取指定 ID 的实体. returns associated entity object.
-   * 此操作会记录 Performance metrics.
+   * Get entity by specified ID. Returns associated entity object.
+   * This operation records performance metrics.
    *
-   * @template T - 要检索的 entity type (默认为 Node entity type)
+   * @template T - Entity type to retrieve (defaults to node entity type)
    * @param id - entity ID
    * @returns found entity, returns undefined if does not exist
    *
    * @example
    * ```typescript
-   * // 获取通用实体
+   * // Get generic entity
    * const entity = flow.getEntity('entity-1');
    *
    * // Get entity of specific type
    * const nodeEntity = flow.getEntity<IFlowNodeEntity>('node-1');
    * ```
    *
-   * @see {@link getNode} 获取节点数据
-   * @see {@link getEdgeEntity} 获取 Edge entity
+   * @see {@link getNode} Get node data
+   * @see {@link getEdgeEntity} Get edge entity
    */
   public getEntity<T extends IFlowEntity = NE>(id: string): T | undefined {
     return this.entityOps.getEntity<T>(id);
@@ -623,7 +623,7 @@ export class Flow<
   /**
    * Update single entity
    *
-   * update existing entity with provided data. 此操作会记录 Performance metrics.
+   * Update existing entity with provided data. This operation records performance metrics.
    *
    * @param entity - entity object containing update data
    * @returns whether successfully updated
@@ -653,7 +653,7 @@ export class Flow<
    * Batch update multiple entities
    *
    * update multiple entities at once, more efficient than calling updateEntity individually.
-   * suitable for scenarios needing to modify multiple entities simultaneously (如 Performance 优化).
+   * Suitable for scenarios needing to modify multiple entities simultaneously (e.g., performance optimization).
    *
    * @param entities - array of entities to update
    * @returns number of entities successfully updated
@@ -684,7 +684,7 @@ export class Flow<
    * Get root entity
    *
    * return root entity of flow graph (typically top-level entity without parent node).
-   * if flow is tree structure, 这返回树的根 Node entity.
+   * If flow is tree structure, this returns the root node entity.
    *
    * @returns root entity, returns undefined if not found
    *
@@ -696,20 +696,20 @@ export class Flow<
    * }
    * ```
    *
-   * @see {@link getChildEntities} Get specified entity 的 child 实体
-   * @see {@link traverse} 遍历整个流程
+   * @see {@link getChildEntities} Get child entities of specified entity
+   * @see {@link traverse} Traverse entire flow
    */
   getRootEntity(): NE | undefined {
     return this.traversal.getRootEntity();
   }
 
   /**
-   * Get specified entity 的 child 实体
+   * Get child entities of specified entity
    *
-   * return array of direct child entities (一级 Child node, non-recursive).
-   * for tree structure, 这返回直接 Child node. 对于 Graph Structure, returns all direct downstream nodes.
+   * Return array of direct child entities (first-level child nodes, non-recursive).
+   * For tree structure, this returns direct child nodes. For graph structure, returns all direct downstream nodes.
    *
-   * @param entity - 父实体
+   * @param entity - Parent entity
    * @returns array of child entities
    *
    * @example
@@ -734,25 +734,25 @@ export class Flow<
   /**
    * Get all entities in flow
    *
-   * 返回流程中所有 Node entity 的数组. Edge entity 可通过 getAllEdgeEntities 单独获取.
+   * Return array of all node entities in the flow. Edge entities can be obtained separately via getAllEdgeEntities.
    * method ensures all entities are registered in graph coordinator.
    *
-   * @returns 所有 Node entity 的数组
+   * @returns Array of all node entities
    *
    * @example
    * ```typescript
    * const allEntities = flow.getAllEntities();
    * console.log(`Total entities: ${allEntities.length}`);
    *
-   * // 迭代处理每 entities
+   * // Iterate over each entity
    * allEntities.forEach(entity => {
    *   console.log('Entity:', entity.id, entity.node);
    * });
    * ```
    *
-   * @see {@link getAllNodes} 获取所有节点数据
-   * @see {@link getAllEdgeEntities} 获取所有 Edge entity
-   * @see {@link traverse} 使用回调遍历
+   * @see {@link getAllNodes} Get all node data
+   * @see {@link getAllEdgeEntities} Get all edge entities
+   * @see {@link traverse} Traverse using callback
    */
   public getAllEntities(): NE[] {
     const entities = this.entityOps.getAllEntities();
@@ -769,7 +769,7 @@ export class Flow<
   /**
    * Get successor nodes (direct children)
    *
-   * 返回指定节点的所有直接后继节点 IDs.
+   * Return all direct successor node IDs of the specified node.
    *
    * @param nodeId - Node ID
    * @returns Array of successor node IDs
@@ -780,8 +780,8 @@ export class Flow<
    * console.log('Direct children:', successors);
    * ```
    *
-   * @see {@link getPredecessors} 获取前驱节点
-   * @see {@link getNeighbors} 获取邻接节点
+   * @see {@link getPredecessors} Get predecessor nodes
+   * @see {@link getNeighbors} Get neighboring nodes
    */
   public getSuccessors(nodeId: string): string[] {
     return this.traversalOps.getSuccessors(nodeId);
@@ -790,7 +790,7 @@ export class Flow<
   /**
    * Get predecessor nodes (direct parents)
    *
-   * 返回指定节点的所有直接前驱节点 IDs.
+   * Return all direct predecessor node IDs of the specified node.
    *
    * @param nodeId - Node ID
    * @returns Array of predecessor node IDs
@@ -801,8 +801,8 @@ export class Flow<
    * console.log('Direct parents:', predecessors);
    * ```
    *
-   * @see {@link getSuccessors} 获取后继节点
-   * @see {@link getNeighbors} 获取邻接节点
+   * @see {@link getSuccessors} Get successor nodes
+   * @see {@link getNeighbors} Get neighboring nodes
    */
   public getPredecessors(nodeId: string): string[] {
     return this.traversalOps.getPredecessors(nodeId);
@@ -811,7 +811,7 @@ export class Flow<
   /**
    * Get neighboring nodes (both predecessors and successors)
    *
-   * 返回指定节点的所有相邻节点 IDs (包括前驱和后继).
+   * Return all neighboring node IDs of the specified node (including predecessors and successors).
    *
    * @param nodeId - Node ID
    * @returns Array of neighboring node IDs
@@ -822,8 +822,8 @@ export class Flow<
    * console.log('All adjacent nodes:', neighbors);
    * ```
    *
-   * @see {@link getSuccessors} 获取后继节点
-   * @see {@link getPredecessors} 获取前驱节点
+   * @see {@link getSuccessors} Get successor nodes
+   * @see {@link getPredecessors} Get predecessor nodes
    */
   public getNeighbors(nodeId: string): string[] {
     return this.traversalOps.getNeighbors(nodeId);
@@ -832,7 +832,7 @@ export class Flow<
   /**
    * Find a path between two nodes using BFS
    *
-   * 使用广度优先搜索算法查找从源节点到目标节点的最短路径.
+   * Find shortest path from source node to target node using breadth-first search algorithm.
    *
    * @param sourceId - Source node ID
    * @param targetId - Target node ID
@@ -848,8 +848,8 @@ export class Flow<
    * }
    * ```
    *
-   * @see {@link findAllPaths} 查找所有可能的路径
-   * @see {@link isConnected} 检查连通性
+   * @see {@link findAllPaths} Find all possible paths
+   * @see {@link isConnected} Check connectivity
    */
   public findPath(sourceId: string, targetId: string): string[] | null {
     return this.traversalOps.findPath(sourceId, targetId);
@@ -858,7 +858,7 @@ export class Flow<
   /**
    * Find all paths between two nodes using DFS
    *
-   * 使用深度优先搜索算法查找从源节点到目标节点的所有可能路径.
+   * Find all possible paths from source node to target node using depth-first search algorithm.
    *
    * @param sourceId - Source node ID
    * @param targetId - Target node ID
@@ -873,8 +873,8 @@ export class Flow<
    * });
    * ```
    *
-   * @see {@link findPath} 查找最短路径
-   * @see {@link isConnected} 检查连通性
+   * @see {@link findPath} Find shortest path
+   * @see {@link isConnected} Check connectivity
    */
   public findAllPaths(sourceId: string, targetId: string): string[][] {
     return this.traversalOps.findAllPaths(sourceId, targetId);
@@ -883,7 +883,7 @@ export class Flow<
   /**
    * Check if two nodes are connected
    *
-   * 检查两个节点之间是否存在路径.
+   * Check if a path exists between two nodes.
    *
    * @param sourceId - Source node ID
    * @param targetId - Target node ID
@@ -898,8 +898,8 @@ export class Flow<
    * }
    * ```
    *
-   * @see {@link findPath} 查找路径
-   * @see {@link getConnectedComponents} 获取连通分量
+   * @see {@link findPath} Find path
+   * @see {@link getConnectedComponents} Get connected components
    */
   public isConnected(sourceId: string, targetId: string): boolean {
     return this.traversalOps.isConnected(sourceId, targetId);
@@ -908,7 +908,7 @@ export class Flow<
   /**
    * Get connected components in the graph
    *
-   * 获取图中的所有连通分量 (每个连通分量是一组相互连接的节点).
+   * Get all connected components in the graph (each connected component is a set of mutually connected nodes).
    *
    * @returns Array of arrays of node IDs representing connected components
    *
@@ -921,8 +921,8 @@ export class Flow<
    * });
    * ```
    *
-   * @see {@link isConnected} 检查两节点连通性
-   * @see {@link topologicalSort} 拓扑排序
+   * @see {@link isConnected} Check connectivity between two nodes
+   * @see {@link topologicalSort} Topological sort
    */
   public getConnectedComponents(): string[][] {
     return this.traversalOps.getConnectedComponents();
@@ -931,7 +931,7 @@ export class Flow<
   /**
    * Get topological sort of nodes
    *
-   * 使用 Kahn 算法对图中的节点进行拓扑排序.
+   * Perform topological sort on graph nodes using Kahn's algorithm.
    * Returns null if cycle is detected in the graph.
    *
    * @returns Array of node IDs in topological order, or null if cycle exists
@@ -946,8 +946,8 @@ export class Flow<
    * }
    * ```
    *
-   * @see {@link getConnectedComponents} 获取连通分量
-   * @see {@link dfs} 深度优先遍历
+   * @see {@link getConnectedComponents} Get connected components
+   * @see {@link dfs} Depth-first traversal
    */
   public topologicalSort(): string[] | null {
     return this.traversalOps.topologicalSort();
@@ -956,7 +956,7 @@ export class Flow<
   /**
    * Depth-first search traversal
    *
-   * 从指定节点开始进行深度优先搜索遍历. visitor callback 可返回 false 停止遍历.
+   * Perform depth-first search traversal starting from specified node. Visitor callback can return false to stop traversal.
    *
    * @param startId - Starting node ID
    * @param visitor - Callback function for each node visited; return false to stop
@@ -971,8 +971,8 @@ export class Flow<
    * });
    * ```
    *
-   * @see {@link bfs} 广度优先遍历
-   * @see {@link traverse} 通用遍历方法
+   * @see {@link bfs} Breadth-first traversal
+   * @see {@link traverse} Generic traversal method
    */
   public dfs(startId: string, visitor: (nodeId: string) => boolean | void): void {
     return this.traversalOps.dfs(startId, visitor);
@@ -981,7 +981,7 @@ export class Flow<
   /**
    * Breadth-first search traversal
    *
-   * 从指定节点开始进行广度优先搜索遍历. visitor callback 可返回 false 停止遍历.
+   * Perform breadth-first search traversal starting from specified node. Visitor callback can return false to stop traversal.
    *
    * @param startId - Starting node ID
    * @param visitor - Callback function for each node visited; return false to stop
@@ -996,18 +996,18 @@ export class Flow<
    * });
    * ```
    *
-   * @see {@link dfs} 深度优先遍历
-   * @see {@link traverse} 通用遍历方法
+   * @see {@link dfs} Depth-first traversal
+   * @see {@link traverse} Generic traversal method
    */
   public bfs(startId: string, visitor: (nodeId: string) => boolean | void): void {
     return this.traversalOps.bfs(startId, visitor);
   }
 
   /**
-   * Serialize the flow 为 JSON
+   * Serialize the flow to JSON
    *
    * convert all flow data (nodes, edges, metadata) to JSON object format.
-   * generated JSON can be saved、transmit 或 restored with loadFromJSON.
+   * Generated JSON can be saved, transmitted, or restored with loadFromJSON.
    *
    * @returns JSON object containing all flow data
    *
@@ -1019,7 +1019,7 @@ export class Flow<
    * // Save to local storage
    * localStorage.setItem('my-flow', JSON.stringify(json));
    *
-   * // Serialization 并发送到服务器
+   * // Serialize and send to server
    * await fetch('/api/flows', {
    *   method: 'POST',
    *   headers: { 'Content-Type': 'application/json' },
@@ -1027,8 +1027,8 @@ export class Flow<
    * });
    * ```
    *
-   * @see {@link loadFromJSON} 从 JSON 恢复流程
-   * @see {@link onFlowSaved} Serialization 完成事件
+   * @see {@link loadFromJSON} Restore flow from JSON
+   * @see {@link onFlowSaved} Serialization completion event
    */
   toJSON(): Record<string, unknown> {
     return this.core.getFlowSerializer().toJSON();
@@ -1038,9 +1038,9 @@ export class Flow<
    * Load flow data from JSON
    *
    * populate flow with provided JSON data. clears existing data and loads new data.
-   * 加载完成后触发 onFlowLoaded 钩 child.
+   * Trigger onFlowLoaded hook after loading completes.
    *
-   * @param json - 包含流程数据的 JSON 对象
+   * @param json - JSON object containing flow data
    * @throws if JSON format is incorrect or contains invalid data
    *
    * @example
@@ -1059,7 +1059,7 @@ export class Flow<
    * ```
    *
    * @see {@link toJSON} Serialize the flow
-   * @see {@link onFlowLoaded} 加载完成事件
+   * @see {@link onFlowLoaded} Load completion event
    */
   loadFromJSON(json: Record<string, unknown>): void {
     this.core.getFlowSerializer().loadFromJSON(json);
@@ -1068,20 +1068,20 @@ export class Flow<
   /**
    * Clean up flow resources
    *
-   * release all resources occupied by flow, 包括 Performance metrics collection器等.
+   * Release all resources occupied by flow, including performance metrics collector, etc.
    * flow instance should not be used after calling.
    *
    * @example
    * ```typescript
    * // Clean up flow resources
    * flow.dispose();
-   * // 此后 should not use flow instance anymore
+   * // Should not use flow instance anymore after this
    * ```
    *
    * @see {@link constructor} Create flow instance
    */
   dispose(): void {
-    // 清理资源
+    // Clean up resources
     this.metrics.markFlowDisposed();
     this.metrics.dispose();
   }
@@ -1089,12 +1089,12 @@ export class Flow<
   /**
    * Add node to flow
    *
-   * 将 Node entity 添加到流程中, 可以指定 parent node 来建立树/Graph Structure.
-   * 支持指定多个 parent node 和自定义 link metadata.
+   * Add node entity to flow, can specify parent node to establish tree/graph structure.
+   * Supports specifying multiple parent nodes and custom link metadata.
    *
-   * @param entity - 要添加的 Node entity
+   * @param entity - Node entity to add
    * @param options - node options (optional)
-   * @param options.parentIds - parent node ID 数组
+   * @param options.parentIds - Parent node ID array
    * @param options.linkMetadata - link metadata object or generation function
    *
    * @example
@@ -1105,7 +1105,7 @@ export class Flow<
    * });
    * flow.addNode(root);
    *
-   * // 添加 Child node
+   * // Add child node
    * const child = flow.createEntity<IFlowNodeEntity>('ChildNode', {
    *   label: 'Child'
    * });
@@ -1126,7 +1126,7 @@ export class Flow<
    * ```
    *
    * @see {@link createEntity} Create a node entity
-   * @see {@link linkNodes} 链接已存在的两个节点
+   * @see {@link linkNodes} Link two existing nodes
    */
   public addNode(entity: NE, options?: FlowNodeLinkOptions): void {
     this.nodeOps.addNode(entity, options);
@@ -1134,12 +1134,12 @@ export class Flow<
   }
 
   /**
-   * 获取流程中的所有 Edge entity
+   * Get all edge entities in flow
    *
-   * 返回流程中所有 Edge entity (connections) 的数组. 这些是在节点之间建立的 connections.
+   * Return array of all edge entities (connections) in the flow. These are connections established between nodes.
    * method ensures all edges are registered in graph coordinator.
    *
-   * @returns 所有 Edge entity 的数组
+   * @returns Array of all edge entities
    *
    * @example
    * ```typescript
@@ -1152,21 +1152,21 @@ export class Flow<
    * });
    * ```
    *
-   * @see {@link getAllEntities} 获取所有 Node entity
-   * @see {@link linkNodes} 创建节点之间的 connections
-   * @see {@link addEdgeEntity} 添加 Edge entity
+   * @see {@link getAllEntities} Get all node entities
+   * @see {@link linkNodes} Create connections between nodes
+   * @see {@link addEdgeEntity} Add edge entity
    */
   public getAllEdgeEntities(): EE[] {
     return this.entityOps.getAllEdgeEntities();
   }
 
   /**
-   * 添加 Edge entity 到流程
+   * Add edge entity to flow
    *
-   * 将 Edge entity (connections 对象) 添加到流程并在图中注册.
-   * Edge entity 应该在添加前已经包含源和目标节点的引用.
+   * Add edge entity (connection object) to flow and register in graph.
+   * Edge entity should already contain references to source and target nodes before adding.
    *
-   * @param edge - 要添加的 Edge entity
+   * @param edge - Edge entity to add
    * @returns whether successfully added (returns false if parameter is empty)
    *
    * @example
@@ -1182,7 +1182,7 @@ export class Flow<
    * ```
    *
    * @see {@link createEdgeEntity} Create edge entity
-   * @see {@link linkNodes} 直接 Link two nodes
+   * @see {@link linkNodes} Directly link two nodes
    */
   public addEdgeEntity(edge: EE): boolean {
     const result = this.edgeOps.addEdge(edge);
@@ -1195,11 +1195,11 @@ export class Flow<
   /**
    * Link two nodes
    *
-   * 在两个节点之间创建 connections (边). both nodes must exist for successful linking.
-   * 链接操作会通过图坐标器进行验证和注册.
+   * Create connections (edges) between two nodes. Both nodes must exist for successful linking.
+   * Link operation will be validated and registered through the graph coordinator.
    *
-   * @param sourceId - 源节点 entity ID
-   * @param targetId - 目标节点 entity ID
+   * @param sourceId - Source node entity ID
+   * @param targetId - Target node entity ID
    * @param metadata - link metadata (optional)
    * @returns whether successfully linked
    *
@@ -1224,8 +1224,8 @@ export class Flow<
    * ```
    *
    * @see {@link unlinkNodes} remove link
-   * @see {@link addNode} 添加节点的同时建立链接
-   * @see {@link createEdgeEntity} 创建自定义 Edge entity
+   * @see {@link addNode} Add node and establish links simultaneously
+   * @see {@link createEdgeEntity} Create custom edge entity
    */
   public linkNodes(sourceId: string, targetId: string, metadata?: FlowLinkMetadata): boolean {
     const result = this.nodeOps.linkNodes(sourceId, targetId, {
@@ -1241,11 +1241,11 @@ export class Flow<
   /**
    * remove link between two nodes
    *
-   * 删除源节点和目标节点之间的 connections. if node ID is invalid or link does not exist, returns false.
+   * Remove connections between source and target nodes. If node ID is invalid or link does not exist, returns false.
    *
-   * @param sourceId - 源节点 entity ID
-   * @param targetId - 目标节点 entity ID
-   * @returns whether successfully removed (如果节点不存在或链接不存在 returns false)
+   * @param sourceId - Source node entity ID
+   * @param targetId - Target node entity ID
+   * @returns Whether successfully removed (returns false if node does not exist or link does not exist)
    *
    * @example
    * ```typescript
@@ -1258,8 +1258,8 @@ export class Flow<
    * }
    * ```
    *
-   * @see {@link linkNodes} 创建链接
-   * @see {@link removeEdgeEntity} 移除 Edge entity
+   * @see {@link linkNodes} Create link
+   * @see {@link removeEdgeEntity} Remove edge entity
    */
   public unlinkNodes(sourceId: string, targetId: string): boolean {
     const detached = this.graphCoordinator.unlinkNodes(sourceId, targetId);
@@ -1271,12 +1271,12 @@ export class Flow<
   }
 
   /**
-   * 移除 Edge entity
+   * Remove edge entity
    *
-   * 从流程中删除指定的 Edge entity 及其相关的图 connections.
+   * Delete specified edge entity from flow and its related graph connections.
    *
-   * @param edgeId - 边 entity ID
-   * @returns whether successfully removed (如果不存在 returns false)
+   * @param edgeId - Edge entity ID
+   * @returns Whether successfully removed (returns false if not exists)
    *
    * @example
    * ```typescript
@@ -1287,7 +1287,7 @@ export class Flow<
    * }
    * ```
    *
-   * @see {@link addEdgeEntity} 添加 Edge entity
+   * @see {@link addEdgeEntity} Add edge entity
    * @see {@link unlinkNodes} remove link between two nodes
    */
   public removeEdgeEntity(edgeId: string): boolean {
@@ -1300,12 +1300,12 @@ export class Flow<
   }
 
   /**
-   * 获取指定的 Edge entity
+   * Get specified edge entity
    *
-   * 根据边 entity ID 从注册表中检索 Edge entity.
+   * Retrieve edge entity from registry by edge entity ID.
    *
-   * @param edgeId - 边 entity ID
-   * @returns 找到的 Edge entity, returns undefined if does not exist or ID is empty
+   * @param edgeId - Edge entity ID
+   * @returns Found edge entity, returns undefined if it does not exist or ID is empty
    *
    * @example
    * ```typescript
@@ -1317,7 +1317,7 @@ export class Flow<
    * ```
    *
    * @see {@link createEdgeEntity} Create edge entity
-   * @see {@link getAllEdgeEntities} 获取所有 Edge entity
+   * @see {@link getAllEdgeEntities} Get all edge entities
    */
   public getEdgeEntity(edgeId: string): EE | undefined {
     return this.edgeOps.getEdge(edgeId);
@@ -1326,10 +1326,10 @@ export class Flow<
   /**
    * Find entity corresponding to node data
    *
-   * 通过 node object 查找并返回对应的 Node entity. for reverse lookup from node data.
+   * Find and return corresponding node entity by node object. For reverse lookup from node data.
    *
-   * @param node - 节点数据
-   * @returns 对应的 Node entity, returns undefined if not found
+   * @param node - Node data
+   * @returns Corresponding node entity, returns undefined if not found
    *
    * @example
    * ```typescript
@@ -1340,7 +1340,7 @@ export class Flow<
    * }
    * ```
    *
-   * @see {@link getNode} 根据 ID 获取节点
+   * @see {@link getNode} Get node by ID
    * @see {@link attachEntityToNode} Attach entity to node
    */
   public findEntityByNode(node: N): NE | undefined {
@@ -1350,14 +1350,14 @@ export class Flow<
   /**
    * Attach entity to node
    *
-   * internal method: 将 Node entity 关联到 node object.
+   * Internal method: Associate node entity with node object.
    * method is typically used internally, not recommended to call directly.
    *
    * @internal
-   * @param _node - node object (参数名前缀 _ 表示 parameter name prefix _ indicates unused)
-   * @param entity - 要附加的 Node entity
+   * @param _node - Node object (parameter name prefix _ indicates unused)
+   * @param entity - Node entity to attach
    *
-   * @see {@link findEntityByNode} 获取节点对应的实体
+   * @see {@link findEntityByNode} Get entity corresponding to node
    */
   attachEntityToNode(_node: N, entity: NE): void {
     this.registry.addNodeEntity(entity);

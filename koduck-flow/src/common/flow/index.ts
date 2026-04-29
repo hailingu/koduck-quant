@@ -1,8 +1,8 @@
-// 导出所有类型定义
+// Export all type definitions
 export * from "./types";
 export type * from "./model-types";
 
-// 导出具体实现类
+// Export concrete implementation classes
 export { FlowEntity } from "./flow-entity";
 export { BaseNode } from "./base-node";
 export { FlowAST } from "./flow-ast";
@@ -21,11 +21,11 @@ export { createEntityGuards } from "./utils/entity-guards";
 export { HookAdapter } from "./orchestration/hook-adapter";
 export { FlowSerializer } from "./serialization/flow-serializer";
 
-// 导出 Flow Entity 实体类
+// Export Flow Entity classes
 export { FlowNodeEntity, type IFlowNodeEntityArguments } from "./flow-node-entity";
 export { FlowEdgeEntity, type IFlowEdgeEntityArguments } from "./flow-edge-entity";
 
-// 导出 Flow Entity 注册表
+// Export Flow Entity registry
 export {
   flowRegistryManager,
   FLOW_NODE_ENTITY_TYPE,
@@ -39,7 +39,7 @@ export {
   registerFlowEntityType,
 } from "./flow-entity-registry";
 
-// 导出所有 operations 模块
+// Export all operations modules
 export {
   NodeOperations,
   EdgeOperations,

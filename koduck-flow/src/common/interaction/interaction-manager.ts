@@ -7,8 +7,8 @@ import type {
 } from "./types";
 
 /**
- * 轻量交互管理器：支持注册/注销多个工具，并按注册顺序分发事件。
- * 第一个返回 true 的工具可阻止后续工具处理该事件（可作为拦截机制）。
+ * Lightweight interaction manager: supports registering/unregistering multiple tools and dispatches events in registration order.
+ * The first tool that returns true can prevent subsequent tools from handling the event (can be used as an interception mechanism).
  */
 export class InteractionManager implements InteractionEnv {
   private tools: Tool[] = [];
@@ -48,7 +48,7 @@ export class InteractionManager implements InteractionEnv {
     this.tools = [];
   }
 
-  // 事件分发：如果某个 tool 返回 true，表示已处理且阻止冒泡到其他工具
+  // Event dispatch: if a tool returns true, it means the event is handled and bubbling to other tools is prevented
   onMouseDown(e: PointerLikeEvent) {
     for (const t of this.tools) if (t.onMouseDown?.(e, this)) return true;
     return false;

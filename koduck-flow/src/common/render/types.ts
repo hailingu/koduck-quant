@@ -18,22 +18,22 @@ export interface IRenderConfig {
   enableBatching?: boolean;
   enableCache?: boolean;
   maxCacheAge?: number;
-  /** 超时（ms）用于 registry 渲染调用的最大等待时间 */
+  /** Timeout (ms) for the maximum waiting time of registry render calls */
   renderTimeout?: number;
   /**
-   * 当 EntityManager 添加实体时是否自动触发渲染（默认为 false）
-   * - false: 由 Flow 决定何时提供 IRenderContext 并调用 RenderManager 渲染
-   * - true: RenderManager 会尝试在 onEntityAdded 时渲染（使用内部默认 context）
+   * Whether to automatically trigger rendering when EntityManager adds an entity (default false)
+   * - false: Flow decides when to provide IRenderContext and call RenderManager to render
+   * - true: RenderManager will attempt to render onEntityAdded (using internal default context)
    */
   autoRenderOnAdd?: boolean;
   renderContext?: IRenderContext;
-  /** 插件化策略选择器配置 */
+  /** Plugin-based strategy selector configuration */
   strategySelector?: RenderStrategySelectorRuntimeConfig;
   [key: string]: unknown;
 }
 
 /**
- * 渲染器性能统计接口
+ * Renderer performance statistics interface
  */
 export interface RenderPerformanceStats {
   renderCount: number;
@@ -48,70 +48,70 @@ export interface RenderPerformanceStats {
 }
 
 /**
- * 缓存渲染结果
+ * Cache render result
  */
 export interface CachedRender {
-  /** 图像数据 */
+  /** Image data */
   imageData: ImageData;
-  /** 渲染边界 */
+  /** Render bounds */
   bounds: { x: number; y: number; width: number; height: number };
-  /** 缓存时间戳 */
+  /** Cache timestamp */
   timestamp: number;
-  /** 数据大小(字节) */
+  /** Data size (bytes) */
   size: number;
-  /** 数据版本 */
+  /** Data version */
   version: string;
 }
 
 /**
- * 统一的渲染器接口
- * 合并了Entity渲染和Canvas渲染功能，采用基于方法的设计
+ * Unified renderer interface
+ * Combines entity rendering and canvas rendering functionality using a method-based design
  */
 export interface IRender extends IDisposable {
-  /** 获取渲染器名称 */
+  /** Get renderer name */
   getName(): string;
 
-  /** 获取渲染器类型 */
+  /** Get renderer type */
   getType(): "react" | "canvas" | "svg" | "webgl" | "webgpu" | "ssr";
 
-  /** 渲染单个实体 */
+  /** Render a single entity */
   render(entity: IEntity): React.ReactElement | string | Promise<string> | null | void;
 
-  /** 检查是否支持渲染某个实体 */
+  /** Check if an entity can be rendered */
   canRender(entity: IEntity): boolean;
 
-  /** 批量渲染实体（可选） */
+  /** Batch render entities (optional) */
   batchRender?(entities: IEntity[]): void;
 
-  /** 判断是否能处理当前渲染上下文 */
+  /** Determine if current render context can be handled */
   canHandle?(context: IRenderContext): boolean;
 
-  /** 获取渲染器优先级 (数值越大优先级越高) */
+  /** Get renderer priority (higher value means higher priority) */
   getPriority?(): number;
 
-  /** Canvas上下文渲染 */
+  /** Canvas context rendering */
   renderContext?(context: IRenderContext): void;
 
-  /** 获取性能统计 */
+  /** Get performance statistics */
   getPerformanceStats(): RenderPerformanceStats;
 
-  /** 配置渲染器（可选） */
+  /** Configure renderer (optional) */
   configure?(config: IRenderConfig): void;
 
   setRegistryManager(registryManager: IRegistryManager<IEntity, IMeta>): void;
 
-  /** 服务端渲染可选：直接输出字符串 */
+  /** Optional server-side rendering: directly output string */
   renderToString?(entity: IEntity, context: IRenderContext): string | Promise<string>;
 }
 
 /**
- * Canvas渲染器专用接口
- * 继承IRender并强制实现Canvas相关方法
+ * Canvas renderer-specific interface
+ * Extends IRender and enforces Canvas-related methods
  */
 export interface ICanvasRenderer extends IRender {
   getType(): "canvas";
 
-  // Canvas渲染方法变为必需
+  // Canvas rendering methods become required
   canHandle(context: IRenderContext): boolean;
   getPriority(): number;
   setRenderContext(context: IRenderContext): void;
@@ -120,19 +120,19 @@ export interface ICanvasRenderer extends IRender {
 }
 
 /**
- * React渲染器专用接口
- * 继承IRender并专注于React渲染
+ * React renderer-specific interface
+ * Extends IRender and focuses on React rendering
  */
 export interface IReactRenderer extends IRender {
   getType(): "react";
 
-  // React渲染方法强化类型
+  // React rendering methods with strengthened types
   render(entity: IEntity): React.ReactElement | null;
   canRender(entity: IEntity): boolean;
 }
 
 /**
- * 服务端渲染器接口
+ * Server-side renderer interface
  */
 export interface ISSRRenderer extends IRender {
   getType(): "ssr";
@@ -143,50 +143,50 @@ export interface ISSRRenderer extends IRender {
 }
 
 /**
- * 保留原有的简单渲染接口用于向后兼容
+ * Retain original simple render interface for backward compatibility
  */
 export interface ILegacyRender {
   render(): React.ReactElement;
 }
 
 /**
- * 渲染策略类型
+ * Render strategy type
  */
 export type RenderStrategy = "auto" | "react" | "canvas" | string;
 
 /**
- * 渲染选择结果接口
+ * Render selection result interface
  */
 export interface RenderSelection {
   renderer: IRender;
   mode: "canvas" | "react" | "webgpu" | "ssr";
   reason: string;
-  confidence: number; // 0-1, 选择的置信度
+  confidence: number; // 0-1, confidence of the selection
   renderToString?: (entity: IEntity, context: IRenderContext) => string | Promise<string>;
 }
 
 /**
- * 渲染策略接口
+ * Render strategy interface
  */
 export interface IRenderStrategy {
   /**
-   * 智能选择最优渲染器
+   * Intelligently select the optimal renderer
    */
   selectOptimalRenderer(entity: IEntity, context: IRenderContext): RenderSelection;
 
   /**
-   * 批量选择：按渲染器分组
+   * Batch selection: group by renderer
    */
   selectForBatch(entities: IEntity[]): Map<IRender, IEntity[]>;
 
   /**
-   * 策略名称
+   * Strategy name
    */
   getStrategyName(): string;
 }
 
 /**
- * 渲染结果接口
+ * Render result interface
  */
 export interface RenderResult {
   success: boolean;
@@ -198,7 +198,7 @@ export interface RenderResult {
 }
 
 /**
- * 并发渲染选项
+ * Concurrent render options
  */
 export interface ConcurrentRenderOptions {
   priority?: "high" | "normal" | "low";

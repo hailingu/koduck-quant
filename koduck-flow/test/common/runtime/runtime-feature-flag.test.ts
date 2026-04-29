@@ -28,53 +28,53 @@ function createTestContext(overrides?: Partial<ResolvedTenantContext>): Resolved
 }
 
 describe("RuntimeFeatureFlag", () => {
-  describe("构造函数和初始化", () => {
-    it("应该成功创建实例", () => {
+  describe("Constructor and Initialization", () => {
+    it("should successfully create an instance", () => {
       const featureFlag = new RuntimeFeatureFlag(() => null);
       expect(featureFlag).toBeDefined();
       expect(featureFlag).toBeInstanceOf(RuntimeFeatureFlag);
     });
 
-    it("应该在 provider 不是函数时抛出错误", () => {
+    it("should throw an error when provider is not a function", () => {
       expect(() => {
         // @ts-expect-error - Testing invalid input
         new RuntimeFeatureFlag(null);
       }).toThrow("RuntimeFeatureFlag: tenantContextProvider must be a function");
     });
 
-    it("应该在 provider 为 undefined 时抛出错误", () => {
+    it("should throw an error when provider is undefined", () => {
       expect(() => {
         // @ts-expect-error - Testing invalid input
         new RuntimeFeatureFlag(undefined);
       }).toThrow("RuntimeFeatureFlag: tenantContextProvider must be a function");
     });
 
-    it("应该接受返回 null 的 provider", () => {
+    it("should accept a provider that returns null", () => {
       const featureFlag = new RuntimeFeatureFlag(() => null);
       expect(featureFlag.isFeatureEnabled("test")).toBe(false);
     });
   });
 
-  describe("isFeatureEnabled() - 特性开关查询", () => {
-    it("应该在没有租户上下文时返回默认值 false", () => {
+  describe("isFeatureEnabled() - Feature Flag Query", () => {
+    it("should return default value false when no tenant context", () => {
       const featureFlag = new RuntimeFeatureFlag(() => null);
       expect(featureFlag.isFeatureEnabled("feature-a")).toBe(false);
     });
 
-    it("应该在没有租户上下文时返回指定的默认值", () => {
+    it("should return specified default value when no tenant context", () => {
       const featureFlag = new RuntimeFeatureFlag(() => null);
       expect(featureFlag.isFeatureEnabled("feature-a", true)).toBe(true);
       expect(featureFlag.isFeatureEnabled("feature-b", false)).toBe(false);
     });
 
-    it("应该在没有 rollout 配置时返回默认值", () => {
+    it("should return default value when no rollout config", () => {
       const context = createTestContext({ rollout: undefined });
       const featureFlag = new RuntimeFeatureFlag(() => context);
       expect(featureFlag.isFeatureEnabled("feature-a")).toBe(false);
       expect(featureFlag.isFeatureEnabled("feature-a", true)).toBe(true);
     });
 
-    it("应该在没有 features 配置时返回默认值", () => {
+    it("should return default value when no features config", () => {
       const context = createTestContext({
         rollout: {
           percentage: 50,
@@ -86,7 +86,7 @@ describe("RuntimeFeatureFlag", () => {
       expect(featureFlag.isFeatureEnabled("feature-a", true)).toBe(true);
     });
 
-    it("应该返回 feature flag 的配置值 - true", () => {
+    it("should return feature flag config value - true", () => {
       const context = createTestContext({
         rollout: {
           features: {
@@ -99,7 +99,7 @@ describe("RuntimeFeatureFlag", () => {
       expect(featureFlag.isFeatureEnabled("dark-mode")).toBe(true);
     });
 
-    it("应该返回 feature flag 的配置值 - false", () => {
+    it("should return feature flag config value - false", () => {
       const context = createTestContext({
         rollout: {
           features: {
@@ -112,7 +112,7 @@ describe("RuntimeFeatureFlag", () => {
       expect(featureFlag.isFeatureEnabled("new-ui")).toBe(false);
     });
 
-    it("应该在 feature 不存在时返回默认值", () => {
+    it("should return default value when feature does not exist", () => {
       const context = createTestContext({
         rollout: {
           features: {
@@ -125,7 +125,7 @@ describe("RuntimeFeatureFlag", () => {
       expect(featureFlag.isFeatureEnabled("non-existent", true)).toBe(true);
     });
 
-    it("应该支持多个 feature flags", () => {
+    it("should support multiple feature flags", () => {
       const context = createTestContext({
         rollout: {
           features: {
@@ -142,19 +142,19 @@ describe("RuntimeFeatureFlag", () => {
     });
   });
 
-  describe("getRolloutVariant() - 获取 Rollout 变体", () => {
-    it("应该在没有租户上下文时返回 undefined", () => {
+  describe("getRolloutVariant() - Get Rollout Variant", () => {
+    it("should return undefined when no tenant context", () => {
       const featureFlag = new RuntimeFeatureFlag(() => null);
       expect(featureFlag.getRolloutVariant()).toBeUndefined();
     });
 
-    it("应该在没有 rollout 配置时返回 undefined", () => {
+    it("should return undefined when no rollout config", () => {
       const context = createTestContext({ rollout: undefined });
       const featureFlag = new RuntimeFeatureFlag(() => context);
       expect(featureFlag.getRolloutVariant()).toBeUndefined();
     });
 
-    it("应该返回配置的 variant", () => {
+    it("should return configured variant", () => {
       const context = createTestContext({
         rollout: {
           variant: "experimental",
@@ -164,7 +164,7 @@ describe("RuntimeFeatureFlag", () => {
       expect(featureFlag.getRolloutVariant()).toBe("experimental");
     });
 
-    it("应该处理 variant 为 undefined 的情况", () => {
+    it("should handle variant as undefined", () => {
       const context = createTestContext({
         rollout: {
           variant: undefined,
@@ -175,19 +175,19 @@ describe("RuntimeFeatureFlag", () => {
     });
   });
 
-  describe("getRolloutCohort() - 获取 Rollout 分组", () => {
-    it("应该在没有租户上下文时返回 undefined", () => {
+  describe("getRolloutCohort() - Get Rollout Cohort", () => {
+    it("should return undefined when no tenant context", () => {
       const featureFlag = new RuntimeFeatureFlag(() => null);
       expect(featureFlag.getRolloutCohort()).toBeUndefined();
     });
 
-    it("应该在没有 rollout 配置时返回 undefined", () => {
+    it("should return undefined when no rollout config", () => {
       const context = createTestContext({ rollout: undefined });
       const featureFlag = new RuntimeFeatureFlag(() => context);
       expect(featureFlag.getRolloutCohort()).toBeUndefined();
     });
 
-    it("应该返回配置的 cohort", () => {
+    it("should return configured cohort", () => {
       const context = createTestContext({
         rollout: {
           cohort: "early-adopters",
@@ -197,7 +197,7 @@ describe("RuntimeFeatureFlag", () => {
       expect(featureFlag.getRolloutCohort()).toBe("early-adopters");
     });
 
-    it("应该处理 cohort 为 undefined 的情况", () => {
+    it("should handle cohort as undefined", () => {
       const context = createTestContext({
         rollout: {
           cohort: undefined,
@@ -208,13 +208,13 @@ describe("RuntimeFeatureFlag", () => {
     });
   });
 
-  describe("isInRollout() - Rollout 百分比检查", () => {
-    it("应该在没有租户上下文时返回 true", () => {
+  describe("isInRollout() - Rollout Percentage Check", () => {
+    it("should return true when no tenant context", () => {
       const featureFlag = new RuntimeFeatureFlag(() => null);
       expect(featureFlag.isInRollout()).toBe(true);
     });
 
-    it("应该在没有 percentage 配置时返回 true (100% rollout)", () => {
+    it("should return true when no percentage config (100% rollout)", () => {
       const context = createTestContext({
         rollout: {
           percentage: undefined,
@@ -224,7 +224,7 @@ describe("RuntimeFeatureFlag", () => {
       expect(featureFlag.isInRollout()).toBe(true);
     });
 
-    it("应该在 percentage = 0 时返回 false", () => {
+    it("should return false when percentage = 0", () => {
       const context = createTestContext({
         rollout: {
           percentage: 0,
@@ -234,7 +234,7 @@ describe("RuntimeFeatureFlag", () => {
       expect(featureFlag.isInRollout()).toBe(false);
     });
 
-    it("应该在 percentage < 0 时返回 false", () => {
+    it("should return false when percentage < 0", () => {
       const context = createTestContext({
         rollout: {
           percentage: -10,
@@ -244,7 +244,7 @@ describe("RuntimeFeatureFlag", () => {
       expect(featureFlag.isInRollout()).toBe(false);
     });
 
-    it("应该在 percentage = 100 时返回 true", () => {
+    it("should return true when percentage = 100", () => {
       const context = createTestContext({
         rollout: {
           percentage: 100,
@@ -254,7 +254,7 @@ describe("RuntimeFeatureFlag", () => {
       expect(featureFlag.isInRollout()).toBe(true);
     });
 
-    it("应该在 percentage > 100 时返回 true", () => {
+    it("should return true when percentage > 100", () => {
       const context = createTestContext({
         rollout: {
           percentage: 150,
@@ -264,7 +264,7 @@ describe("RuntimeFeatureFlag", () => {
       expect(featureFlag.isInRollout()).toBe(true);
     });
 
-    it("应该根据 percentage 和 bucket 计算返回正确结果", () => {
+    it("should return correct result based on percentage and bucket calculation", () => {
       // Create a context that will generate a predictable bucket
       const context = createTestContext({
         tenantId: "test-tenant-123",
@@ -279,7 +279,7 @@ describe("RuntimeFeatureFlag", () => {
       expect(typeof result).toBe("boolean");
     });
 
-    it("应该使用 seed 参数影响 bucket 计算", () => {
+    it("should use seed parameter to affect bucket calculation", () => {
       const context = createTestContext({
         tenantId: "test-tenant",
         rollout: {
@@ -297,7 +297,7 @@ describe("RuntimeFeatureFlag", () => {
       expect(typeof result2).toBe("boolean");
     });
 
-    it("应该使用 stickyKey 保证同一用户的一致性", () => {
+    it("should use stickyKey to ensure consistency for the same user", () => {
       const context = createTestContext({
         tenantId: "test-tenant",
         rollout: {
@@ -316,7 +316,7 @@ describe("RuntimeFeatureFlag", () => {
       expect(result2).toBe(result3);
     });
 
-    it("应该根据 percentage 1 返回一致的结果", () => {
+    it("should return consistent result for percentage 1", () => {
       const context = createTestContext({
         tenantId: "test-tenant",
         rollout: {
@@ -330,7 +330,7 @@ describe("RuntimeFeatureFlag", () => {
       expect(typeof result).toBe("boolean");
     });
 
-    it("应该根据 percentage 99 返回一致的结果", () => {
+    it("should return consistent result for percentage 99", () => {
       const context = createTestContext({
         tenantId: "test-tenant",
         rollout: {
@@ -345,8 +345,8 @@ describe("RuntimeFeatureFlag", () => {
     });
   });
 
-  describe("边界条件和错误处理", () => {
-    it("应该处理空字符串 feature flag 名称", () => {
+  describe("Boundary Conditions and Error Handling", () => {
+    it("should handle empty string feature flag name", () => {
       const context = createTestContext({
         rollout: {
           features: {
@@ -358,7 +358,7 @@ describe("RuntimeFeatureFlag", () => {
       expect(featureFlag.isFeatureEnabled("")).toBe(true);
     });
 
-    it("应该处理包含特殊字符的 feature flag 名称", () => {
+    it("should handle feature flag names with special characters", () => {
       const context = createTestContext({
         rollout: {
           features: {
@@ -374,7 +374,7 @@ describe("RuntimeFeatureFlag", () => {
       expect(featureFlag.isFeatureEnabled("feature_with_underscores")).toBe(true);
     });
 
-    it("应该处理 provider 动态返回不同上下文的情况", () => {
+    it("should handle provider dynamically returning different contexts", () => {
       let context: ResolvedTenantContext | null = null;
       const featureFlag = new RuntimeFeatureFlag(() => context);
 
@@ -396,7 +396,7 @@ describe("RuntimeFeatureFlag", () => {
       expect(featureFlag.isFeatureEnabled("feature-a")).toBe(false);
     });
 
-    it("应该处理完整的 rollout 配置", () => {
+    it("should handle full rollout config", () => {
       const context = createTestContext({
         rollout: {
           percentage: 75,
@@ -418,7 +418,7 @@ describe("RuntimeFeatureFlag", () => {
       expect(typeof featureFlag.isInRollout()).toBe("boolean");
     });
 
-    it("应该处理只有部分 rollout 字段的配置", () => {
+    it("should handle config with only partial rollout fields", () => {
       const context = createTestContext({
         rollout: {
           features: {
@@ -435,7 +435,7 @@ describe("RuntimeFeatureFlag", () => {
       expect(featureFlag.isInRollout()).toBe(true); // No percentage = 100%
     });
 
-    it("应该处理 percentage 边界值精确性", () => {
+    it("should handle percentage boundary value precision", () => {
       // Test percentage = 0.1
       const context1 = createTestContext({
         rollout: { percentage: 0.1 },
@@ -452,7 +452,7 @@ describe("RuntimeFeatureFlag", () => {
       expect(typeof result2).toBe("boolean");
     });
 
-    it("应该确保相同输入产生相同的 bucket", () => {
+    it("should ensure the same input produces the same bucket", () => {
       const context = createTestContext({
         tenantId: "consistent-tenant",
         rollout: {

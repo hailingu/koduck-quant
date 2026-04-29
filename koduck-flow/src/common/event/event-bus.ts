@@ -1,96 +1,96 @@
 /**
- * Koduck Flow 系统级事件总线
+ * Koduck Flow System-level Event Bus
  *
- * 统一管理系统级事件，包括日志记录和系统事件。
- * 继承自 EventManager 基类，可按需实例化，也提供默认实例。
+ * Manages system-level events uniformly, including logging and system events.
+ * Extends EventManager base class, can be instantiated on demand, also provides a default instance.
  */
 
 import { BaseEvent, GenericEvent } from "./event";
 import { EventManager } from "./event-manager";
 
 /**
- * 日志事件接口
+ * Log event interface
  */
 interface LogEvent {
-  /** 日志级别 */
+  /** Log level */
   level: "debug" | "info" | "warn" | "error" | "fatal";
-  /** 日志消息 */
+  /** Log message */
   message: string;
-  /** 错误对象(如果有) */
+  /** Error object (if any) */
   error?: Error | undefined;
-  /** 上下文信息 */
+  /** Context information */
   context?: Record<string, unknown> | undefined;
-  /** 时间戳 */
+  /** Timestamp */
   timestamp: number;
-  /** 来源模块 */
+  /** Source module */
   source?: string | undefined;
 }
 
 /**
- * 系统事件接口
+ * System event interface
  */
 interface SystemEvent {
-  /** 事件类型 */
+  /** Event type */
   type: "startup" | "shutdown" | "error" | "warning" | "config-change";
-  /** 事件数据 */
+  /** Event data */
   data: unknown;
-  /** 时间戳 */
+  /** Timestamp */
   timestamp: number;
-  /** 事件源 */
+  /** Event source */
   source: string;
 }
 
 /**
- * 日志事件
+ * Log event
  *
- * 专门用于日志数据的收集和分发
+ * Dedicated for log data collection and distribution
  */
 class LoggingEvent extends BaseEvent<LogEvent> {
   constructor() {
     super("LoggingEvent", {
       enableBatching: true,
       batchSize: 50,
-      batchInterval: 500, // 500ms批量处理日志
+      batchInterval: 500, // 500ms batch processing for logs
     });
   }
 
   /**
-   * 记录调试日志
+   * Record debug log
    */
   debug(message: string, context?: Record<string, unknown>, source?: string): void {
     this.log("debug", message, undefined, context, source);
   }
 
   /**
-   * 记录信息日志
+   * Record info log
    */
   info(message: string, context?: Record<string, unknown>, source?: string): void {
     this.log("info", message, undefined, context, source);
   }
 
   /**
-   * 记录警告日志
+   * Record warning log
    */
   warn(message: string, context?: Record<string, unknown>, source?: string): void {
     this.log("warn", message, undefined, context, source);
   }
 
   /**
-   * 记录错误日志
+   * Record error log
    */
   error(message: string, error?: Error, context?: Record<string, unknown>, source?: string): void {
     this.log("error", message, error, context, source);
   }
 
   /**
-   * 记录致命错误日志
+   * Record fatal error log
    */
   fatal(message: string, error?: Error, context?: Record<string, unknown>, source?: string): void {
     this.log("fatal", message, error, context, source);
   }
 
   /**
-   * 通用日志记录方法
+   * Generic logging method
    */
   private log(
     level: LogEvent["level"],
@@ -113,19 +113,19 @@ class LoggingEvent extends BaseEvent<LogEvent> {
 }
 
 /**
- * 系统事件总线
+ * System event bus
  *
- * 专门用于系统级事件的管理
+ * Dedicated for system-level event management
  */
 class SystemEventBus extends BaseEvent<SystemEvent> {
   constructor() {
     super("SystemEvent", {
-      enableBatching: false, // 系统事件需要立即处理
+      enableBatching: false, // System events need immediate processing
     });
   }
 
   /**
-   * 系统启动事件
+   * System startup event
    */
   startup(data: unknown, source: string): void {
     this.fire({
@@ -137,7 +137,7 @@ class SystemEventBus extends BaseEvent<SystemEvent> {
   }
 
   /**
-   * 系统关闭事件
+   * System shutdown event
    */
   shutdown(data: unknown, source: string): void {
     this.fire({
@@ -149,7 +149,7 @@ class SystemEventBus extends BaseEvent<SystemEvent> {
   }
 
   /**
-   * 系统错误事件
+   * System error event
    */
   systemError(data: unknown, source: string): void {
     this.fire({
@@ -161,7 +161,7 @@ class SystemEventBus extends BaseEvent<SystemEvent> {
   }
 
   /**
-   * 系统警告事件
+   * System warning event
    */
   systemWarning(data: unknown, source: string): void {
     this.fire({
@@ -173,7 +173,7 @@ class SystemEventBus extends BaseEvent<SystemEvent> {
   }
 
   /**
-   * 配置变更事件
+   * Configuration change event
    */
   configChange(data: unknown, source: string): void {
     this.fire({
@@ -186,19 +186,19 @@ class SystemEventBus extends BaseEvent<SystemEvent> {
 }
 
 /**
- * 系统级事件总线
+ * System-level event bus
  *
- * 继承自 EventManager 基类，统一管理系统级事件
- * 提供可复用的默认实例，也支持按需创建独立实例
+ * Extends EventManager base class, manages system-level events uniformly
+ * Provides a reusable default instance, also supports creating independent instances on demand
  */
 class EventBus extends EventManager {
-  /** 日志事件实例 */
+  /** Log event instance */
   public readonly logging = new LoggingEvent();
 
-  /** 系统事件实例 */
+  /** System event instance */
   public readonly system = new SystemEventBus();
 
-  /** 通用事件映射 */
+  /** Custom event map */
   private readonly customEvents = new Map<string, BaseEvent<unknown>>();
 
   constructor() {
@@ -206,7 +206,7 @@ class EventBus extends EventManager {
   }
 
   /**
-   * 重写基类方法：为所有系统事件设置调试模式
+   * Override base class method: set debug mode for all system events
    */
   override setDebugMode(enabled: boolean): this {
     this.logging.setDebugMode(enabled);
@@ -216,7 +216,7 @@ class EventBus extends EventManager {
   }
 
   /**
-   * 重写基类方法：配置所有系统事件
+   * Override base class method: configure all system events
    */
   override configureAll(config: Partial<import("./event").EventConfiguration>): this {
     this.logging.updateConfiguration(config);
@@ -226,7 +226,7 @@ class EventBus extends EventManager {
   }
 
   /**
-   * 重写基类方法：强制处理所有系统事件批次
+   * Override base class method: force process all system event batches
    */
   override flushAllBatches(): void {
     this.logging.flushBatch();
@@ -235,7 +235,7 @@ class EventBus extends EventManager {
   }
 
   /**
-   * 重写基类方法：清除所有系统事件监听器
+   * Override base class method: clear all system event listeners
    */
   override clearAll(): void {
     this.logging.clear();
@@ -244,19 +244,19 @@ class EventBus extends EventManager {
   }
 
   /**
-   * 重写基类方法：获取所有系统事件统计信息
-   * 注意：按要求移除统计功能
+   * Override base class method: get all system event statistics
+   * Note: Statistics feature removed as required
    */
   getAllStats(): Record<string, unknown> {
     return {
       managerType: this.constructor.name,
       timestamp: Date.now(),
-      message: "统计功能已移除",
+      message: "Statistics feature removed",
     };
   }
 
   /**
-   * 重写基类方法：重置所有系统事件
+   * Override base class method: reset all system events
    */
   override resetAll(): void {
     this.logging.reset();
@@ -265,7 +265,7 @@ class EventBus extends EventManager {
   }
 
   /**
-   * 重写基类方法：清理所有系统事件资源
+   * Override base class method: clean up all system event resources
    */
   override dispose(): void {
     this.logging.dispose();
@@ -274,27 +274,27 @@ class EventBus extends EventManager {
     this.customEvents.clear();
   }
 
-  // ===== EventBus 特有的方法 =====
+  // ===== EventBus specific methods =====
 
   /**
-   * 注册自定义事件
-   * @param eventName 事件名称
-   * @param event 事件实例
+   * Register custom event
+   * @param eventName Event name
+   * @param event Event instance
    */
   registerEvent<T>(eventName: string, event: BaseEvent<T>): void {
     this.customEvents.set(eventName, event as BaseEvent<unknown>);
   }
 
   /**
-   * 注销自定义事件并清理其资源
-   * @param eventName 事件名称
-   * @returns 是否成功注销
+   * Unregister custom event and clean up its resources
+   * @param eventName Event name
+   * @returns Whether unregistered successfully
    */
   unregisterEvent(eventName: string): boolean {
     const event = this.customEvents.get(eventName);
     if (!event) return false;
     try {
-      // 释放事件内的监听与定时器等资源
+      // Release event listeners and timers
       event.dispose();
     } finally {
       this.customEvents.delete(eventName);
@@ -303,22 +303,22 @@ class EventBus extends EventManager {
   }
 
   /**
-   * 获取自定义事件
-   * @param eventName 事件名称
+   * Get custom event
+   * @param eventName Event name
    */
   getEvent<T>(eventName: string): BaseEvent<T> | undefined {
     return this.customEvents.get(eventName) as BaseEvent<T> | undefined;
   }
 
   /**
-   * 通用事件监听器注册 (兼容性方法)
-   * @param eventName 事件名称
-   * @param listener 监听器函数
+   * Generic event listener registration (compatibility method)
+   * @param eventName Event name
+   * @param listener Listener function
    */
   on<T>(eventName: string, listener: (payload: T) => void): () => void {
     let event = this.customEvents.get(eventName) as BaseEvent<T>;
     if (!event) {
-      // 自动创建事件
+      // Auto-create event
       event = new GenericEvent<T>(eventName);
       this.customEvents.set(eventName, event as BaseEvent<unknown>);
     }
@@ -326,9 +326,9 @@ class EventBus extends EventManager {
   }
 
   /**
-   * 注销事件监听器 (兼容性方法)
-   * @param eventName 事件名称
-   * @param listener 监听器函数
+   * Unregister event listener (compatibility method)
+   * @param eventName Event name
+   * @param listener Listener function
    */
   off<T>(eventName: string, listener: (payload: T) => void): boolean {
     const event = this.customEvents.get(eventName) as BaseEvent<T>;
@@ -336,9 +336,9 @@ class EventBus extends EventManager {
   }
 
   /**
-   * 触发事件 (兼容性方法)
-   * @param eventName 事件名称
-   * @param payload 事件数据
+   * Emit event (compatibility method)
+   * @param eventName Event name
+   * @param payload Event data
    */
   emit<T>(eventName: string, payload: T): void {
     const event = this.customEvents.get(eventName) as BaseEvent<T>;
@@ -348,7 +348,7 @@ class EventBus extends EventManager {
   }
 }
 
-// 导出统一的事件系统
+// Export unified event system
 export { EventBus, LoggingEvent, SystemEventBus, type LogEvent, type SystemEvent };
 
 export function createEventBus(): EventBus {

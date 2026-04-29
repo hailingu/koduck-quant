@@ -41,20 +41,20 @@ describe("RuntimeDebugConfiguration", () => {
     vi.clearAllMocks();
   });
 
-  describe("构造函数和初始化", () => {
-    it("应该成功创建实例", () => {
+  describe("Constructor and Initialization", () => {
+    it("should successfully create an instance", () => {
       expect(debugConfig).toBeDefined();
       expect(debugConfig).toBeInstanceOf(RuntimeDebugConfiguration);
     });
 
-    it("应该初始化时调试选项为 undefined", () => {
+    it("should have debug options as undefined on initialization", () => {
       const options = debugConfig.getDebugOptions();
       expect(options).toBeUndefined();
     });
   });
 
-  describe("configureDebug() - 配置调试选项", () => {
-    it("应该能够设置完整的调试选项", () => {
+  describe("configureDebug() - Configure Debug Options", () => {
+    it("should be able to set full debug options", () => {
       debugConfig.configureDebug({
         enabled: true,
         logLevel: "debug",
@@ -72,7 +72,7 @@ describe("RuntimeDebugConfiguration", () => {
       expect(options?.panel).toEqual({ position: "bottom" });
     });
 
-    it("应该能够设置部分调试选项", () => {
+    it("should be able to set partial debug options", () => {
       debugConfig.configureDebug({
         enabled: true,
         logLevel: "info",
@@ -85,21 +85,21 @@ describe("RuntimeDebugConfiguration", () => {
       expect(options?.eventTracking).toBeUndefined();
     });
 
-    it("应该能够清除调试选项（传入 undefined）", () => {
-      // 先设置调试选项
+    it("should be able to clear debug options (pass undefined)", () => {
+      // First set debug options
       debugConfig.configureDebug({
         enabled: true,
         logLevel: "debug",
       });
 
-      // 再清除
+      // Then clear
       debugConfig.configureDebug();
 
       const options = debugConfig.getDebugOptions();
       expect(options).toBeUndefined();
     });
 
-    it("应该深度克隆调试选项，外部修改不影响内部状态", () => {
+    it("should deep clone debug options so external modifications don't affect internal state", () => {
       const originalOptions = {
         enabled: true,
         panel: { position: "bottom" as "bottom" | "top" },
@@ -107,19 +107,19 @@ describe("RuntimeDebugConfiguration", () => {
 
       debugConfig.configureDebug(originalOptions);
 
-      // 修改原始对象
+      // Modify original object
       originalOptions.enabled = false;
       if (originalOptions.panel) {
         originalOptions.panel.position = "top";
       }
 
-      // 验证内部状态未被修改
+      // Verify internal state is not modified
       const storedOptions = debugConfig.getDebugOptions();
       expect(storedOptions?.enabled).toBe(true);
       expect(storedOptions?.panel?.position).toBe("bottom");
     });
 
-    it("应该处理没有 panel 的选项", () => {
+    it("should handle options without panel", () => {
       debugConfig.configureDebug({
         enabled: false,
         logLevel: "warn",
@@ -131,8 +131,8 @@ describe("RuntimeDebugConfiguration", () => {
     });
   });
 
-  describe("getDebugOptions() - 获取调试选项", () => {
-    it("应该返回调试选项的克隆", () => {
+  describe("getDebugOptions() - Get Debug Options", () => {
+    it("should return a clone of debug options", () => {
       debugConfig.configureDebug({
         enabled: true,
         panel: { position: "bottom" },
@@ -142,10 +142,10 @@ describe("RuntimeDebugConfiguration", () => {
       const options2 = debugConfig.getDebugOptions();
 
       expect(options1).toEqual(options2);
-      expect(options1).not.toBe(options2); // 不同对象引用
+      expect(options1).not.toBe(options2); // Different object references
     });
 
-    it("应该深度克隆 panel 对象", () => {
+    it("should deep clone panel object", () => {
       debugConfig.configureDebug({
         enabled: true,
         panel: { position: "bottom" },
@@ -155,10 +155,10 @@ describe("RuntimeDebugConfiguration", () => {
       const options2 = debugConfig.getDebugOptions();
 
       expect(options1?.panel).toEqual(options2?.panel);
-      expect(options1?.panel).not.toBe(options2?.panel); // 不同对象引用
+      expect(options1?.panel).not.toBe(options2?.panel); // Different object references
     });
 
-    it("应该防止通过返回值修改内部状态", () => {
+    it("should prevent internal state modification through return value", () => {
       debugConfig.configureDebug({
         enabled: true,
         panel: { position: "bottom" },
@@ -173,20 +173,20 @@ describe("RuntimeDebugConfiguration", () => {
         }
       }
 
-      // 验证内部状态未被修改
+      // Verify internal state is not modified
       const storedOptions = debugConfig.getDebugOptions();
       expect(storedOptions?.enabled).toBe(true);
       expect(storedOptions?.panel?.position).toBe("bottom");
     });
 
-    it("应该在未配置时返回 undefined", () => {
+    it("should return undefined when not configured", () => {
       const options = debugConfig.getDebugOptions();
       expect(options).toBeUndefined();
     });
   });
 
-  describe("Logger 同步", () => {
-    it("应该在启用时同步 enabled 到 Logger", () => {
+  describe("Logger Sync", () => {
+    it("should sync enabled to Logger when enabled", () => {
       const setConfigSpy = vi.spyOn(logger, "setConfig");
 
       debugConfig.configureDebug({
@@ -200,7 +200,7 @@ describe("RuntimeDebugConfiguration", () => {
       );
     });
 
-    it("应该在禁用时同步 enabled 到 Logger", () => {
+    it("should sync enabled to Logger when disabled", () => {
       const setConfigSpy = vi.spyOn(logger, "setConfig");
 
       debugConfig.configureDebug({
@@ -214,7 +214,7 @@ describe("RuntimeDebugConfiguration", () => {
       );
     });
 
-    it("应该同步 logLevel 到 Logger", () => {
+    it("should sync logLevel to Logger", () => {
       const setConfigSpy = vi.spyOn(logger, "setConfig");
 
       debugConfig.configureDebug({
@@ -228,7 +228,7 @@ describe("RuntimeDebugConfiguration", () => {
       );
     });
 
-    it("应该同步 includeEmoji 到 Logger", () => {
+    it("should sync includeEmoji to Logger", () => {
       const setConfigSpy = vi.spyOn(logger, "setConfig");
 
       debugConfig.configureDebug({
@@ -242,7 +242,7 @@ describe("RuntimeDebugConfiguration", () => {
       );
     });
 
-    it("应该同时同步多个 Logger 配置项", () => {
+    it("should sync multiple Logger config items at the same time", () => {
       const setConfigSpy = vi.spyOn(logger, "setConfig");
 
       debugConfig.configureDebug({
@@ -258,7 +258,7 @@ describe("RuntimeDebugConfiguration", () => {
       });
     });
 
-    it("应该在选项为空对象时不调用 Logger.setConfig", () => {
+    it("should not call Logger.setConfig when options is empty object", () => {
       const setConfigSpy = vi.spyOn(logger, "setConfig");
 
       debugConfig.configureDebug({});
@@ -266,7 +266,7 @@ describe("RuntimeDebugConfiguration", () => {
       expect(setConfigSpy).not.toHaveBeenCalled();
     });
 
-    it("应该在选项为 undefined 时不调用 Logger.setConfig", () => {
+    it("should not call Logger.setConfig when options is undefined", () => {
       const setConfigSpy = vi.spyOn(logger, "setConfig");
 
       debugConfig.configureDebug();
@@ -275,8 +275,8 @@ describe("RuntimeDebugConfiguration", () => {
     });
   });
 
-  describe("事件管理器同步", () => {
-    it("应该在 eventTracking=true 时启用所有事件管理器的调试模式", () => {
+  describe("Event Manager Sync", () => {
+    it("should enable debug mode for all event managers when eventTracking=true", () => {
       debugConfig.configureDebug({
         eventTracking: true,
       });
@@ -286,7 +286,7 @@ describe("RuntimeDebugConfiguration", () => {
       expect(mockEventManagers.entityEvents.setDebugMode).toHaveBeenCalledWith(true);
     });
 
-    it("应该在 eventTracking=false 时禁用所有事件管理器的调试模式", () => {
+    it("should disable debug mode for all event managers when eventTracking=false", () => {
       debugConfig.configureDebug({
         eventTracking: false,
       });
@@ -296,7 +296,7 @@ describe("RuntimeDebugConfiguration", () => {
       expect(mockEventManagers.entityEvents.setDebugMode).toHaveBeenCalledWith(false);
     });
 
-    it("应该在 eventTracking 未定义时禁用所有事件管理器的调试模式", () => {
+    it("should disable debug mode for all event managers when eventTracking is undefined", () => {
       debugConfig.configureDebug({
         enabled: true,
       });
@@ -306,7 +306,7 @@ describe("RuntimeDebugConfiguration", () => {
       expect(mockEventManagers.entityEvents.setDebugMode).toHaveBeenCalledWith(false);
     });
 
-    it("应该在选项为 undefined 时禁用所有事件管理器的调试模式", () => {
+    it("should disable debug mode for all event managers when options is undefined", () => {
       debugConfig.configureDebug();
 
       expect(mockEventManagers.eventBus.setDebugMode).toHaveBeenCalledWith(false);
@@ -314,7 +314,7 @@ describe("RuntimeDebugConfiguration", () => {
       expect(mockEventManagers.entityEvents.setDebugMode).toHaveBeenCalledWith(false);
     });
 
-    it("应该在 renderEvents.setDebugMode 不存在时不抛出错误", () => {
+    it("should not throw when renderEvents.setDebugMode does not exist", () => {
       const eventManagersWithoutRenderDebug = {
         ...mockEventManagers,
         renderEvents: {} as RenderEventManager,
@@ -328,9 +328,9 @@ describe("RuntimeDebugConfiguration", () => {
     });
   });
 
-  describe("集成场景", () => {
-    it("应该支持完整的配置-获取-修改流程", () => {
-      // 第一次配置
+  describe("Integration Scenarios", () => {
+    it("should support full configure-get-modify flow", () => {
+      // First configuration
       debugConfig.configureDebug({
         enabled: true,
         logLevel: "debug",
@@ -340,7 +340,7 @@ describe("RuntimeDebugConfiguration", () => {
       let options = debugConfig.getDebugOptions();
       expect(options?.enabled).toBe(true);
 
-      // 第二次配置（修改）
+      // Second configuration (modify)
       debugConfig.configureDebug({
         enabled: false,
         logLevel: "error",
@@ -351,7 +351,7 @@ describe("RuntimeDebugConfiguration", () => {
       expect(options?.logLevel).toBe("error");
     });
 
-    it("应该支持配置后清除", () => {
+    it("should support clearing after configuration", () => {
       debugConfig.configureDebug({
         enabled: true,
         eventTracking: true,
@@ -364,10 +364,10 @@ describe("RuntimeDebugConfiguration", () => {
       expect(debugConfig.getDebugOptions()).toBeUndefined();
     });
 
-    it("应该在每次配置时都同步到 Logger 和事件管理器", () => {
+    it("should sync to Logger and event managers on every configuration", () => {
       const setConfigSpy = vi.spyOn(logger, "setConfig");
 
-      // 第一次配置
+      // First configuration
       debugConfig.configureDebug({
         enabled: true,
         eventTracking: true,
@@ -376,7 +376,7 @@ describe("RuntimeDebugConfiguration", () => {
       expect(setConfigSpy).toHaveBeenCalledTimes(1);
       expect(mockEventManagers.eventBus.setDebugMode).toHaveBeenCalledTimes(1);
 
-      // 第二次配置
+      // Second configuration
       debugConfig.configureDebug({
         enabled: false,
         eventTracking: false,
@@ -387,8 +387,8 @@ describe("RuntimeDebugConfiguration", () => {
     });
   });
 
-  describe("边缘情况", () => {
-    it("应该处理 panel 为空对象", () => {
+  describe("Edge Cases", () => {
+    it("should handle panel as empty object", () => {
       debugConfig.configureDebug({
         enabled: true,
         panel: {},
@@ -398,7 +398,7 @@ describe("RuntimeDebugConfiguration", () => {
       expect(options?.panel).toEqual({});
     });
 
-    it("应该处理多次获取选项", () => {
+    it("should handle multiple option retrievals", () => {
       debugConfig.configureDebug({
         enabled: true,
       });

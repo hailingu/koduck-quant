@@ -1,10 +1,10 @@
 /**
- * Runtime 工具函数统一导出
+ * Runtime utility functions unified export
  * @module runtime/utils
  */
 
-// 租户工具
+// Tenant utilities
 export { cloneTenantContext, cloneTenantResourceQuotas } from "./tenant-utils";
 
-// 哈希工具
+// Hash utilities
 export { hashString, clampPercentage } from "./hash-utils";

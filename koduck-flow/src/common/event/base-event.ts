@@ -18,35 +18,35 @@ type AsyncDispatchOutcome = {
 };
 
 /**
- * 事件基类，支持批处理、异步操作和错误处理
+ * Event base class supporting batching, async operations, and error handling
  *
- * @template T 事件数据类型
+ * @template T Event data type
  * @abstract
  * @since 1.0.0
  */
 export abstract class BaseEvent<T> {
-  /** 事件监听器数组 */
+  /** Event listener array */
   protected _listeners: IEventListener<T>[] = [];
 
-  /** 事件监听器集合，用于O(1)查找 */
+  /** Event listener set for O(1) lookup */
   private readonly _listenerSet = new Set<IEventListener<T>>();
 
-  /** 事件名称标识符 */
+  /** Event name identifier */
   protected readonly eventName: string;
 
-  /** 事件触发次数 */
+  /** Event fire count */
   private _fireCount: number = 0;
 
-  /** 调试模式标志 */
+  /** Debug mode flag */
   private _debugMode: boolean = false;
 
-  /** 事件配置 */
+  /** Event configuration */
   private _config: Readonly<EventConfiguration>;
 
-  /** 数据验证器（轻量级 - 仅在调试模式下激活） */
+  /** Data validator (lightweight - only activated in debug mode) */
   private _dataValidator: ((data: T) => boolean) | undefined;
 
-  // ===== 管理器实例 =====
+  // ===== Manager instances =====
   private readonly _batchManager: BatchManager<T>;
   private readonly _dedupeManager: DedupeManager<T>;
   private readonly _schedulerManager: SchedulerManager;
@@ -61,20 +61,20 @@ export abstract class BaseEvent<T> {
   ) {
     this.eventName = eventName;
 
-    // 支持预设配置或自定义配置
+    // Supports preset config or custom config
     if (typeof configOrPreset === "string") {
       this._config = Object.freeze({ ...EVENT_PRESETS[configOrPreset] });
     } else {
       this._config = Object.freeze(EventConfigValidator.validate(configOrPreset || {}));
     }
 
-    // 根据配置初始化调试模式
+    // Initialize debug mode based on config
     this._debugMode = this._config.enableDebugMode;
 
-    // 初始化监听器快照对象池（使用依赖注入，默认使用全局实例）
+    // Initialize listener snapshot pool (using dependency injection, defaults to global instance)
     this._listenerSnapshotPool = listenerSnapshotPool || defaultListenerSnapshotPool;
 
-    // 初始化各个管理器
+    // Initialize various managers
     this._batchManager = new BatchManager<T>(this._config);
     this._dedupeManager = new DedupeManager<T>(eventName, this._config);
     this._schedulerManager = new SchedulerManager(this._config);
@@ -83,8 +83,8 @@ export abstract class BaseEvent<T> {
   }
 
   /**
-   * 获取事件注册器（实现 IEvent 接口）
-   * @returns 事件注册函数
+   * Gets event register (implements IEvent interface)
+   * @returns Event registration function
    */
   get event(): IEvent<T> {
     return (listener: IEventListener<T>): (() => void) => {
@@ -92,7 +92,7 @@ export abstract class BaseEvent<T> {
     };
   }
 
-  /** 添加事件监听器 */
+  /** Add event listener */
   addEventListener(listener: IEventListener<T>): () => void {
     if (!listener || typeof listener !== "function") {
       logError(
@@ -107,11 +107,11 @@ export abstract class BaseEvent<T> {
           },
         }
       );
-      // 返回空的取消函数
+      // Return empty cancel function
       return () => {};
     }
 
-    // 检查监听器数量限制
+    // Check listener count limit
     if (this._listeners.length >= this._config.maxListeners) {
       logError(
         ErrorCode.EVENT_LISTENER_ERROR,
@@ -125,23 +125,23 @@ export abstract class BaseEvent<T> {
           },
         }
       );
-      // 返回空的取消函数
+      // Return empty cancel function
       return () => {};
     }
 
-    // 允许同一监听器多次注册
+    // Allow same listener to be registered multiple times
     this._listeners.push(listener);
     this._listenerSet.add(listener);
 
-    // 更新 metrics
+    // Update metrics
     this._metricsCollector.updateActiveListeners(this._listeners.length);
 
-    // 返回取消注册的函数
+    // Return unregister function
     return () => {
       const index = this._listeners.indexOf(listener);
       if (index > -1) {
         this._listeners.splice(index, 1);
-        // 只有在没有其他相同listener时才从Set中删除
+        // Only remove from Set if no other identical listener exists
         if (!this._listeners.includes(listener)) {
           this._listenerSet.delete(listener);
         }
@@ -150,7 +150,7 @@ export abstract class BaseEvent<T> {
     };
   }
 
-  /** 移除事件监听器 */
+  /** Remove event listener */
   removeEventListener(listener: IEventListener<T>): boolean {
     if (!this._listenerSet.has(listener)) {
       return false;
@@ -159,7 +159,7 @@ export abstract class BaseEvent<T> {
     const index = this._listeners.indexOf(listener);
     if (index > -1) {
       this._listeners.splice(index, 1);
-      // 仅当数组中不再包含该 listener 时再从 Set 删除
+      // Only remove from Set when the listener is no longer in the array
       if (!this._listeners.includes(listener)) {
         this._listenerSet.delete(listener);
       }
@@ -169,13 +169,13 @@ export abstract class BaseEvent<T> {
     return false;
   }
 
-  /** 批量注册监听器，支持链式调用 */
+  /** Batch register listeners, supports chaining */
   addListeners(...listeners: IEventListener<T>[]): this {
     listeners.forEach((listener) => this.addEventListener(listener));
     return this;
   }
 
-  /** 一次性监听器 - 触发一次后自动移除 */
+  /** One-time listener - auto-removes after first trigger */
   once(listener: IEventListener<T>): this {
     const onceListener: IEventListener<T> = (data) => {
       try {
@@ -188,7 +188,7 @@ export abstract class BaseEvent<T> {
     return this;
   }
 
-  /** 条件监听器 - 只有满足条件才触发 */
+  /** Conditional listener - only triggers when condition is met */
   when(condition: (data: T) => boolean, listener: IEventListener<T>): this {
     const conditionalListener: IEventListener<T> = (data) => {
       if (condition(data)) listener(data);
@@ -197,12 +197,12 @@ export abstract class BaseEvent<T> {
     return this;
   }
 
-  /** 触发事件（智能批处理选择） */
+  /** Fire event (smart batching selection) */
   fire(eventData: T): void {
-    // 可选：负载去重（同步路径）
+    // Optional: payload deduplication (sync path)
     if (this._dedupeManager.shouldDropByDedupe(eventData)) return;
 
-    // 轻量级验证 - 只在调试模式下执行
+    // Lightweight validation - only executed in debug mode
     if (this._dataValidator && this._debugMode && !this._dataValidator(eventData)) {
       this._errorReporter.reportValidationFailure();
       return;
@@ -219,22 +219,22 @@ export abstract class BaseEvent<T> {
     }
   }
 
-  /** 立即触发事件（不使用批处理） */
+  /** Fire event immediately (without batching) */
   private _fireImmediate(eventData: T): void {
     this._fireCount++;
 
-    // 记录 metrics
+    // Record metrics
     this._metricsCollector.recordEmitted("sync");
 
     if (this._listeners.length === 0) {
       return;
     }
 
-    // 使用快照，避免触发期间对监听器数组的增删影响迭代
+    // Use snapshot to avoid structural changes to listener array during iteration
     const listeners = this._listenerSnapshotPool.borrowSnapshot(this._listeners);
     const listenerCount = listeners.length;
 
-    // 记录监听器调用
+    // Record listener invocations
     this._metricsCollector.recordListenersInvoked(listenerCount, "sync");
 
     let errorCount = 0;
@@ -248,7 +248,7 @@ export abstract class BaseEvent<T> {
           listeners[i](eventData);
         } catch (error) {
           errorCount++;
-          // 收集详细错误信息
+          // Collect detailed error information
           if (errorCount <= 3) {
             errors.push({ index: i, error });
           }
@@ -258,20 +258,20 @@ export abstract class BaseEvent<T> {
       this._listenerSnapshotPool.releaseSnapshot(listeners);
     }
 
-    // 记录分发持续时间和错误
+    // Record dispatch duration and errors
     const dt = Date.now() - t0;
     this._metricsCollector.recordDispatchDuration(dt, "sync");
     this._metricsCollector.recordListenerErrors(errorCount, "sync");
 
-    // 统一的错误报告
+    // Unified error reporting
     if (errorCount > 0) {
       this._errorReporter.reportErrors(errors);
     }
   }
 
-  /** 异步触发事件 */
+  /** Fire event asynchronously */
   async fireAsync(eventData: T): Promise<void> {
-    // 可选：负载去重（异步路径）
+    // Optional: payload deduplication (async path)
     if (this._dedupeManager.shouldDropByDedupe(eventData)) return;
 
     this._fireCount++;
@@ -281,7 +281,7 @@ export abstract class BaseEvent<T> {
       return;
     }
 
-    // 使用快照以避免迭代期间的结构性变化
+    // Use snapshot to avoid structural changes during iteration
     const listeners = this._listenerSnapshotPool.borrowSnapshot(this._listeners);
     const listenerCount = listeners.length;
     this._metricsCollector.recordListenersInvoked(listenerCount, "async");
@@ -304,7 +304,7 @@ export abstract class BaseEvent<T> {
       this._listenerSnapshotPool.releaseSnapshot(listeners);
     }
 
-    // 汇总告警（限流模式）
+    // Summary alerts (rate-limiting mode)
     if (
       mode === "limited" &&
       this._debugMode &&
@@ -318,14 +318,14 @@ export abstract class BaseEvent<T> {
       );
     }
 
-    // 简化错误报告
+    // Simplified error reporting
     if (outcome.errorCount > 0 && this._debugMode) {
       if (outcome.errorCount > 3) {
-        // 通过错误报告器报告简化的错误信息
+        // Report simplified error information via error reporter
       }
     }
 
-    // 记录分发持续时间和错误（异步）
+    // Record dispatch duration and errors (async)
     const dt = Date.now() - t0;
     this._metricsCollector.recordDispatchDuration(dt, "async");
     this._metricsCollector.recordListenerErrors(outcome.errorCount, "async");
@@ -476,7 +476,7 @@ export abstract class BaseEvent<T> {
     });
   }
 
-  /** 安全地更新配置（仅允许运行时安全的配置项） */
+  /** Safely update configuration (only runtime-safe config items allowed) */
   updateConfiguration(
     updates: Partial<
       Pick<
@@ -495,7 +495,7 @@ export abstract class BaseEvent<T> {
   ): this {
     const currentConfig = { ...this._config };
 
-    // 只允许安全的运行时更新
+    // Only allow safe runtime updates
     const safeUpdates: Partial<EventConfiguration> = {};
 
     if (updates.batchSize !== undefined) {
@@ -525,21 +525,21 @@ export abstract class BaseEvent<T> {
       safeUpdates.payloadDedupe = updates.payloadDedupe;
     }
 
-    // 合并并冻结新配置，保持只读语义
+    // Merge and freeze new config, maintaining read-only semantics
     const merged = { ...currentConfig, ...safeUpdates } as EventConfiguration;
     this._config = Object.freeze(merged);
 
-    // 更新各个管理器的配置
+    // Update configuration for various managers
     this._batchManager.updateConfiguration(this._config);
     this._dedupeManager.updateConfiguration(this._config);
     this._errorReporter.updateConfiguration(this._config);
 
-    // 检查调度器是否发生变化
+    // Check if scheduler has changed
     if (schedulerChanged) {
       const schedulerDidChange = this._schedulerManager.updateConfiguration(this._config);
       if (schedulerDidChange && this._batchManager.batchCount > 0) {
-        // 如果调度器发生变化且有未处理批次，需要重新调度
-        // 这里可以通过批处理管理器重新调度
+        // If scheduler changed and there are unprocessed batches, need to reschedule
+        // Can reschedule via batch manager here
       }
     }
 
@@ -574,43 +574,43 @@ export abstract class BaseEvent<T> {
     return schedulerChanged;
   }
 
-  /** 提供只读配置访问 */
+  /** Provides read-only configuration access */
   get configuration(): Readonly<EventConfiguration> {
     return this._config;
   }
 
-  /** 强制处理当前批次 */
+  /** Force processing of current batch */
   flushBatch(): void {
-    // 获取批次数据并处理
+    // Get batch data and process
     const batchData = this._batchManager.getBatchData();
     batchData.forEach((data) => this._fireImmediate(data));
     this._batchManager.clear();
   }
 
-  /** 设置轻量级数据验证器（仅在调试模式生效） */
+  /** Set lightweight data validator (only effective in debug mode) */
   setValidator(validator?: (data: T) => boolean): this {
     this._dataValidator = validator;
     return this;
   }
 
-  /** 获取当前监听器数量 */
+  /** Get current listener count */
   get listenerCount(): number {
     return this._listeners.length;
   }
 
-  /** 获取事件触发次数 */
+  /** Get event fire count */
   get fireCount(): number {
     return this._fireCount;
   }
 
-  /** 获取最大监听器数量限制 */
+  /** Get maximum listener count limit */
   get maxListeners(): number {
     return this._config.maxListeners;
   }
 
-  /** 设置最大监听器数量限制 */
+  /** Set maximum listener count limit */
   set maxListeners(value: number) {
-    // 严格验证，拒绝无效值
+    // Strict validation, reject invalid values
     if (typeof value !== "number" || !Number.isInteger(value) || value < 1 || value > 10000) {
       this._errorReporter.reportConfigError(
         `Invalid maxListeners value: ${value}. Must be an integer between 1 and 10000`
@@ -620,28 +620,28 @@ export abstract class BaseEvent<T> {
     this.updateConfiguration({ maxListeners: value });
   }
 
-  /** 清除所有监听器 */
+  /** Clear all listeners */
   clear(): void {
-    this._listeners.length = 0; // 比重新分配更高效
+    this._listeners.length = 0; // More efficient than reallocation
     this._listenerSet.clear();
 
-    // 清理各个管理器
+    // Clear various managers
     this._batchManager.clear();
     this._dedupeManager.clear();
 
-    // 更新 metrics
+    // Update metrics
     this._metricsCollector.updateActiveListeners(this._listeners.length);
   }
 
-  /** 检查是否有监听器 */
+  /** Check if there are listeners */
   hasListeners(): boolean {
     return this._listeners.length > 0;
   }
 
-  /** 启用/禁用调试模式 */
+  /** Enable/disable debug mode */
   setDebugMode(enabled: boolean): this {
     this._debugMode = enabled;
-    // 通过重新创建配置对象来安全地更新
+    // Safely update by recreating config object
     this._config = Object.freeze({
       ...this._config,
       enableDebugMode: enabled,
@@ -650,13 +650,13 @@ export abstract class BaseEvent<T> {
     return this;
   }
 
-  /** 重置事件状态 */
+  /** Reset event state */
   reset(): void {
     this.clear();
     this._fireCount = 0;
   }
 
-  /** 析构函数 - 清理资源 */
+  /** Destructor - cleanup resources */
   dispose(): void {
     this.clear();
     this._metricsCollector.dispose();

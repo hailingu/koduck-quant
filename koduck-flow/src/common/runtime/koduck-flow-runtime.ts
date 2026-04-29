@@ -58,20 +58,20 @@ export type {
 } from "./types";
 
 /**
- * KoduckFlowRuntime - 主运行时协调器
+ * KoduckFlowRuntime - Main runtime orchestrator
  *
- * 职责：作为门面模式的协调器，委托所有操作到专业模块。
+ * Responsibility: Acts as a facade-pattern orchestrator, delegating all operations to specialized modules.
  *
- * ## 架构模式
+ * ## Architecture Patterns
  *
- * 采用 **Facade Pattern (门面模式)** + **Delegation (委托模式)**:
- * - 对外提供统一、简洁的 API
- * - 内部委托到 7 个专业模块处理具体逻辑
- * - 保持 100% 向后兼容
+ * Adopts **Facade Pattern** + **Delegation Pattern**:
+ * - Provides a unified, concise API externally
+ * - Internally delegates to 7 specialized modules for specific logic
+ * - Maintains 100% backward compatibility
  *
- * ## 模块组成 (7 个核心模块)
+ * ## Module Composition (7 Core Modules)
  *
- * 1. **RuntimeContainerManager** - DI 容器管理
+ * 1. **RuntimeContainerManager** - DI container management
  * 2. **RuntimeManagerCoordinator** - Manager lifecycle management
  * 3. **RuntimeTenantContext** - Tenant context management
  * 4. **RuntimeQuotaManager** - Quota management and enforcement
@@ -81,7 +81,7 @@ export type {
  *
  * ## Design Principles
  *
- * - ✅ Single Responsibility: Each module handles single domain
+ * - ✅ Single Responsibility: Each module handles a single domain
  * - ✅ Dependency Injection: Modules coupled via constructor injection
  * - ✅ Facade Coordination: Main class delegates all business logic
  * - ✅ Backward Compatible: All public APIs remain unchanged
@@ -188,8 +188,8 @@ export class KoduckFlowRuntime implements IDisposable {
    *
    */
   registerManager(name: string, manager: IManager, options: ManagerRegistrationOptions = {}): void {
-    // 如果不是 lazy 模式，需要提前验证核心 manager 依赖
-    // RuntimeManagerCoordinator 只知道自定义 manager，所以我们需要在这里检查核心 manager
+    // If not in lazy mode, validate core manager dependencies in advance
+    // RuntimeManagerCoordinator only knows custom managers, so we check core managers here
     if (!options.lazy && options.dependencies) {
       for (const dependency of options.dependencies) {
         if (!this.hasManager(dependency)) {
@@ -535,8 +535,8 @@ export class KoduckFlowRuntime implements IDisposable {
   }
 
   /**
-   * 解析核心 Manager
-   * 使用 Map 映射提高可读性和性能
+   * Resolve core Manager
+   * Use Map mapping to improve readability and performance
    */
   private _resolveCoreManager(key: CoreManagerKey): IManager {
     const coreManagers = this._containerManager.getCoreManagers();

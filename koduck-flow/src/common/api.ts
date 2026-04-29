@@ -1,8 +1,8 @@
 /**
- * 全局API - Duck-flow 统一接口
+ * Global API - Duck-flow unified interface
  *
- * Duck-flow 的全局 API 入口，聚合各个领域模块的能力并输出统一的使用体验。
- * 提供实体管理、流程控制、渲染与管理器操作等常用方法，同时暴露运行时配置工具。
+ * Global API entry for Duck-flow, aggregating capabilities from all domain modules and providing a unified experience.
+ * Provides common methods for entity management, flow control, rendering, and manager operations, as well as runtime configuration utilities.
  */
 
 export * from "./api/runtime";

@@ -37,7 +37,7 @@ export const Editor: React.FC<EditorProps> = ({
     [canvasRef, setCanvasRef]
   );
 
-  // 内部视口状态管理
+  // Internal viewport state management
   const [internalViewport, setInternalViewport] = useState({
     x: 0,
     y: 0,
@@ -46,12 +46,12 @@ export const Editor: React.FC<EditorProps> = ({
     height: 600,
   });
 
-  // 合并外部和内部视口状态
+  // Merge external and internal viewport state
   const currentViewport = useMemo(() => {
     return externalViewport ? { ...internalViewport, ...externalViewport } : internalViewport;
   }, [internalViewport, externalViewport]);
 
-  // RenderContextBuilder 实现
+  // RenderContextBuilder implementation
   const contextBuilder = useMemo(
     (): RenderContextBuilder => ({
       getCanvas: () => internalCanvasRef.current,
@@ -85,17 +85,17 @@ export const Editor: React.FC<EditorProps> = ({
     [currentViewport]
   );
 
-  // 暴露构建器给外部
+  // Expose builder to external
   useEffect(() => {
     onRenderContextReady?.(contextBuilder);
   }, [contextBuilder, onRenderContextReady]);
 
-  // 视口变化时通知外部
+  // Notify external on viewport change
   useEffect(() => {
     onViewportChange?.(currentViewport);
   }, [currentViewport, onViewportChange]);
 
-  // 同步 canvas 大小到视口
+  // Sync canvas size to viewport
   useEffect(() => {
     if (internalCanvasRef.current) {
       const canvas = internalCanvasRef.current;

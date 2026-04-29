@@ -81,7 +81,7 @@ const createStrategy = ({
 };
 
 describe("RenderStrategySelector", () => {
-  it("按优先级选择最匹配的策略", () => {
+  it("selects the best matching strategy by priority", () => {
     const primary = createStrategy({ id: "primary", priority: 100, mode: "react" });
     const fallback = createStrategy({ id: "fallback", priority: 50, mode: "canvas" });
 
@@ -95,7 +95,7 @@ describe("RenderStrategySelector", () => {
     expect(selection.reason).toContain("primary");
   });
 
-  it("遇到策略声明不适用时自动跳过", () => {
+  it("automatically skips when strategy declares not applicable", () => {
     const notApplicable = createStrategy({
       id: "gpu-only",
       priority: 200,
@@ -114,7 +114,7 @@ describe("RenderStrategySelector", () => {
     expect(selection.mode).toBe("react");
   });
 
-  it("返回能力描述并按照优先级排序", () => {
+  it("returns capability descriptors sorted by priority", () => {
     const low = createStrategy({ id: "low", priority: 1, mode: "canvas" });
     const high = createStrategy({ id: "high", priority: 5, mode: "react" });
 
@@ -124,7 +124,7 @@ describe("RenderStrategySelector", () => {
     expect(descriptors.map((item) => item.id)).toEqual(["high", "low"]);
   });
 
-  it("summarizeCapabilities 根据标签分组", () => {
+  it("summarizeCapabilities groups by tags", () => {
     const tagged = createStrategy({ id: "tagged", priority: 10, mode: "canvas" });
     tagged.descriptor.tags = ["batching", "device"];
     const untagged = createStrategy({ id: "plain", priority: 5, mode: "react" });

@@ -8,26 +8,26 @@ import type { RuntimeQuotaManager } from "./runtime-quota-manager";
 /**
  * RuntimeEntityOperations
  *
- * 提供实体和渲染操作的快捷方法，封装实体创建、删除与渲染管理的常用操作。
+ * Provides shortcut methods for entity and render operations, encapsulating common operations for entity creation, deletion, and render management.
  *
- * ## 核心职责
+ * ## Core Responsibilities
  *
- * 1. **实体操作**：
- * - 实体创建（含配额检查）
- * - 实体查询
- * - 实体删除（含配额同步）
- * - 批量删除
+ * 1. **Entity Operations**:
+ * - Entity creation (with quota check)
+ * - Entity querying
+ * - Entity deletion (with quota sync)
+ * - Batch deletion
  *
- * 2. **渲染操作**：
- * - 添加实体到渲染
- * - 从渲染移除实体
- * - 获取实体渲染元素
+ * 2. **Render Operations**:
+ * - Add entity to render
+ * - Remove entity from render
+ * - Get entity render element
  *
- * 3. **配额集成**：
- * - 创建前配额检查
- * - 删除后配额同步
+ * 3. **Quota Integration**:
+ * - Quota check before creation
+ * - Quota sync after deletion
  *
- * ## 使用示例
+ * ## Usage Example
  *
  * ```typescript
  * const operations = new RuntimeEntityOperations(
@@ -36,15 +36,15 @@ import type { RuntimeQuotaManager } from "./runtime-quota-manager";
  * quotaManager
  * );
  *
- * // 创建实体（自动配额检查）
+ * // Create entity (automatic quota check)
  * const entity = operations.createEntity('Rectangle', { width: 100, height: 50 });
  *
- * // 添加到渲染
+ * // Add to render
  * if (entity) {
  * operations.addEntityToRender(entity);
  * }
  *
- * // 删除实体（自动配额同步）
+ * // Delete entity (automatic quota sync)
  * operations.removeEntity(entity.id);
  * ```
  *
@@ -56,11 +56,11 @@ export class RuntimeEntityOperations {
   private readonly quotaManager: RuntimeQuotaManager;
 
   /**
-   * 创建实体操作管理器
+   * Create entity operations manager
    *
-   * @param entityManager - 实体管理器实例
-   * @param renderManager - 渲染管理器实例
-   * @param quotaManager - 配额管理器实例
+   * @param entityManager - Entity manager instance
+   * @param renderManager - Render manager instance
+   * @param quotaManager - Quota manager instance
    */
   constructor(
     entityManager: EntityManager,
@@ -75,13 +75,13 @@ export class RuntimeEntityOperations {
   // ==================== Entity Operations ====================
 
   /**
-   * 创建实体
+   * Create entity
    *
-   * 在创建前检查实体配额，创建成功后同步配额使用情况。
+   * Check entity quota before creation, sync quota usage after successful creation.
    *
-   * @param typeName - 实体类型名称
-   * @param args - 实体初始化参数
-   * @returns 创建的实体实例，如果配额不足则返回 null
+   * @param typeName - Entity type name
+   * @param args - Entity initialization arguments
+   * @returns Created entity instance, or null if quota is insufficient
    *
    * @example
    * ```typescript
@@ -109,10 +109,10 @@ export class RuntimeEntityOperations {
   }
 
   /**
-   * 获取实体
+   * Get entity
    *
-   * @param id - 实体 ID
-   * @returns 实体实例，如果不存在则返回 undefined
+   * @param id - Entity ID
+   * @returns Entity instance, or undefined if not found
    *
    * @example
    * ```typescript
@@ -127,17 +127,17 @@ export class RuntimeEntityOperations {
   }
 
   /**
-   * 删除实体
+   * Delete entity
    *
-   * 删除成功后同步配额使用情况。
+   * Sync quota usage after successful deletion.
    *
-   * @param id - 实体 ID
-   * @returns 是否删除成功
+   * @param id - Entity ID
+   * @returns Whether deletion was successful
    *
    * @example
    * ```typescript
    * const removed = operations.removeEntity('entity-123');
-   * console.log(removed ? '删除成功' : '实体不存在');
+   * console.log(removed ? 'Deletion successful' : 'Entity does not exist');
    * ```
    */
   removeEntity(id: string): boolean {
@@ -152,15 +152,15 @@ export class RuntimeEntityOperations {
   }
 
   /**
-   * 检查实体是否存在
+   * Check if entity exists
    *
-   * @param id - 实体 ID
-   * @returns 实体是否存在
+   * @param id - Entity ID
+   * @returns Whether entity exists
    *
    * @example
    * ```typescript
    * if (operations.hasEntity('entity-123')) {
-   *   console.log('实体存在');
+   *   console.log('Entity exists');
    * }
    * ```
    */
@@ -169,14 +169,14 @@ export class RuntimeEntityOperations {
   }
 
   /**
-   * 获取所有实体
+   * Get all entities
    *
-   * @returns 所有实体的数组
+   * @returns Array of all entities
    *
    * @example
    * ```typescript
    * const allEntities = operations.getEntities();
-   * console.log(`共有 ${allEntities.length} 个实体`);
+   * console.log(`Total ${allEntities.length} entities`);
    * ```
    */
   getEntities(): IEntity[] {
@@ -184,17 +184,17 @@ export class RuntimeEntityOperations {
   }
 
   /**
-   * 批量删除实体
+   * Batch delete entities
    *
-   * 删除成功后同步配额使用情况。
+   * Sync quota usage after successful deletion.
    *
-   * @param ids - 实体 ID 数组
-   * @returns 实际删除的实体数量
+   * @param ids - Array of entity IDs
+   * @returns Number of entities actually deleted
    *
    * @example
    * ```typescript
    * const removed = operations.removeEntities(['entity-1', 'entity-2', 'entity-3']);
-   * console.log(`删除了 ${removed} 个实体`);
+   * console.log(`Deleted ${removed} entities`);
    * ```
    */
   removeEntities(ids: string[]): number {
@@ -211,9 +211,9 @@ export class RuntimeEntityOperations {
   // ==================== Render Operations ====================
 
   /**
-   * 添加实体到渲染
+   * Add entity to render
    *
-   * @param entity - 要添加到渲染的实体
+   * @param entity - Entity to add to rendering
    *
    * @example
    * ```typescript
@@ -228,9 +228,9 @@ export class RuntimeEntityOperations {
   }
 
   /**
-   * 从渲染移除实体
+   * Remove entity from render
    *
-   * @param entityId - 实体 ID
+   * @param entityId - Entity ID
    *
    * @example
    * ```typescript
@@ -242,16 +242,16 @@ export class RuntimeEntityOperations {
   }
 
   /**
-   * 获取实体的渲染元素
+   * Get entity render element
    *
-   * @param entityId - 实体 ID
-   * @returns React 元素、字符串、Promise 或 null/void
+   * @param entityId - Entity ID
+   * @returns React element, string, Promise, or null/void
    *
    * @example
    * ```typescript
    * const element = operations.getEntityRenderElement('entity-123');
    * if (element) {
-   *   // 渲染元素...
+   *   // Render element...
    * }
    * ```
    */

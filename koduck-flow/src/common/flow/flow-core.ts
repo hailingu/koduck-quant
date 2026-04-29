@@ -74,7 +74,7 @@ type FlowCoreConfig<
 };
 
 /**
- * Flow 核心Subsystem Coordination器
+ * Flow Core Subsystem Coordinator
  *
  * FlowCore is the central coordinator of the Flow architecture,integrating 6 key subsystems:
  * - **EntityRegistry** - Entity registration table managing all node and edge entities
@@ -189,61 +189,61 @@ export class FlowCore<
   /**
    * Get Entity Registry
    *
-   * @returns EntityRegistry 实例,for direct entity operations
+   * @returns EntityRegistry instance, for direct entity operations
    */
   getEntityRegistry(): EntityRegistry<N, E, NE, EE> {
     return this.registry;
   }
 
   /**
-   * 获取Graph coordinator
+   * Get graph coordinator
    *
-   * @returns FlowGraphCoordinator 实例,for managing graph structure
+   * @returns FlowGraphCoordinator instance, for managing graph structure
    */
   getGraphCoordinator(): FlowGraphCoordinator<N, E, NE, EE> {
     return this.graphCoordinator;
   }
 
   /**
-   * 获取Lifecycle hooks系统
+   * Get lifecycle hooks system
    *
-   * @returns FlowHooks 实例,for listening to flow events
+   * @returns FlowHooks instance, for listening to flow events
    */
   getHooks(): FlowHooks<NE> {
     return this.hooks;
   }
 
   /**
-   * 获取Performance metrics collection器
+   * Get performance metrics collector
    *
-   * @returns FlowMetrics 实例,for viewing performance data
+   * @returns FlowMetrics instance, for viewing performance data
    */
   getMetrics(): FlowMetrics {
     return this.metrics;
   }
 
   /**
-   * 获取Graph traverser
+   * Get graph traverser
    *
-   * @returns FlowTraversal 实例,for traversing graph structure
+   * @returns FlowTraversal instance, for traversing graph structure
    */
   getTraversal(): FlowTraversal<N, E, NE, EE> {
     return this.traversal;
   }
 
   /**
-   * 获取Serialization service
+   * Get serialization service
    *
-   * @returns FlowSerialization 实例,for serialization and deserialization
+   * @returns FlowSerialization instance, for serialization and deserialization
    */
   getSerialization(): FlowSerialization<N, E, NE, EE> {
     return this.serialization;
   }
 
   /**
-   * 获取封装后的 FlowSerializer
+   * Get wrapped FlowSerializer
    *
-   * @returns FlowSerializer 适配器实例
+   * @returns FlowSerializer adapter instance
    */
   getFlowSerializer(): FlowSerializer<N, E, NE, EE> {
     return this.flowSerializer;

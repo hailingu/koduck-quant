@@ -59,7 +59,7 @@ export class WebGPUDefaultStrategyPlugin implements IRenderStrategyPlugin {
 
   canHandle(entity: IEntity, context: IRenderContext): boolean {
     if (!entity) return false;
-    // 使用统一的设备能力检测
+    // Use unified device capability detection
     const caps = deviceCapabilities.getSync();
     if (!caps.hasWebGPU) return false;
     if (this.requireCanvasContext && !context?.canvas) return false;
@@ -81,7 +81,7 @@ export class WebGPUDefaultStrategyPlugin implements IRenderStrategyPlugin {
       throw new RenderStrategyNotApplicableError("WebGPU strategy requires a render context");
     }
 
-    // 使用统一的设备能力检测
+    // Use unified device capability detection
     const caps = deviceCapabilities.getSync();
     if (!caps.hasWebGPU) {
       throw new RenderStrategyNotApplicableError("WebGPU is not supported in current environment");
@@ -123,7 +123,7 @@ export class WebGPUDefaultStrategyPlugin implements IRenderStrategyPlugin {
   }
 
   selectForBatch(entities: IEntity[]): Map<IRender, IEntity[]> {
-    // 使用统一的设备能力检测
+    // Use unified device capability detection
     const caps = deviceCapabilities.getSync();
     if (!caps.hasWebGPU) {
       throw new RenderStrategyNotApplicableError("WebGPU is not supported in current environment");

@@ -1,13 +1,13 @@
 /**
  * @file RuntimeDebugConfiguration
- * 提供调试配置管理功能
+ * Provides debug configuration management functionality
  *
- * 职责:
- * - 管理调试选项的设置和获取
- * - 同步调试配置到Logger
- * - 同步调试配置到事件管理器
+ * Responsibilities:
+ * - Manage debug option settings and retrieval
+ * - Sync debug configuration to Logger
+ * - Sync debug configuration to event managers
  *
- * 使用场景:
+ * Usage scenario:
  * ```typescript
  * const debugConfig = new RuntimeDebugConfiguration({
  *   eventBus,
@@ -37,20 +37,20 @@ import type { EntityEventManager } from "../event/entity-event-manager";
 import type { IEntity } from "../entity/";
 
 /**
- * 事件管理器集合接口
+ * Event manager collection interface
  */
 interface EventManagers {
-  /** 事件总线 */
+  /** Event bus */
   eventBus: EventBus;
-  /** 渲染事件管理器 */
+  /** Render event manager */
   renderEvents: RenderEventManager;
-  /** 实体事件管理器 */
+  /** Entity event manager */
   entityEvents: EntityEventManager<IEntity>;
 }
 
 /**
- * RuntimeDebugConfiguration 类
- * 负责调试配置的管理和同步
+ * RuntimeDebugConfiguration class
+ * Responsible for debug configuration management and synchronization
  *
  * @example
  * ```typescript
@@ -60,7 +60,7 @@ interface EventManagers {
  *   entityEvents: myEntityEvents
  * });
  *
- * // 配置调试选项
+ * // Configure debug options
  * debugConfig.configureDebug({
  *   enabled: true,
  *   logLevel: 'debug',
@@ -69,30 +69,30 @@ interface EventManagers {
  *   panel: { position: 'bottom' }
  * });
  *
- * // 获取当前调试选项
+ * // Get current debug options
  * const options = debugConfig.getDebugOptions();
  * ```
  */
 export class RuntimeDebugConfiguration {
   /**
-   * 当前调试选项
+   * Current debug options
    * @private
    */
   private debugOptions: DebugOptions | undefined;
 
   /**
-   * 事件管理器集合
+   * Event manager collection
    * @private
    */
   private readonly eventManagers: EventManagers;
 
   /**
-   * 创建 RuntimeDebugConfiguration 实例
+   * Create RuntimeDebugConfiguration instance
    *
-   * @param eventManagers - 事件管理器集合对象
-   * @param eventManagers.eventBus - 事件总线
-   * @param eventManagers.renderEvents - 渲染事件管理器
-   * @param eventManagers.entityEvents - 实体事件管理器
+   * @param eventManagers - Event manager collection object
+   * @param eventManagers.eventBus - Event bus
+   * @param eventManagers.renderEvents - Render event manager
+   * @param eventManagers.entityEvents - Entity event manager
    *
    * @example
    * ```typescript
@@ -108,47 +108,47 @@ export class RuntimeDebugConfiguration {
   }
 
   /**
-   * 配置调试选项
+   * Configure debug options
    *
-   * 此方法会:
-   * 1. 克隆并存储调试选项（深度克隆 panel 对象）
-   * 2. 同步配置到 Logger
-   * 3. 同步配置到事件管理器
+   * This method will:
+   * 1. Clone and store debug options (deep clone panel object)
+   * 2. Sync configuration to Logger
+   * 3. Sync configuration to event managers
    *
-   * @param options - 调试选项，如果为 undefined 则清除调试配置
+   * @param options - Debug options, clears debug configuration if undefined
    *
    * @example
    * ```typescript
-   * // 启用调试
+   * // Enable debugging
    * debugConfig.configureDebug({
    *   enabled: true,
    *   logLevel: 'debug',
    *   eventTracking: true
    * });
    *
-   * // 清除调试配置
+   * // Clear debug configuration
    * debugConfig.configureDebug();
    * ```
    */
   configureDebug(options?: DebugOptions): void {
-    // 克隆并存储调试选项
+    // Clone and store debug options
     const snapshot = options ? this.cloneDebugOptions(options) : undefined;
     this.debugOptions = snapshot;
 
-    // 同步到 Logger
+    // Sync to Logger
     this.syncToLogger(options);
 
-    // 同步到事件管理器
+    // Sync to event managers
     const eventDebugEnabled = Boolean(options?.eventTracking);
     this.syncToEventManagers(eventDebugEnabled);
   }
 
   /**
-   * 获取当前调试选项
+   * Get current debug options
    *
-   * 返回调试选项的深度克隆，以防止外部修改内部状态
+   * Returns a deep clone of debug options to prevent external modification of internal state
    *
-   * @returns 调试选项的克隆，如果未配置则返回 undefined
+   * @returns Clone of debug options, undefined if not configured
    *
    * @example
    * ```typescript
@@ -167,16 +167,16 @@ export class RuntimeDebugConfiguration {
   }
 
   /**
-   * 同步调试配置到 Logger
+   * Sync debug configuration to Logger
    *
-   * 根据 DebugOptions 中的设置更新 Logger 的配置
+   * Update Logger configuration based on DebugOptions settings
    *
-   * @param options - 调试选项
+   * @param options - Debug options
    * @private
    *
    * @example
    * ```typescript
-   * // 内部调用示例
+   * // Internal call example
    * this.syncToLogger({
    *   enabled: true,
    *   logLevel: 'debug',
@@ -203,18 +203,18 @@ export class RuntimeDebugConfiguration {
   }
 
   /**
-   * 同步调试配置到事件管理器
+   * Sync debug configuration to event managers
    *
-   * 启用或禁用事件总线、渲染事件管理器和实体事件管理器的调试模式
+   * Enable or disable debug mode for event bus, render event manager, and entity event manager
    *
-   * @param enabled - 是否启用事件调试
+   * @param enabled - Whether to enable event debugging
    * @private
    *
    * @example
    * ```typescript
-   * // 内部调用示例
-   * this.syncToEventManagers(true); // 启用事件调试
-   * this.syncToEventManagers(false); // 禁用事件调试
+   * // Internal call example
+   * this.syncToEventManagers(true); // Enable event debugging
+   * this.syncToEventManagers(false); // Disable event debugging
    * ```
    */
   private syncToEventManagers(enabled: boolean): void {
@@ -224,17 +224,17 @@ export class RuntimeDebugConfiguration {
   }
 
   /**
-   * 深度克隆调试选项
+   * Deep clone debug options
    *
-   * 创建 DebugOptions 的深度克隆，特别处理 panel 对象
+   * Create a deep clone of DebugOptions, specially handling the panel object
    *
-   * @param options - 要克隆的调试选项
-   * @returns 调试选项的深度克隆
+   * @param options - Debug options to clone
+   * @returns Deep clone of debug options
    * @private
    *
    * @example
    * ```typescript
-   * // 内部调用示例
+   * // Internal call example
    * const clone = this.cloneDebugOptions({
    *   enabled: true,
    *   panel: { position: 'bottom', width: 300 }

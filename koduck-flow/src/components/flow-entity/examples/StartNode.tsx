@@ -1,15 +1,15 @@
 /**
- * @file StartNode - 开始节点示例
+ * @file StartNode - Start node example
  * @description
- * 开始节点是流程图的入口点，每个流程图通常有一个开始节点。
- * 该节点只有一个输出端口，没有输入端口。
+ * Start node is the entry point of the flow diagram; each flow diagram usually has one start node.
+ * This node has only one output port and no input ports.
  *
  * @example
  * ```tsx
  * import { StartNode, createStartNode } from './StartNode';
  *
  * const nodeEntity = createStartNode({
- *   label: '流程开始',
+ *   label: 'Flow Start',
  *   triggerType: 'manual'
  * });
  * ```
@@ -25,34 +25,34 @@ import type { FormSchema, PortDefinition, FlowNodeTheme } from "../types";
 // ============================================================================
 
 /**
- * 开始节点配置
+ * Start node configuration
  */
 export interface StartNodeConfig {
-  /** 节点标签 */
+  /** Node label */
   label?: string;
-  /** 触发类型 */
+  /** Trigger type */
   triggerType?: "manual" | "scheduled" | "event" | "api";
-  /** 触发描述 */
+  /** Trigger description */
   triggerDescription?: string;
-  /** 初始位置 */
+  /** Initial position */
   position?: { x: number; y: number };
 }
 
 /**
- * StartNode 组件的 Props
+ * StartNode component props
  */
 export interface StartNodeProps {
-  /** FlowNodeEntity 实例 */
+  /** FlowNodeEntity instance */
   entity: FlowNodeEntity;
-  /** 是否选中 */
+  /** Whether selected */
   selected?: boolean;
-  /** 选中回调 */
+  /** Select callback */
   onSelect?: (entity: FlowNodeEntity) => void;
-  /** 表单值变更回调 */
+  /** Form value change callback */
   onFormChange?: (entity: FlowNodeEntity, values: Record<string, unknown>) => void;
-  /** 额外 CSS 类 */
+  /** Extra CSS class */
   className?: string;
-  /** 测试 ID */
+  /** Test ID */
   testId?: string;
 }
 
@@ -61,7 +61,7 @@ export interface StartNodeProps {
 // ============================================================================
 
 /**
- * 触发类型选项
+ * Trigger type options
  */
 const TRIGGER_TYPES = [
   { value: "manual", label: "手动触发" },
@@ -71,7 +71,7 @@ const TRIGGER_TYPES = [
 ] as const;
 
 /**
- * 开始节点表单配置
+ * Start node form configuration
  */
 export const START_FORM_SCHEMA: FormSchema = {
   type: "object",
@@ -101,7 +101,7 @@ export const START_FORM_SCHEMA: FormSchema = {
 };
 
 /**
- * 开始节点端口定义（只有输出）
+ * Start node port definitions (output only)
  */
 const START_PORTS: PortDefinition[] = [
   {
@@ -113,14 +113,14 @@ const START_PORTS: PortDefinition[] = [
 ];
 
 /**
- * 开始节点主题（绿色）
+ * Start node theme (green)
  */
 const START_NODE_THEME: Partial<FlowNodeTheme> = {
   backgroundColor: "#D1FAE5",
   borderColor: "#10B981",
   headerColor: "#10B981",
   textColor: "#065F46",
-  borderRadius: 50, // 圆形
+  borderRadius: 50, // Circle
 };
 
 // ============================================================================
@@ -128,15 +128,15 @@ const START_NODE_THEME: Partial<FlowNodeTheme> = {
 // ============================================================================
 
 /**
- * 创建开始节点实体
+ * Create start node entity
  *
- * @param config - 节点配置
- * @returns FlowNodeEntity 实例
+ * @param config - Node configuration
+ * @returns FlowNodeEntity instance
  *
  * @example
  * ```tsx
  * const entity = createStartNode({
- *   label: '流程开始',
+ *   label: 'Flow Start',
  *   triggerType: 'scheduled'
  * });
  * ```
@@ -171,19 +171,19 @@ export function createStartNode(config?: StartNodeConfig): FlowNodeEntity {
 // ============================================================================
 
 /**
- * 开始节点组件
+ * Start node component
  *
  * @description
- * 开始节点是流程图的入口点，使用绿色圆形设计。
- * 只有一个输出端口，用于连接到下一个节点。
+ * Start node is the entry point of the flow diagram, designed with a green circle.
+ * Has only one output port for connecting to the next node.
  *
- * @param props - 组件属性
- * @returns JSX 元素
+ * @param props - Component props
+ * @returns JSX element
  *
  * @example
  * ```tsx
  * const startEntity = createStartNode({
- *   label: '开始',
+ *   label: 'Start',
  *   triggerType: 'manual'
  * });
  *

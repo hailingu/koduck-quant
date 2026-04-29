@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 
 /**
- * KoduckFlow 配置 Schema 生成脚本
+ * KoduckFlow configuration schema generation script
  */
 
 import { writeFileSync, mkdirSync } from "node:fs";

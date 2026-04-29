@@ -25,7 +25,7 @@ type CanvasRenderPrivate = {
 const getCanvasRenderPrivate = (instance: CanvasRender): CanvasRenderPrivate =>
   instance as unknown as CanvasRenderPrivate;
 
-// Mock 依赖
+// Mock dependencies
 vi.mock("../../../src/common/logger", () => {
   const debug = vi.fn();
   const info = vi.fn();
@@ -96,7 +96,7 @@ describe("CanvasRender", () => {
   beforeEach(() => {
     mockRegistryManager = createRegistryManager();
 
-    // Mock RegistryManager 的 getRegistryForEntity 方法
+    // Mock RegistryManager's getRegistryForEntity method
     mockRegistryManager.getRegistryForEntity = vi
       .fn<(entity: IEntity) => ICapabilityAwareRegistry<IEntity, IMeta> | undefined>()
       .mockReturnValue({
@@ -107,7 +107,7 @@ describe("CanvasRender", () => {
         executeCapability: vi.fn(),
       } as unknown as ICapabilityAwareRegistry<IEntity, IMeta>);
 
-    // 创建 mock canvas 和 context
+    // Create mock canvas and context
     mockCanvas = {
       getContext: vi.fn(),
       width: 800,
@@ -144,7 +144,7 @@ describe("CanvasRender", () => {
       getImageData: vi.fn(
         () =>
           ({
-            data: new Uint8ClampedArray(4 * 50 * 50), // 模拟50x50的图像数据
+            data: new Uint8ClampedArray(4 * 50 * 50), // simulate 50x50 image data
             width: 50,
             height: 50,
           }) as ImageData
@@ -167,14 +167,14 @@ describe("CanvasRender", () => {
     vi.clearAllMocks();
   });
 
-  describe("构造函数和初始化", () => {
-    test("应该正确初始化 CanvasRender", () => {
+  describe("Constructor and initialization", () => {
+    test("should correctly initialize CanvasRender", () => {
       expect(canvasRender).toBeDefined();
       expect(canvasRender.getName()).toBe("CanvasRender");
       expect(canvasRender.getType()).toBe("canvas");
     });
 
-    test("应该初始化性能统计", () => {
+    test("should initialize performance stats", () => {
       const stats = canvasRender.getPerformanceStats();
       expect(stats).toBeDefined();
       expect(stats.type).toBe("canvas");
@@ -182,7 +182,7 @@ describe("CanvasRender", () => {
     });
   });
 
-  describe("渲染上下文管理", () => {
+  describe("Render context management", () => {
     let mockRenderContext: IRenderContext;
 
     beforeEach(() => {
@@ -194,7 +194,7 @@ describe("CanvasRender", () => {
       };
     });
 
-    test("canHandle 应该正确判断是否能处理上下文", () => {
+    test("canHandle should correctly determine if context can be handled", () => {
       expect(canvasRender.canHandle(mockRenderContext)).toBe(true);
 
       const contextWithoutCanvas: IRenderContext = {
@@ -206,20 +206,20 @@ describe("CanvasRender", () => {
       expect(canvasRender.canHandle(contextWithoutCanvas)).toBe(false);
     });
 
-    test("setRenderContext 应该设置渲染上下文", () => {
+    test("setRenderContext should set the render context", () => {
       canvasRender.setRenderContext(mockRenderContext);
 
       expect(canvasRender.getRenderContext()).toEqual(mockRenderContext);
     });
 
-    test("getRenderContext 应该返回当前渲染上下文", () => {
+    test("getRenderContext should return the current render context", () => {
       expect(canvasRender.getRenderContext()).toBeUndefined();
 
       canvasRender.setRenderContext(mockRenderContext);
       expect(canvasRender.getRenderContext()).toBe(mockRenderContext);
     });
 
-    test("updateRenderContext 应该更新渲染上下文", () => {
+    test("updateRenderContext should update the render context", () => {
       canvasRender.setRenderContext(mockRenderContext);
 
       const updates = {
@@ -231,12 +231,12 @@ describe("CanvasRender", () => {
       expect(updatedContext?.viewport).toEqual(updates.viewport);
     });
 
-    test("getPriority 应该返回正确的优先级", () => {
+    test("getPriority should return the correct priority", () => {
       expect(canvasRender.getPriority()).toBe(75); // RENDERER_PRIORITY.CANVAS
     });
   });
 
-  describe("实体渲染", () => {
+  describe("Entity rendering", () => {
     const mockEntity = {
       id: "test-entity",
       type: "rectangle-canvas",
@@ -254,16 +254,16 @@ describe("CanvasRender", () => {
       canvasRender.setRenderContext(context);
     });
 
-    test("render 应该为 Canvas 渲染返回 void", () => {
+    test("render should return void for Canvas rendering", () => {
       const result = canvasRender.render(mockEntity);
       expect(result).toBeUndefined();
     });
 
-    test("canRender 应该根据实体类型判断是否能渲染", () => {
+    test("canRender should determine if rendering is possible based on entity type", () => {
       expect(canvasRender.canRender(mockEntity)).toBe(true);
     });
 
-    test("renderContext 应该执行 Canvas 渲染", () => {
+    test("renderContext should execute Canvas rendering", () => {
       const context: IRenderContext = {
         nodes: [mockEntity],
         viewport: { x: 0, y: 0, zoom: 1, width: 800, height: 600 },
@@ -274,12 +274,12 @@ describe("CanvasRender", () => {
       canvasRender.setRenderContext(context);
       canvasRender.render(mockEntity);
 
-      // 验证渲染被调用（通过不抛出错误）
+      // Verify rendering is called (by not throwing error)
       expect(() => canvasRender.render(mockEntity)).not.toThrow();
     });
   });
 
-  describe("批量渲染", () => {
+  describe("Batch rendering", () => {
     const mockEntities = [
       {
         id: "entity1",
@@ -289,7 +289,7 @@ describe("CanvasRender", () => {
       { id: "entity2", type: "circle", dispose: vi.fn() } as unknown as IEntity,
     ];
 
-    test("batchRender 应该处理多个实体", () => {
+    test("batchRender should handle multiple entities", () => {
       const context: IRenderContext = {
         nodes: mockEntities,
         viewport: { x: 0, y: 0, zoom: 1, width: 800, height: 600 },
@@ -300,13 +300,13 @@ describe("CanvasRender", () => {
       canvasRender.setRenderContext(context);
       canvasRender.batchRender(mockEntities);
 
-      // 验证批量渲染被调用
+      // Verify batch rendering is called
       expect(() => canvasRender.batchRender(mockEntities)).not.toThrow();
     });
   });
 
-  describe("配置管理", () => {
-    test("configure 应该接受配置参数", () => {
+  describe("Configuration management", () => {
+    test("configure should accept config parameters", () => {
       const config: IRenderConfig = {
         batchSize: 10,
         enableCache: true,
@@ -316,23 +316,23 @@ describe("CanvasRender", () => {
       expect(() => canvasRender.configure(config)).not.toThrow();
     });
 
-    test("configure 应该处理空配置", () => {
+    test("configure should handle empty config", () => {
       expect(() => canvasRender.configure({})).not.toThrow();
     });
   });
 
-  describe("注册表管理器设置", () => {
-    test("setRegistryManager 应该设置注册表管理器", () => {
+  describe("Registry manager setup", () => {
+    test("setRegistryManager should set the registry manager", () => {
       const newRegistryManager = createRegistryManager();
       canvasRender.setRegistryManager(newRegistryManager);
 
-      // 验证设置成功（通过不抛出错误）
+      // Verify setup succeeded (by not throwing error)
       expect(() => canvasRender.setRegistryManager(newRegistryManager)).not.toThrow();
     });
   });
 
-  describe("性能统计", () => {
-    test("getPerformanceStats 应该返回性能统计信息", () => {
+  describe("Performance stats", () => {
+    test("getPerformanceStats should return performance statistics", () => {
       const stats = canvasRender.getPerformanceStats();
 
       expect(stats).toHaveProperty("renderCount");
@@ -342,7 +342,7 @@ describe("CanvasRender", () => {
       expect(stats).toHaveProperty("name", "CanvasRender");
     });
 
-    test("渲染操作应该更新性能统计", () => {
+    test("rendering operations should update performance statistics", () => {
       const mockEntity = {
         id: "test-entity",
         type: "rectangle-canvas",
@@ -367,18 +367,18 @@ describe("CanvasRender", () => {
     });
   });
 
-  describe("资源清理", () => {
-    test("dispose 应该清理资源", () => {
+  describe("Resource cleanup", () => {
+    test("dispose should clean up resources", () => {
       expect(() => canvasRender.dispose()).not.toThrow();
     });
 
-    test("dispose 应该可重复调用", () => {
+    test("dispose should be idempotent", () => {
       canvasRender.dispose();
       expect(() => canvasRender.dispose()).not.toThrow();
     });
   });
 
-  describe("DPR (设备像素比) 功能", () => {
+  describe("DPR (device pixel ratio) features", () => {
     let mockRenderContext: IRenderContext;
 
     beforeEach(() => {
@@ -391,15 +391,15 @@ describe("CanvasRender", () => {
       canvasRender.setRenderContext(mockRenderContext);
     });
 
-    test("getDPR 应该返回当前 DPR 值", () => {
-      expect(canvasRender.getDPR()).toBe(1); // 默认值
+    test("getDPR should return the current DPR value", () => {
+      expect(canvasRender.getDPR()).toBe(1); // default value
     });
 
-    test("isDPREnabled 应该返回 DPR 是否启用", () => {
-      expect(canvasRender.isDPREnabled()).toBe(true); // 默认启用
+    test("isDPREnabled should return whether DPR is enabled", () => {
+      expect(canvasRender.isDPREnabled()).toBe(true); // enabled by default
     });
 
-    test("convertToCanvasCoordinates 应该正确转换坐标", () => {
+    test("convertToCanvasCoordinates should correctly convert coordinates", () => {
       const cssX = 100;
       const cssY = 200;
       const result = canvasRender.convertToCanvasCoordinates(cssX, cssY);
@@ -408,7 +408,7 @@ describe("CanvasRender", () => {
       expect(result.y).toBe(cssY * canvasRender.getDPR());
     });
 
-    test("convertToCSSCoordinates 应该正确转换坐标", () => {
+    test("convertToCSSCoordinates should correctly convert coordinates", () => {
       const canvasX = 200;
       const canvasY = 400;
       const result = canvasRender.convertToCSSCoordinates(canvasX, canvasY);
@@ -417,7 +417,7 @@ describe("CanvasRender", () => {
       expect(result.y).toBe(canvasY / canvasRender.getDPR());
     });
 
-    test("DPR 处理应该在初始化 Canvas 时应用", () => {
+    test("DPR handling should be applied when initializing Canvas", () => {
       // Mock window.devicePixelRatio
       const originalDPR = window.devicePixelRatio;
       Object.defineProperty(window, "devicePixelRatio", {
@@ -444,21 +444,21 @@ describe("CanvasRender", () => {
 
       canvasRender.setRenderContext(contextWithNewCanvas);
 
-      // 验证 Canvas 尺寸被设置为 DPR 倍数
+      // Verify Canvas dimensions are set to DPR multiples
       expect(newCanvas.width).toBe(800); // 400 * 2
       expect(newCanvas.height).toBe(600); // 300 * 2
 
-      // 验证 DPR 值被更新
+      // Verify DPR value is updated
       expect(canvasRender.getDPR()).toBe(2);
 
-      // 恢复原始值
+      // Restore original value
       Object.defineProperty(window, "devicePixelRatio", {
         value: originalDPR,
         writable: true,
       });
     });
 
-    test("禁用 DPR 时不应该应用 DPR 处理", () => {
+    test("DPR handling should not be applied when DPR is disabled", () => {
       const canvasRenderWithoutDPR = new CanvasRender(mockRegistryManager, {
         enableDPR: false,
       });
@@ -482,17 +482,17 @@ describe("CanvasRender", () => {
 
       canvasRenderWithoutDPR.setRenderContext(contextWithNewCanvas);
 
-      // 验证 Canvas 尺寸没有被改变
-      expect(newCanvas.width).toBe(800); // 保持原始值
-      expect(newCanvas.height).toBe(600); // 保持原始值
+      // Verify Canvas dimensions are not changed
+      expect(newCanvas.width).toBe(800); // keep original value
+      expect(newCanvas.height).toBe(600); // keep original value
 
-      // 验证 DPR 值保持默认值
+      // Verify DPR value stays at default
       expect(canvasRenderWithoutDPR.getDPR()).toBe(1);
       expect(canvasRenderWithoutDPR.isDPREnabled()).toBe(false);
     });
   });
 
-  describe("渲染操作队列管理", () => {
+  describe("Render operation queue management", () => {
     let mockRenderContext: IRenderContext;
 
     beforeEach(() => {
@@ -505,7 +505,7 @@ describe("CanvasRender", () => {
       canvasRender.setRenderContext(mockRenderContext);
     });
 
-    test("addRenderOperations 应该添加渲染操作到队列", () => {
+    test("addRenderOperations should add render operations to the queue", () => {
       const operations = [
         {
           type: "rectangle",
@@ -525,28 +525,28 @@ describe("CanvasRender", () => {
 
       canvasRender.addRenderOperations(operations);
 
-      // 验证操作被添加到队列（通过执行操作来间接验证）
-      // 注意：addRenderOperations 是私有方法，我们需要通过其他方式验证
+      // Verify operations are added to queue (indirectly by executing operations)
+      // Note: addRenderOperations is a private method, we need to verify through other means
       expect(operations).toHaveLength(2);
     });
 
-    test("isInViewport 应该正确判断边界是否在视口内", () => {
-      // 测试在视口内的边界
+    test("isInViewport should correctly determine if bounds are within viewport", () => {
+      // Test bounds inside viewport
       const inViewportBounds = { x: 10, y: 10, width: 50, height: 50 };
       const internals = getCanvasRenderPrivate(canvasRender);
       expect(internals.isInViewport(inViewportBounds)).toBe(true);
 
-      // 测试在视口外的边界
+      // Test bounds outside viewport
       const outViewportBounds = { x: 900, y: 700, width: 50, height: 50 };
       expect(internals.isInViewport(outViewportBounds)).toBe(false);
 
-      // 测试部分在视口外的边界（但仍与视口相交，应该渲染）
+      // Test bounds partially outside viewport (but still intersecting viewport, should render)
       const partialOutBounds = { x: -10, y: -10, width: 50, height: 50 };
       expect(internals.isInViewport(partialOutBounds)).toBe(true);
     });
 
-    test("isInViewport 应该考虑 DPR 进行视口检查", () => {
-      // 设置 DPR 为 2
+    test("isInViewport should account for DPR during viewport check", () => {
+      // Set DPR to 2
       const originalDPR = window.devicePixelRatio;
       Object.defineProperty(window, "devicePixelRatio", {
         value: 2,
@@ -556,20 +556,20 @@ describe("CanvasRender", () => {
       const canvasRenderWithDPR = new CanvasRender(mockRegistryManager);
       canvasRenderWithDPR.setRenderContext(mockRenderContext);
 
-      // 边界在 DPR 调整后的视口内
+      // Bounds within DPR-adjusted viewport
       const bounds = { x: 10, y: 10, width: 50, height: 50 };
-      // 由于 DPR=2，Canvas 尺寸变为 1600x1200，但视口检查使用 CSS 尺寸
+      // Since DPR=2, Canvas dimensions become 1600x1200, but viewport check uses CSS dimensions
       const internals = getCanvasRenderPrivate(canvasRenderWithDPR);
       expect(internals.isInViewport(bounds)).toBe(true);
 
-      // 恢复原始值
+      // Restore original value
       Object.defineProperty(window, "devicePixelRatio", {
         value: originalDPR,
         writable: true,
       });
     });
 
-    test("executeRenderOperations 应该按优先级执行操作", () => {
+    test("executeRenderOperations should execute operations by priority", () => {
       const executedOrder: string[] = [];
 
       const operations = [
@@ -596,23 +596,23 @@ describe("CanvasRender", () => {
         },
       ];
 
-      // 手动设置渲染操作队列（由于是私有方法）
+      // Manually set render operation queue (since it's a private method)
       const internals = getCanvasRenderPrivate(canvasRender);
       internals.renderOperations = operations;
 
-      // 执行操作
+      // Execute operations
       internals.executeRenderOperations();
 
-      // 验证按优先级降序执行（高优先级先执行）
+      // Verify execution in descending priority order (high priority first)
       expect(executedOrder).toEqual(["high", "medium", "low"]);
     });
 
-    test("executeRenderOperations 应该处理视口剔除", () => {
+    test("executeRenderOperations should handle viewport culling", () => {
       const renderFn = vi.fn();
       const outOfViewportOperation = {
         type: "rectangle",
         id: "out-of-viewport",
-        bounds: { x: 1000, y: 1000, width: 50, height: 50 }, // 超出视口
+        bounds: { x: 1000, y: 1000, width: 50, height: 50 }, // outside viewport
         render: renderFn,
         priority: 1,
       };
@@ -621,11 +621,11 @@ describe("CanvasRender", () => {
       internals.renderOperations = [outOfViewportOperation];
       internals.executeRenderOperations();
 
-      // 验证渲染函数没有被调用（因为被视口剔除）
+      // Verify render function is not called (because it was culled by viewport)
       expect(renderFn).not.toHaveBeenCalled();
     });
 
-    test("executeRenderOperations 应该处理缓存", () => {
+    test("executeRenderOperations should handle caching", () => {
       const renderFn = vi.fn();
       const cacheableOperation = {
         type: "rectangle",
@@ -635,7 +635,7 @@ describe("CanvasRender", () => {
         priority: 1,
       };
 
-      // 启用缓存
+      // Enable cache
       const canvasRenderWithCache = new CanvasRender(mockRegistryManager, {
         enableLayerCaching: true,
       });
@@ -644,18 +644,18 @@ describe("CanvasRender", () => {
       const cacheInternals = getCanvasRenderPrivate(canvasRenderWithCache);
       cacheInternals.renderOperations = [cacheableOperation];
 
-      // 第一次执行 - 应该调用渲染函数并缓存
+      // First execution - should call render function and cache
       cacheInternals.executeRenderOperations();
       expect(renderFn).toHaveBeenCalledTimes(1);
 
-      // 第二次执行相同操作 - 应该从缓存加载，不调用渲染函数
+      // Second execution of same operation - should load from cache, not call render function
       cacheInternals.renderOperations = [cacheableOperation];
       cacheInternals.executeRenderOperations();
-      expect(renderFn).toHaveBeenCalledTimes(1); // 仍然是1次，因为第二次从缓存加载
+      expect(renderFn).toHaveBeenCalledTimes(1); // still 1, because second load from cache
     });
   });
 
-  describe("缓存管理", () => {
+  describe("Cache management", () => {
     let mockRenderContext: IRenderContext;
 
     beforeEach(() => {
@@ -668,8 +668,8 @@ describe("CanvasRender", () => {
       canvasRender.setRenderContext(mockRenderContext);
     });
 
-    test("cleanupCache 应该清空渲染缓存", () => {
-      // 添加一些缓存数据
+    test("cleanupCache should clear render cache", () => {
+      // Add some cache data
       const cache = new Map<string, ImageData>();
       const mockImageData = {} as ImageData;
       cache.set("test-key", mockImageData);
@@ -677,18 +677,18 @@ describe("CanvasRender", () => {
       const internals = getCanvasRenderPrivate(canvasRender);
       internals.renderCache = cache;
 
-      // 验证缓存中有数据
+      // Verify cache has data
       expect(internals.renderCache.size).toBe(1);
 
-      // 执行缓存清理
+      // Execute cache cleanup
       canvasRender.cleanupCache();
 
-      // 验证缓存已被清空
+      // Verify cache has been cleared
       expect(internals.renderCache.size).toBe(0);
     });
 
-    test("缓存应该在 dispose 时被清理", () => {
-      // 添加一些缓存数据
+    test("cache should be cleaned up on dispose", () => {
+      // Add some cache data
       const cache = new Map<string, ImageData>();
       const mockImageData = {} as ImageData;
       cache.set("test-key", mockImageData);
@@ -696,14 +696,14 @@ describe("CanvasRender", () => {
       const internals = getCanvasRenderPrivate(canvasRender);
       internals.renderCache = cache;
 
-      // 执行 dispose
+      // Execute dispose
       canvasRender.dispose();
 
-      // 验证缓存已被清空
+      // Verify cache has been cleared
       expect(internals.renderCache.size).toBe(0);
     });
 
-    test("缓存命中和未命中应该被正确统计", () => {
+    test("cache hits and misses should be correctly counted", () => {
       const renderFn = vi.fn();
       const operation = {
         type: "rectangle",
@@ -713,7 +713,7 @@ describe("CanvasRender", () => {
         priority: 1,
       };
 
-      // 启用缓存
+      // Enable cache
       const canvasRenderWithCache = new CanvasRender(mockRegistryManager, {
         enableLayerCaching: true,
       });
@@ -721,37 +721,37 @@ describe("CanvasRender", () => {
 
       const cacheInternals = getCanvasRenderPrivate(canvasRenderWithCache);
 
-      // 第一次执行 - 缓存未命中
+      // First execution - cache miss
       cacheInternals.renderOperations = [operation];
       cacheInternals.executeRenderOperations();
 
-      // 验证渲染函数被调用
+      // Verify render function is called
       expect(renderFn).toHaveBeenCalledTimes(1);
 
-      // 验证缓存未命中统计
+      // Verify cache miss statistics
       const statsAfterMiss = canvasRenderWithCache.getPerformanceStats();
       expect(statsAfterMiss.cacheHitCount).toBe(0);
       expect(statsAfterMiss.cacheMissCount).toBe(1);
 
-      // 第二次执行相同操作 - 缓存命中
+      // Second execution of same operation - cache hit
       cacheInternals.renderOperations = [operation];
       cacheInternals.executeRenderOperations();
 
-      // 验证渲染函数没有再次被调用（从缓存加载）
+      // Verify render function is not called again (loaded from cache)
       expect(renderFn).toHaveBeenCalledTimes(1);
 
-      // 验证缓存命中统计
+      // Verify cache hit statistics
       const statsAfterHit = canvasRenderWithCache.getPerformanceStats();
       expect(statsAfterHit.cacheHitCount).toBe(1);
       expect(statsAfterHit.cacheMissCount).toBe(1);
     });
 
-    test("缓存命中率应该被正确计算", () => {
+    test("cache hit ratio should be correctly calculated", () => {
       const canvasRenderWithCache = new CanvasRender(mockRegistryManager, {
         enableLayerCaching: true,
       });
 
-      // 手动设置性能统计
+      // Manually set performance stats
       const cacheInternals = getCanvasRenderPrivate(canvasRenderWithCache);
       cacheInternals.performanceStats = {
         totalRenderTime: 100,
@@ -763,19 +763,19 @@ describe("CanvasRender", () => {
 
       const stats = canvasRenderWithCache.getPerformanceStats();
 
-      // 验证缓存命中率计算：7 / (7 + 3) = 0.7
+      // Verify cache hit ratio calculation: 7 / (7 + 3) = 0.7
       expect(stats.cacheHitRatio).toBe(0.7);
     });
 
-    test("空缓存的命中率应该是 0", () => {
+    test("empty cache hit ratio should be 0", () => {
       const stats = canvasRender.getPerformanceStats();
 
-      // 没有缓存操作时的命中率应该是 0
+      // Hit ratio should be 0 when there are no cache operations
       expect(stats.cacheHitRatio).toBe(0);
     });
   });
 
-  describe("错误处理和边界情况", () => {
+  describe("Error handling and edge cases", () => {
     let mockRenderContext: IRenderContext;
 
     beforeEach(() => {
@@ -788,7 +788,7 @@ describe("CanvasRender", () => {
       canvasRender.setRenderContext(mockRenderContext);
     });
 
-    test("渲染失败时应该记录错误并继续执行", () => {
+    test("should log error and continue when rendering fails", () => {
       const mockEntity = {
         id: "failing-entity",
         type: "rectangle-canvas",
@@ -796,7 +796,7 @@ describe("CanvasRender", () => {
         dispose: vi.fn(),
       } as unknown as IEntity;
 
-      // Mock 注册表执行能力时抛出错误
+      // Mock registry execute capability throwing error
       vi.mocked(mockRegistryManager.getRegistryForEntity).mockReturnValue({
         hasCapability: vi.fn(() => true),
         getCapabilities: vi.fn(() => ["render"]),
@@ -807,10 +807,10 @@ describe("CanvasRender", () => {
         }),
       } as unknown as ICapabilityAwareRegistry<IEntity, IMeta>);
 
-      // 应该不抛出错误
+      // Should not throw error
       expect(() => canvasRender.render(mockEntity)).not.toThrow();
 
-      // 验证错误被记录到日志
+      // Verify error is logged
       expect(logger.error).toHaveBeenCalledWith(
         expect.objectContaining({
           event: CanvasRenderEvent.RenderError,
@@ -825,30 +825,30 @@ describe("CanvasRender", () => {
       );
     });
 
-    test("没有注册表时应该记录警告并尝试直接调用实体render方法", () => {
+    test("should log warning and try calling entity render method directly when no registry", () => {
       const mockEntity = {
         id: "no-registry-entity",
         type: "rectangle-canvas",
         data: { x: 100, y: 100, width: 50, height: 50 },
         dispose: vi.fn(),
-        render: vi.fn(), // 实体有 render 方法
+        render: vi.fn(), // entity has render method
         canRender: vi.fn(() => true),
       } as unknown as IEntity & {
         render: (ctx: IRenderContext) => void;
         canRender: (ctx: IRenderContext) => boolean;
       };
 
-      // Mock 注册表返回 null
+      // Mock registry returns null
       vi.mocked(mockRegistryManager.getRegistryForEntity).mockReturnValue(undefined);
 
       canvasRender.render(mockEntity);
 
-      // 验证实体的 render 方法被调用
+      // Verify entity's render method is called
       expect(mockEntity.render).toHaveBeenCalledWith(mockRenderContext);
       expect(mockEntity.canRender).toHaveBeenCalledWith(mockRenderContext);
     });
 
-    test("注册表没有render能力时应该尝试直接调用实体render方法", () => {
+    test("should try calling entity render method directly when registry lacks render capability", () => {
       const mockEntity = {
         id: "no-capability-entity",
         type: "rectangle-canvas",
@@ -861,7 +861,7 @@ describe("CanvasRender", () => {
         canRender: (ctx: IRenderContext) => boolean;
       };
 
-      // Mock 注册表没有 render 能力
+      // Mock registry without render capability
       vi.mocked(mockRegistryManager.getRegistryForEntity).mockReturnValue({
         hasCapability: vi.fn(() => false),
         getCapabilities: vi.fn(() => ["other"]),
@@ -876,11 +876,11 @@ describe("CanvasRender", () => {
 
       canvasRender.render(mockEntity);
 
-      // 验证实体的 render 方法被调用
+      // Verify entity's render method is called
       expect(mockEntity.render).toHaveBeenCalledWith(mockRenderContext);
     });
 
-    test("实体没有render方法时应该记录警告", () => {
+    test("should log warning when entity has no render method", () => {
       const mockEntity = {
         id: "no-render-entity",
         type: "rectangle-canvas",
@@ -888,7 +888,7 @@ describe("CanvasRender", () => {
         dispose: vi.fn(),
       } as unknown as IEntity;
 
-      // Mock 注册表没有 render 能力
+      // Mock registry without render capability
       vi.mocked(mockRegistryManager.getRegistryForEntity).mockReturnValue({
         hasCapability: vi.fn(() => false),
         getCapabilities: vi.fn(() => ["other"]),
@@ -902,7 +902,7 @@ describe("CanvasRender", () => {
 
       canvasRender.render(mockEntity);
 
-      // 验证警告被记录
+      // Verify warning is logged
       expect(logger.warn).toHaveBeenCalledWith(
         expect.objectContaining({
           event: CanvasRenderEvent.CapabilityMissing,
@@ -917,7 +917,7 @@ describe("CanvasRender", () => {
       );
     });
 
-    test("批量渲染中的错误应该被单独处理", () => {
+    test("errors in batch rendering should be handled individually", () => {
       const entities = [
         {
           id: "good-entity",
@@ -935,7 +935,7 @@ describe("CanvasRender", () => {
       vi.mocked(mockRegistryManager.getRegistryForEntity).mockImplementation(() => {
         callCount++;
         if (callCount === 1) {
-          // 第一个实体成功
+          // First entity succeeds
           return {
             hasCapability: vi.fn(() => true),
             executeCapability: vi.fn(),
@@ -945,7 +945,7 @@ describe("CanvasRender", () => {
             meta: { type: "test" },
           } as unknown as ICapabilityAwareRegistry<IEntity, IMeta>;
         } else {
-          // 第二个实体失败
+          // Second entity fails
           return {
             hasCapability: vi.fn(() => true),
             executeCapability: vi.fn(() => {
@@ -959,10 +959,10 @@ describe("CanvasRender", () => {
         }
       });
 
-      // 应该不抛出错误
+      // Should not throw error
       expect(() => canvasRender.batchRender(entities)).not.toThrow();
 
-      // 验证错误被记录
+      // Verify error is logged
       expect(logger.error).toHaveBeenCalledWith(
         expect.objectContaining({
           event: CanvasRenderEvent.BatchError,
@@ -977,8 +977,8 @@ describe("CanvasRender", () => {
       );
     });
 
-    test("离屏渲染初始化应该在OffscreenCanvas可用时工作", () => {
-      // Mock OffscreenCanvas 可用
+    test("offscreen rendering initialization should work when OffscreenCanvas is available", () => {
+      // Mock OffscreenCanvas available
       const originalOffscreenCanvas = (globalThis as { OffscreenCanvas?: unknown }).OffscreenCanvas;
       (globalThis as { OffscreenCanvas?: unknown }).OffscreenCanvas = vi.fn(() => ({
         getContext: vi.fn(() => ({})),
@@ -990,16 +990,16 @@ describe("CanvasRender", () => {
 
       canvasRenderWithOffscreen.setRenderContext(mockRenderContext);
 
-      // 验证离屏canvas被创建
+      // Verify offscreen canvas is created
       const offscreenInternals = getCanvasRenderPrivate(canvasRenderWithOffscreen);
       expect(offscreenInternals.offscreenCanvas).toBeDefined();
 
-      // 清理
+      // Clean up
       (globalThis as { OffscreenCanvas?: unknown }).OffscreenCanvas = originalOffscreenCanvas;
     });
 
-    test("离屏渲染初始化应该在OffscreenCanvas不可用时降级", () => {
-      // 确保 OffscreenCanvas 不可用
+    test("offscreen rendering initialization should gracefully degrade when OffscreenCanvas is unavailable", () => {
+      // Ensure OffscreenCanvas is unavailable
       const originalOffscreenCanvas = (globalThis as { OffscreenCanvas?: unknown }).OffscreenCanvas;
       (globalThis as { OffscreenCanvas?: unknown }).OffscreenCanvas = undefined;
 
@@ -1007,18 +1007,18 @@ describe("CanvasRender", () => {
         enableOffscreenRendering: true,
       });
 
-      // 应该不抛出错误
+      // Should not throw error
       expect(() => canvasRenderWithOffscreen.setRenderContext(mockRenderContext)).not.toThrow();
 
-      // 验证离屏canvas为null
+      // Verify offscreen canvas is null
       const offscreenInternals = getCanvasRenderPrivate(canvasRenderWithOffscreen);
       expect(offscreenInternals.offscreenCanvas).toBeNull();
 
-      // 恢复
+      // Restore
       (globalThis as { OffscreenCanvas?: unknown }).OffscreenCanvas = originalOffscreenCanvas;
     });
 
-    test("渲染操作执行失败应该被正确处理", () => {
+    test("render operation execution failure should be correctly handled", () => {
       const failingOperation = {
         type: "rectangle",
         id: "failing-op",
@@ -1033,7 +1033,7 @@ describe("CanvasRender", () => {
       internals.renderOperations = [failingOperation];
       internals.executeRenderOperations();
 
-      // 验证错误被记录
+      // Verify error is logged
       expect(logger.error).toHaveBeenCalledWith(
         expect.objectContaining({
           event: CanvasRenderEvent.OperationError,
@@ -1048,7 +1048,7 @@ describe("CanvasRender", () => {
     });
   });
 
-  describe("增强配置管理", () => {
+  describe("Enhanced configuration management", () => {
     let mockRenderContext: IRenderContext;
 
     beforeEach(() => {
@@ -1059,32 +1059,32 @@ describe("CanvasRender", () => {
         timestamp: Date.now(),
       };
     });
-    test("configure 应该支持 DPR 配置", () => {
+    test("configure should support DPR config", () => {
       const config: IRenderConfig = {
         enableDPR: true,
       };
 
       expect(() => canvasRender.configure(config)).not.toThrow();
 
-      // 验证 DPR 被启用
+      // Verify DPR is enabled
       expect(canvasRender.isDPREnabled()).toBe(true);
     });
 
-    test("configure 应该支持禁用 DPR", () => {
+    test("configure should support disabling DPR", () => {
       const config: IRenderConfig = {
         enableDPR: false,
       };
 
       expect(() => canvasRender.configure(config)).not.toThrow();
 
-      // 验证 DPR 被禁用
+      // Verify DPR is disabled
       expect(canvasRender.isDPREnabled()).toBe(false);
     });
 
-    test("configure 应该支持完整的性能优化配置", () => {
+    test("configure should support full performance optimization config", () => {
       const config: IRenderConfig = {
         enableCache: true,
-        maxCacheAge: 60000, // 1分钟
+        maxCacheAge: 60000, // 1 minute
         batchSize: 50,
         enableDPR: true,
       };
@@ -1092,39 +1092,39 @@ describe("CanvasRender", () => {
       expect(() => canvasRender.configure(config)).not.toThrow();
     });
 
-    test("configure 应该处理部分配置更新", () => {
-      // 先设置初始配置
+    test("configure should handle partial config updates", () => {
+      // Set initial config first
       canvasRender.configure({
         enableCache: false,
         enableDPR: false,
       });
 
-      // 验证初始状态
+      // Verify initial state
       expect(canvasRender.isDPREnabled()).toBe(false);
 
-      // 只更新 DPR 配置
+      // Only update DPR config
       canvasRender.configure({
         enableDPR: true,
       });
 
-      // 验证只有 DPR 被更新
+      // Verify only DPR is updated
       expect(canvasRender.isDPREnabled()).toBe(true);
     });
 
-    test("configure 应该正确映射通用配置到 Canvas 特定配置", () => {
+    test("configure should correctly map generic config to Canvas-specific config", () => {
       const config: IRenderConfig = {
         enableCache: true,
-        maxCacheAge: 120000, // 2分钟
+        maxCacheAge: 120000, // 2 minutes
         batchSize: 25,
       };
 
       canvasRender.configure(config);
 
-      // 验证配置被正确映射（通过不抛出错误来间接验证）
+      // Verify config is correctly mapped (indirectly by not throwing error)
       expect(() => canvasRender.configure(config)).not.toThrow();
     });
 
-    test("构造函数应该接受并应用配置参数", () => {
+    test("constructor should accept and apply config parameters", () => {
       const config: Partial<{
         enableOffscreenRendering: boolean;
         enableLayerCaching: boolean;
@@ -1141,33 +1141,33 @@ describe("CanvasRender", () => {
 
       const canvasRenderWithConfig = new CanvasRender(mockRegistryManager, config);
 
-      // 验证配置被应用
+      // Verify config is applied
       expect(canvasRenderWithConfig.isDPREnabled()).toBe(false);
     });
 
-    test("构造函数应该使用默认配置当未提供配置时", () => {
+    test("constructor should use default config when none is provided", () => {
       const canvasRenderDefault = new CanvasRender(mockRegistryManager);
 
-      // 验证使用默认配置
-      expect(canvasRenderDefault.isDPREnabled()).toBe(true); // 默认启用 DPR
+      // Verify default config is used
+      expect(canvasRenderDefault.isDPREnabled()).toBe(true); // DPR enabled by default
     });
 
-    test("构造函数应该合并提供的配置和默认配置", () => {
+    test("constructor should merge provided config with default config", () => {
       const config = {
-        enableDPR: false, // 只覆盖这个配置
+        enableDPR: false, // only override this config
       };
 
       const canvasRenderMerged = new CanvasRender(mockRegistryManager, config);
 
-      // 验证指定配置被应用
+      // Verify specified config is applied
       expect(canvasRenderMerged.isDPREnabled()).toBe(false);
 
-      // 其他配置应该使用默认值（通过不抛出错误来验证）
+      // Other configs should use default values (verified by not throwing error)
       expect(() => canvasRenderMerged.setRenderContext(mockRenderContext)).not.toThrow();
     });
   });
 
-  describe("复杂渲染场景", () => {
+  describe("Complex rendering scenarios", () => {
     let mockRenderContext: IRenderContext;
 
     beforeEach(() => {
@@ -1180,8 +1180,8 @@ describe("CanvasRender", () => {
       canvasRender.setRenderContext(mockRenderContext);
     });
 
-    test("应该处理没有 Canvas 2D 上下文的情况", () => {
-      // Mock getContext 返回 null
+    test("should handle missing Canvas 2D context", () => {
+      // Mock getContext returning null
       vi.mocked(mockCanvas.getContext).mockReturnValueOnce(null);
 
       const mockEntity = {
@@ -1190,10 +1190,10 @@ describe("CanvasRender", () => {
         dispose: vi.fn(),
       } as unknown as IEntity;
 
-      // 应该不抛出错误
+      // Should not throw error
       expect(() => canvasRender.render(mockEntity)).not.toThrow();
 
-      // 验证错误被记录
+      // Verify error is logged
       expect(logger.warn).toHaveBeenCalledWith(
         expect.objectContaining({
           event: CanvasRenderEvent.ContextUnavailable,
@@ -1203,24 +1203,24 @@ describe("CanvasRender", () => {
       );
     });
 
-    test("应该处理实体类型不匹配的情况", () => {
+    test("should handle entity type mismatch", () => {
       const mockEntity = {
         id: "wrong-type",
-        type: "rectangle-svg", // 非 canvas 类型
+        type: "rectangle-svg", // non-canvas type
         dispose: vi.fn(),
       } as unknown as IEntity;
 
       canvasRender.render(mockEntity);
 
-      // 验证 canRender 返回 false
+      // Verify canRender returns false
       expect(canvasRender.canRender(mockEntity)).toBe(false);
     });
 
-    test("batchRender 应该处理空实体数组", () => {
+    test("batchRender should handle empty entity arrays", () => {
       expect(() => canvasRender.batchRender([])).not.toThrow();
     });
 
-    test("batchRender 应该在没有渲染上下文时不执行", () => {
+    test("batchRender should not execute without render context", () => {
       const canvasRenderNoContext = new CanvasRender(mockRegistryManager);
 
       const entities = [
@@ -1231,11 +1231,11 @@ describe("CanvasRender", () => {
         } as unknown as IEntity,
       ];
 
-      // 应该不抛出错误
+      // Should not throw error
       expect(() => canvasRenderNoContext.batchRender(entities)).not.toThrow();
     });
 
-    test("render 应该在没有渲染上下文时记录警告", () => {
+    test("render should log warning when there is no render context", () => {
       const canvasRenderNoContext = new CanvasRender(mockRegistryManager);
 
       const mockEntity = {
@@ -1246,7 +1246,7 @@ describe("CanvasRender", () => {
 
       canvasRenderNoContext.render(mockEntity);
 
-      // 验证警告被记录
+      // Verify warning is logged
       expect(logger.warn).toHaveBeenCalledWith(
         expect.objectContaining({
           event: CanvasRenderEvent.NotInitialized,
@@ -1256,7 +1256,7 @@ describe("CanvasRender", () => {
       );
     });
 
-    test("canRender 应该在没有渲染上下文时返回 false", () => {
+    test("canRender should return false when there is no render context", () => {
       const canvasRenderNoContext = new CanvasRender(mockRegistryManager);
 
       const mockEntity = {
@@ -1268,7 +1268,7 @@ describe("CanvasRender", () => {
       expect(canvasRenderNoContext.canRender(mockEntity)).toBe(false);
     });
 
-    test("应该正确处理实体 ID 和类型记录", () => {
+    test("should correctly handle entity ID and type logging", () => {
       const mockEntity = {
         id: "test-entity-123",
         type: "circle-canvas",
@@ -1277,7 +1277,7 @@ describe("CanvasRender", () => {
 
       canvasRender.render(mockEntity);
 
-      // 验证日志记录包含正确的实体信息
+      // Verify log contains correct entity info
       expect(logger.info).toHaveBeenCalledWith(
         expect.objectContaining({
           event: CanvasRenderEvent.RenderSuccess,
@@ -1292,7 +1292,7 @@ describe("CanvasRender", () => {
       );
     });
 
-    test("性能统计应该在批量渲染中正确累积", () => {
+    test("performance stats should correctly accumulate during batch rendering", () => {
       const entities = [
         {
           id: "entity1",
@@ -1312,26 +1312,26 @@ describe("CanvasRender", () => {
 
       const statsAfter = canvasRender.getPerformanceStats();
 
-      // 验证渲染计数增加了
+      // Verify render count increased
       expect(statsAfter.renderCount).toBeGreaterThanOrEqual(statsBefore.renderCount);
-      // 验证总渲染时间增加了
+      // Verify total render time increased
       expect(statsAfter.totalRenderTime).toBeGreaterThanOrEqual(statsBefore.totalRenderTime);
     });
 
-    test("dispose 应该重置所有内部状态", () => {
-      // 设置一些状态
+    test("dispose should reset all internal state", () => {
+      // Set some state
       canvasRender.setRenderContext(mockRenderContext);
 
-      // 添加一些缓存
+      // Add some cache
       const cache = new Map<string, ImageData>();
       cache.set("test", {} as ImageData);
       const internals = getCanvasRenderPrivate(canvasRender);
       internals.renderCache = cache;
 
-      // 执行 dispose
+      // Execute dispose
       canvasRender.dispose();
 
-      // 验证状态被重置
+      // Verify state is reset
       expect(canvasRender.getRenderContext()).toBeUndefined();
       expect(internals.renderCache.size).toBe(0);
       expect(internals.performanceStats.renderCount).toBe(0);

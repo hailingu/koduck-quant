@@ -1,5 +1,5 @@
 /**
- * 配置状态管理器单元测试
+ * Config state manager unit tests
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
@@ -58,14 +58,14 @@ describe("ConfigStateManager", () => {
   });
 
   describe("getCurrentConfig", () => {
-    it("应该返回当前配置", () => {
+    it("should return current config", () => {
       const config = stateManager.getCurrentConfig();
       expect(config).toEqual(mockConfig);
     });
   });
 
   describe("setCurrentConfig", () => {
-    it("应该更新当前配置", () => {
+    it("should update current config", () => {
       const newConfig = {
         ...mockConfig,
         render: { ...mockConfig.render, frameRate: 120 },
@@ -77,7 +77,7 @@ describe("ConfigStateManager", () => {
       expect(stateManager.getPreviousConfig()).toEqual(mockConfig);
     });
 
-    it("应该触发配置变更监听器", () => {
+    it("should trigger config change listeners", () => {
       const listener = vi.fn();
       stateManager.subscribe(listener);
 
@@ -92,7 +92,7 @@ describe("ConfigStateManager", () => {
       expect(listener).toHaveBeenCalledWith(newConfig, mockConfig);
     });
 
-    it("静默模式下不应触发监听器", () => {
+    it("should not trigger listeners in silent mode", () => {
       const listener = vi.fn();
       stateManager.subscribe(listener);
 
@@ -108,7 +108,7 @@ describe("ConfigStateManager", () => {
   });
 
   describe("subscribe/unsubscribe", () => {
-    it("应该能够订阅配置变更", () => {
+    it("should be able to subscribe to config changes", () => {
       const listener = vi.fn();
       const unsubscribe = stateManager.subscribe(listener);
 
@@ -116,7 +116,7 @@ describe("ConfigStateManager", () => {
       expect(stateManager.getListenerCount()).toBe(1);
     });
 
-    it("应该能够取消订阅", () => {
+    it("should be able to unsubscribe", () => {
       const listener = vi.fn();
       const unsubscribe = stateManager.subscribe(listener);
 
@@ -125,7 +125,7 @@ describe("ConfigStateManager", () => {
       expect(stateManager.getListenerCount()).toBe(0);
     });
 
-    it("应该支持多个监听器", () => {
+    it("should support multiple listeners", () => {
       const listener1 = vi.fn();
       const listener2 = vi.fn();
 
@@ -143,7 +143,7 @@ describe("ConfigStateManager", () => {
       expect(listener2).toHaveBeenCalledTimes(1);
     });
 
-    it("监听器抛出错误不应影响其他监听器", () => {
+    it("listener errors should not affect other listeners", () => {
       const listener1 = vi.fn(() => {
         throw new Error("Listener 1 error");
       });
@@ -157,16 +157,16 @@ describe("ConfigStateManager", () => {
         render: { ...mockConfig.render, fps: 120 },
       } as KoduckFlowConfig;
 
-      // 不应抛出错误
+      // Should not throw error
       expect(() => stateManager.setCurrentConfig(newConfig)).not.toThrow();
 
-      // listener2 仍应被调用
+      // listener2 should still be called
       expect(listener2).toHaveBeenCalledTimes(1);
     });
   });
 
   describe("clearListeners", () => {
-    it("应该清空所有监听器", () => {
+    it("should clear all listeners", () => {
       const listener1 = vi.fn();
       const listener2 = vi.fn();
 
@@ -180,7 +180,7 @@ describe("ConfigStateManager", () => {
   });
 
   describe("getHistory", () => {
-    it("应该包含初始配置", () => {
+    it("should include initial config", () => {
       const history = stateManager.getHistory();
 
       expect(history).toHaveLength(1);
@@ -188,7 +188,7 @@ describe("ConfigStateManager", () => {
       expect(history[0].trigger).toBe("initialization");
     });
 
-    it("应该记录配置变更历史", () => {
+    it("should record config change history", () => {
       const config2 = {
         ...mockConfig,
         render: { ...mockConfig.render, fps: 120 },
@@ -209,7 +209,7 @@ describe("ConfigStateManager", () => {
       expect(history[2].config).toEqual(config3);
     });
 
-    it("应该支持限制历史记录数量", () => {
+    it("should support limiting history record count", () => {
       for (let i = 0; i < 10; i++) {
         const config = {
           ...mockConfig,
@@ -223,7 +223,7 @@ describe("ConfigStateManager", () => {
       expect(history).toHaveLength(5);
     });
 
-    it("应该限制历史记录最大大小", () => {
+    it("should limit the maximum history size", () => {
       const smallStateManager = new ConfigStateManager(mockConfig, 3);
 
       for (let i = 0; i < 10; i++) {
@@ -241,7 +241,7 @@ describe("ConfigStateManager", () => {
   });
 
   describe("clearHistory", () => {
-    it("应该清空历史记录但保留最新一条", () => {
+    it("should clear history but keep the latest entry", () => {
       const config2 = {
         ...mockConfig,
         render: { ...mockConfig.render, fps: 120 },
@@ -264,7 +264,7 @@ describe("ConfigStateManager", () => {
   });
 
   describe("updateConfig", () => {
-    it("应该更新配置并记录触发器", () => {
+    it("should update config and record trigger", () => {
       const newConfig = {
         ...mockConfig,
         render: { ...mockConfig.render, fps: 120 },
@@ -279,7 +279,7 @@ describe("ConfigStateManager", () => {
       expect(lastEntry.trigger).toBe("test-trigger");
     });
 
-    it("应该触发监听器", () => {
+    it("should trigger listeners", () => {
       const listener = vi.fn();
       stateManager.subscribe(listener);
 
@@ -294,11 +294,11 @@ describe("ConfigStateManager", () => {
     });
   });
 
-  describe("并发访问", () => {
-    it("应该正确处理并发订阅和取消订阅", () => {
+  describe("Concurrent access", () => {
+    it("should correctly handle concurrent subscribe and unsubscribe", () => {
       const listeners: ConfigChangeListener[] = [];
 
-      // 并发订阅
+      // Concurrent subscribe
       for (let i = 0; i < 10; i++) {
         const listener = vi.fn();
         listeners.push(listener);
@@ -307,7 +307,7 @@ describe("ConfigStateManager", () => {
 
       expect(stateManager.getListenerCount()).toBe(10);
 
-      // 并发取消订阅一半
+      // Concurrent unsubscribe half
       for (let i = 0; i < 5; i++) {
         stateManager.unsubscribe(listeners[i]);
       }
@@ -315,11 +315,11 @@ describe("ConfigStateManager", () => {
       expect(stateManager.getListenerCount()).toBe(5);
     });
 
-    it("应该正确处理并发配置更新", () => {
+    it("should correctly handle concurrent config updates", () => {
       const listener = vi.fn();
       stateManager.subscribe(listener);
 
-      // 快速连续更新配置
+      // Rapid consecutive config updates
       for (let i = 0; i < 10; i++) {
         const config = {
           ...mockConfig,
@@ -332,8 +332,8 @@ describe("ConfigStateManager", () => {
     });
   });
 
-  describe("错误处理", () => {
-    it("监听器异常不应影响状态管理器", () => {
+  describe("Error handling", () => {
+    it("listener exceptions should not affect the state manager", () => {
       const errorListener = vi.fn(() => {
         throw new Error("Test error");
       });
@@ -347,13 +347,13 @@ describe("ConfigStateManager", () => {
         render: { ...mockConfig.render, fps: 120 },
       } as KoduckFlowConfig;
 
-      // 不应抛出错误
+      // Should not throw error
       expect(() => stateManager.setCurrentConfig(newConfig)).not.toThrow();
 
-      // 配置应该已更新
+      // Config should have been updated
       expect(stateManager.getCurrentConfig()).toEqual(newConfig);
 
-      // 正常监听器应该被调用
+      // Normal listener should be called
       expect(normalListener).toHaveBeenCalledTimes(1);
     });
   });

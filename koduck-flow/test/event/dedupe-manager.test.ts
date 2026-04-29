@@ -23,8 +23,8 @@ describe("DedupeManager", () => {
     };
   });
 
-  describe("构造函数和初始化", () => {
-    test("应该正确初始化（不启用去重）", () => {
+  describe("Constructor and initialization", () => {
+    test("should correctly initialize without deduplication", () => {
       dedupeManager = new DedupeManager("TestEvent", config);
 
       const stats = dedupeManager.getCacheStats();
@@ -32,7 +32,7 @@ describe("DedupeManager", () => {
       expect(stats.size).toBe(0);
     });
 
-    test("应该正确初始化（启用去重）", () => {
+    test("should correctly initialize with deduplication enabled", () => {
       const dedupeConfig: PayloadDedupeConfig = {
         enabled: true,
         ttl: 1000,
@@ -48,8 +48,8 @@ describe("DedupeManager", () => {
     });
   });
 
-  describe("去重功能", () => {
-    test("应该在禁用去重时不丢弃任何事件", () => {
+  describe("Deduplication functionality", () => {
+    test("should not drop any events when deduplication is disabled", () => {
       dedupeManager = new DedupeManager("TestEvent", config);
 
       expect(dedupeManager.shouldDropByDedupe("data1")).toBe(false);
@@ -57,7 +57,7 @@ describe("DedupeManager", () => {
       expect(dedupeManager.shouldDropByDedupe("data2")).toBe(false);
     });
 
-    test("应该在启用去重时正确去重", () => {
+    test("should correctly deduplicate when enabled", () => {
       const dedupeConfig: PayloadDedupeConfig = {
         enabled: true,
         ttl: 1000,
@@ -67,20 +67,20 @@ describe("DedupeManager", () => {
       const configWithDedupe = { ...config, payloadDedupe: dedupeConfig };
       dedupeManager = new DedupeManager("TestEvent", configWithDedupe);
 
-      // 第一次应该不丢弃
+      // First time should not be dropped
       expect(dedupeManager.shouldDropByDedupe("data1")).toBe(false);
 
-      // 第二次相同数据应该丢弃
+      // Second time with same data should be dropped
       expect(dedupeManager.shouldDropByDedupe("data1")).toBe(true);
 
-      // 不同数据应该不丢弃
+      // Different data should not be dropped
       expect(dedupeManager.shouldDropByDedupe("data2")).toBe(false);
 
-      // 再次相同的新数据应该丢弃
+      // New data same as before should be dropped
       expect(dedupeManager.shouldDropByDedupe("data2")).toBe(true);
     });
 
-    test("应该正确处理复杂对象去重", () => {
+    test("should correctly handle complex object deduplication", () => {
       const dedupeConfig: PayloadDedupeConfig = {
         enabled: true,
         ttl: 1000,
@@ -91,15 +91,15 @@ describe("DedupeManager", () => {
       dedupeManager = new DedupeManager("TestEvent", configWithDedupe);
 
       const obj1 = { id: 1, name: "test" };
-      const obj2 = { id: 1, name: "test" }; // 相同内容
-      const obj3 = { id: 2, name: "test" }; // 不同内容
+      const obj2 = { id: 1, name: "test" }; // Same content
+      const obj3 = { id: 2, name: "test" }; // Different content
 
       expect(dedupeManager.shouldDropByDedupe(obj1)).toBe(false);
-      expect(dedupeManager.shouldDropByDedupe(obj2)).toBe(true); // 应该被去重
+      expect(dedupeManager.shouldDropByDedupe(obj2)).toBe(true); // Should be deduplicated
       expect(dedupeManager.shouldDropByDedupe(obj3)).toBe(false);
     });
 
-    test("应该支持自定义键生成函数", () => {
+    test("should support custom key generation function", () => {
       const dedupeConfig: PayloadDedupeConfig = {
         enabled: true,
         ttl: 1000,
@@ -112,15 +112,15 @@ describe("DedupeManager", () => {
       dedupeManager = new DedupeManager("TestEvent", configWithDedupe);
 
       const obj1 = { id: 1, name: "first" };
-      const obj2 = { id: 1, name: "second" }; // 不同名称但相同ID
-      const obj3 = { id: 2, name: "first" }; // 不同ID
+      const obj2 = { id: 1, name: "second" }; // Different name but same ID
+      const obj3 = { id: 2, name: "first" }; // Different ID
 
       expect(dedupeManager.shouldDropByDedupe(obj1)).toBe(false);
-      expect(dedupeManager.shouldDropByDedupe(obj2)).toBe(true); // 相同ID，应该被去重
-      expect(dedupeManager.shouldDropByDedupe(obj3)).toBe(false); // 不同ID
+      expect(dedupeManager.shouldDropByDedupe(obj2)).toBe(true); // Same ID, should be deduplicated
+      expect(dedupeManager.shouldDropByDedupe(obj3)).toBe(false); // Different ID
     });
 
-    test("应该处理键生成函数出错的情况", () => {
+    test("should handle key generation function errors", () => {
       const dedupeConfig: PayloadDedupeConfig = {
         enabled: true,
         ttl: 1000,
@@ -133,12 +133,12 @@ describe("DedupeManager", () => {
       const configWithDedupe = { ...config, payloadDedupe: dedupeConfig };
       dedupeManager = new DedupeManager("TestEvent", configWithDedupe);
 
-      // 键生成出错时应该不丢弃事件
+      // Events should not be dropped when key generation fails
       expect(dedupeManager.shouldDropByDedupe("data")).toBe(false);
       expect(dedupeManager.shouldDropByDedupe("data")).toBe(false);
     });
 
-    test("应该处理循环引用对象", () => {
+    test("should handle circular reference objects", () => {
       const dedupeConfig: PayloadDedupeConfig = {
         enabled: true,
         ttl: 1000,
@@ -149,19 +149,19 @@ describe("DedupeManager", () => {
       dedupeManager = new DedupeManager("TestEvent", configWithDedupe);
 
       const circular: { id: number; self?: unknown } = { id: 1 };
-      circular.self = circular; // 创建循环引用
+      circular.self = circular; // Create circular reference
 
-      // JSON.stringify会失败，应该不丢弃
+      // JSON.stringify will fail, should not drop
       expect(dedupeManager.shouldDropByDedupe(circular)).toBe(false);
       expect(dedupeManager.shouldDropByDedupe(circular)).toBe(false);
     });
   });
 
-  describe("配置更新", () => {
-    test("应该在启用去重时重建缓存", () => {
+  describe("Configuration updates", () => {
+    test("should rebuild cache when deduplication is enabled", () => {
       dedupeManager = new DedupeManager("TestEvent", config);
 
-      // 初始状态未启用
+      // Initial state not enabled
       expect(dedupeManager.getCacheStats().enabled).toBe(false);
 
       const dedupeConfig: PayloadDedupeConfig = {
@@ -173,11 +173,11 @@ describe("DedupeManager", () => {
       const newConfig = { ...config, payloadDedupe: dedupeConfig };
       dedupeManager.updateConfiguration(newConfig);
 
-      // 更新后应该启用
+      // Should be enabled after update
       expect(dedupeManager.getCacheStats().enabled).toBe(true);
     });
 
-    test("应该在禁用去重时清除缓存", () => {
+    test("should clear cache when deduplication is disabled", () => {
       const dedupeConfig: PayloadDedupeConfig = {
         enabled: true,
         ttl: 1000,
@@ -187,18 +187,18 @@ describe("DedupeManager", () => {
       const configWithDedupe = { ...config, payloadDedupe: dedupeConfig };
       dedupeManager = new DedupeManager("TestEvent", configWithDedupe);
 
-      // 添加一些数据
+      // Add some data
       dedupeManager.shouldDropByDedupe("data1");
       expect(dedupeManager.getCacheStats().enabled).toBe(true);
 
-      // 禁用去重
+      // Disable deduplication
       const newConfig = { ...config };
       dedupeManager.updateConfiguration(newConfig);
 
       expect(dedupeManager.getCacheStats().enabled).toBe(false);
     });
 
-    test("应该在TTL改变时重建缓存", () => {
+    test("should rebuild cache when TTL changes", () => {
       const dedupeConfig1: PayloadDedupeConfig = {
         enabled: true,
         ttl: 1000,
@@ -208,11 +208,11 @@ describe("DedupeManager", () => {
       const configWithDedupe1 = { ...config, payloadDedupe: dedupeConfig1 };
       dedupeManager = new DedupeManager("TestEvent", configWithDedupe1);
 
-      // 添加数据
+      // Add data
       dedupeManager.shouldDropByDedupe("data1");
       expect(dedupeManager.shouldDropByDedupe("data1")).toBe(true);
 
-      // 改变TTL
+      // Change TTL
       const dedupeConfig2: PayloadDedupeConfig = {
         enabled: true,
         ttl: 2000,
@@ -222,11 +222,11 @@ describe("DedupeManager", () => {
       const configWithDedupe2 = { ...config, payloadDedupe: dedupeConfig2 };
       dedupeManager.updateConfiguration(configWithDedupe2);
 
-      // 缓存应该被重建，之前的数据应该丢失
+      // Cache should be rebuilt, previous data should be lost
       expect(dedupeManager.shouldDropByDedupe("data1")).toBe(false);
     });
 
-    test("应该在maxEntries改变时重建缓存", () => {
+    test("should rebuild cache when maxEntries changes", () => {
       const dedupeConfig1: PayloadDedupeConfig = {
         enabled: true,
         ttl: 1000,
@@ -238,7 +238,7 @@ describe("DedupeManager", () => {
 
       dedupeManager.shouldDropByDedupe("data1");
 
-      // 改变maxEntries
+      // Change maxEntries
       const dedupeConfig2: PayloadDedupeConfig = {
         enabled: true,
         ttl: 1000,
@@ -248,11 +248,11 @@ describe("DedupeManager", () => {
       const configWithDedupe2 = { ...config, payloadDedupe: dedupeConfig2 };
       dedupeManager.updateConfiguration(configWithDedupe2);
 
-      // 缓存应该被重建
+      // Cache should be rebuilt
       expect(dedupeManager.shouldDropByDedupe("data1")).toBe(false);
     });
 
-    test("应该在配置未改变时不重建缓存", () => {
+    test("should not rebuild cache when configuration is unchanged", () => {
       const dedupeConfig: PayloadDedupeConfig = {
         enabled: true,
         ttl: 1000,
@@ -265,16 +265,16 @@ describe("DedupeManager", () => {
       dedupeManager.shouldDropByDedupe("data1");
       expect(dedupeManager.shouldDropByDedupe("data1")).toBe(true);
 
-      // 使用相同配置更新
+      // Update with same configuration
       dedupeManager.updateConfiguration(configWithDedupe);
 
-      // 缓存应该保留
+      // Cache should be retained
       expect(dedupeManager.shouldDropByDedupe("data1")).toBe(true);
     });
   });
 
-  describe("缓存统计", () => {
-    test("应该返回正确的缓存统计信息", () => {
+  describe("Cache statistics", () => {
+    test("should return correct cache statistics", () => {
       const dedupeConfig: PayloadDedupeConfig = {
         enabled: true,
         ttl: 1000,
@@ -288,7 +288,7 @@ describe("DedupeManager", () => {
       expect(stats.enabled).toBe(true);
       expect(stats.size).toBe(0);
 
-      // 添加一些数据
+      // Add some data
       dedupeManager.shouldDropByDedupe("data1");
       dedupeManager.shouldDropByDedupe("data2");
 
@@ -296,7 +296,7 @@ describe("DedupeManager", () => {
       expect(stats.size).toBe(2);
     });
 
-    test("应该在禁用时返回正确的统计信息", () => {
+    test("should return correct statistics when disabled", () => {
       dedupeManager = new DedupeManager("TestEvent", config);
 
       const stats = dedupeManager.getCacheStats();
@@ -305,8 +305,8 @@ describe("DedupeManager", () => {
     });
   });
 
-  describe("清理功能", () => {
-    test("应该能清理缓存", () => {
+  describe("Cleanup functionality", () => {
+    test("should be able to clear cache", () => {
       const dedupeConfig: PayloadDedupeConfig = {
         enabled: true,
         ttl: 1000,
@@ -316,33 +316,33 @@ describe("DedupeManager", () => {
       const configWithDedupe = { ...config, payloadDedupe: dedupeConfig };
       dedupeManager = new DedupeManager("TestEvent", configWithDedupe);
 
-      // 添加数据
+      // Add data
       dedupeManager.shouldDropByDedupe("data1");
       dedupeManager.shouldDropByDedupe("data2");
 
       expect(dedupeManager.getCacheStats().size).toBe(2);
 
-      // 清理
+      // Cleanup
       dedupeManager.clear();
 
       expect(dedupeManager.getCacheStats().size).toBe(0);
 
-      // 之前的数据应该不再被去重
+      // Previous data should no longer be deduplicated
       expect(dedupeManager.shouldDropByDedupe("data1")).toBe(false);
     });
 
-    test("应该处理禁用状态下的清理", () => {
+    test("should handle cleanup in disabled state", () => {
       dedupeManager = new DedupeManager("TestEvent", config);
 
-      // 应该不会抛出错误
+      // Should not throw an error
       expect(() => {
         dedupeManager.clear();
       }).not.toThrow();
     });
   });
 
-  describe("边界情况", () => {
-    test("应该处理undefined和null数据", () => {
+  describe("Edge cases", () => {
+    test("should handle undefined and null data", () => {
       const dedupeConfig: PayloadDedupeConfig = {
         enabled: true,
         ttl: 1000,
@@ -352,17 +352,17 @@ describe("DedupeManager", () => {
       const configWithDedupe = { ...config, payloadDedupe: dedupeConfig };
       dedupeManager = new DedupeManager("TestEvent", configWithDedupe);
 
-      // JSON.stringify(undefined) 返回 undefined，不是有效的字符串键
-      // 所以undefined应该总是不被去重
+      // JSON.stringify(undefined) returns undefined, not a valid string key
+      // So undefined should never be deduplicated
       expect(dedupeManager.shouldDropByDedupe(undefined)).toBe(false);
       expect(dedupeManager.shouldDropByDedupe(undefined)).toBe(false);
 
-      // JSON.stringify(null) 返回 "null"，是有效键
+      // JSON.stringify(null) returns "null", which is a valid key
       expect(dedupeManager.shouldDropByDedupe(null)).toBe(false);
       expect(dedupeManager.shouldDropByDedupe(null)).toBe(true);
     });
 
-    test("应该处理数字和布尔值", () => {
+    test("should handle numbers and booleans", () => {
       const dedupeConfig: PayloadDedupeConfig = {
         enabled: true,
         ttl: 1000,
@@ -382,22 +382,22 @@ describe("DedupeManager", () => {
       expect(dedupeManager.shouldDropByDedupe(false)).toBe(true);
     });
 
-    test("应该使用默认maxEntries值", () => {
+    test("should use default maxEntries value", () => {
       const dedupeConfig: PayloadDedupeConfig = {
         enabled: true,
         ttl: 1000,
-        // 不指定maxEntries，应该使用默认值1000
+        // Not specifying maxEntries, should use default value 1000
       };
 
       const configWithDedupe = { ...config, payloadDedupe: dedupeConfig };
       dedupeManager = new DedupeManager("TestEvent", configWithDedupe);
 
-      // 应该能正常工作
+      // Should work normally
       expect(dedupeManager.shouldDropByDedupe("test")).toBe(false);
       expect(dedupeManager.shouldDropByDedupe("test")).toBe(true);
     });
 
-    test("应该处理自定义键返回undefined的情况", () => {
+    test("should handle custom key returning undefined", () => {
       const dedupeConfig: PayloadDedupeConfig = {
         enabled: true,
         ttl: 1000,
@@ -408,12 +408,12 @@ describe("DedupeManager", () => {
       const configWithDedupe = { ...config, payloadDedupe: dedupeConfig };
       dedupeManager = new DedupeManager("TestEvent", configWithDedupe);
 
-      // 键为undefined时应该不去重
+      // Should not deduplicate when key is undefined
       expect(dedupeManager.shouldDropByDedupe("data")).toBe(false);
       expect(dedupeManager.shouldDropByDedupe("data")).toBe(false);
     });
 
-    test("应该处理空字符串键", () => {
+    test("should handle empty string keys", () => {
       const dedupeConfig: PayloadDedupeConfig = {
         enabled: true,
         ttl: 1000,
@@ -424,9 +424,9 @@ describe("DedupeManager", () => {
       const configWithDedupe = { ...config, payloadDedupe: dedupeConfig };
       dedupeManager = new DedupeManager("TestEvent", configWithDedupe);
 
-      // 空字符串键应该正常工作
+      // Empty string keys should work normally
       expect(dedupeManager.shouldDropByDedupe("data1")).toBe(false);
-      expect(dedupeManager.shouldDropByDedupe("data2")).toBe(true); // 相同键，应该去重
+      expect(dedupeManager.shouldDropByDedupe("data2")).toBe(true); // Same key, should deduplicate
     });
   });
 });

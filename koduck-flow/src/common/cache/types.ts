@@ -1,18 +1,18 @@
 /**
- * 通用缓存接口设计（仅类型定义）
- * 目标：同时服务于事件系统与渲染系统，支持并发去重、TTL/权重、标签化失效与资源释放。
+ * Generic cache interface design (type definitions only)
+ * Goal: serve both the event system and rendering system, supporting concurrent deduplication, TTL/weight, tag-based invalidation, and resource disposal.
  */
 
-// 核心缓存接口（同步 + 异步便捷器）
+// Core cache interface (sync + async helpers)
 export interface Cache<K, V> {
-  // 基础操作
+  // Basic operations
   get(key: K): V | undefined;
   set(key: K, value: V, options?: SetOptions): void;
   has(key: K): boolean;
   delete(key: K): boolean;
   clear(): void;
 
-  // 便捷计算（并发去重）
+  // Convenient computation (concurrent deduplication)
   getOrSet(key: K, producer: () => V, options?: ComputeOptions): V;
   getOrSetAsync(
     key: K,
@@ -20,32 +20,32 @@ export interface Cache<K, V> {
     options?: ComputeOptions
   ): Promise<V>;
 
-  // 元信息
-  size(): number; // 当前条目数（由实现决定是否 O(1)）
-  info(): CacheInfo; // 指标/容量/命中率等
+  // Metadata
+  size(): number; // Current entry count (O(1) depends on implementation)
+  info(): CacheInfo; // Metrics/capacity/hit rate, etc.
 
-  // 标签与失效
+  // Tags and invalidation
   addTags(key: K, ...tags: string[]): void;
-  invalidateByTag(tag: string): number; // 返回影响的 entry 数
+  invalidateByTag(tag: string): number; // Returns the number of affected entries
 }
 
-// 写入与计算选项
+// Write and compute options
 export interface SetOptions {
-  ttl?: number; // 毫秒，0/undefined 表示不过期
-  tags?: string[]; // 标签化失效
-  priority?: number; // 淘汰优先级（越高越不易被淘汰）
-  weight?: number; // 权重（字节/估算成本），用于 maxWeight 控制
-  staleWhileRevalidate?: boolean; // SWR：过期时先返回陈旧值并后台刷新
-  dispose?: (value: unknown) => void; // 删除/淘汰时释放资源（如 WebGPU/Canvas 对象）
+  ttl?: number; // Milliseconds, 0/undefined means no expiration
+  tags?: string[]; // Tag-based invalidation
+  priority?: number; // Eviction priority (higher = less likely to be evicted)
+  weight?: number; // Weight (bytes/estimated cost) for maxWeight control
+  staleWhileRevalidate?: boolean; // SWR: return stale value first when expired and refresh in background
+  dispose?: (value: unknown) => void; // Release resources on delete/evict (e.g., WebGPU/Canvas objects)
 }
 
 export interface ComputeOptions extends SetOptions {
-  dedupe?: boolean; // 默认 true：同 key 并发 getOrSet/Async 共享同一计算
-  timeout?: number; // 仅 Async：producer 计算超时（软超时，不强制中断）
-  promote?: boolean; // 多级缓存：命中下层时是否提升到上层
+  dedupe?: boolean; // Default true: concurrent getOrSet/Async with the same key share the same computation
+  timeout?: number; // Async only: producer computation timeout (soft timeout, no forced interruption)
+  promote?: boolean; // Multi-level cache: whether to promote to upper level on lower-level hit
 }
 
-// 指标信息
+// Metric information
 export interface CacheInfo {
   namespace?: string;
   maxEntries?: number;
@@ -58,16 +58,16 @@ export interface CacheInfo {
   expirations: number;
 }
 
-// 策略与条目定义
+// Policy and entry definitions
 export interface CachePolicy<K, V> {
-  maxEntries?: number; // 基于条目数的上限
-  maxWeight?: number; // 基于权重的上限
-  defaultTTL?: number; // 默认 TTL
-  clock?: Clock; // 注入时钟，便于测试
-  scheduler?: SchedulerLike; // 定时清扫/延迟任务（可复用事件系统的 scheduler 适配）
-  weigh?: (key: K, value: V) => number; // 权重估算
-  onEvict?: (entry: CacheEntry<K, V>, reason: EvictReason) => void; // 淘汰/过期回调
-  eviction?: EvictionPolicy; // 淘汰策略
+  maxEntries?: number; // Limit based on entry count
+  maxWeight?: number; // Limit based on weight
+  defaultTTL?: number; // Default TTL
+  clock?: Clock; // Injected clock for testing
+  scheduler?: SchedulerLike; // Periodic cleanup/delayed tasks (can reuse event system scheduler adapter)
+  weigh?: (key: K, value: V) => number; // Weight estimation
+  onEvict?: (entry: CacheEntry<K, V>, reason: EvictReason) => void; // Eviction/expiration callback
+  eviction?: EvictionPolicy; // Eviction policy
 }
 
 export type EvictReason = "evict" | "expire" | "manual" | "clear" | "promote";
@@ -78,14 +78,14 @@ export interface CacheEntry<K, V> {
   tags?: string[];
   priority?: number;
   weight?: number;
-  expiresAt?: number; // 过期时间（ms 时间戳）
+  expiresAt?: number; // Expiration time (ms timestamp)
   createdAt: number;
   lastAccessedAt: number;
 }
 
 export type EvictionPolicy = "lru" | "lfu" | "fifo" | "none";
 
-// 时钟与调度器（轻量接口，避免与事件系统类型直接耦合）
+// Clock and scheduler (lightweight interfaces to avoid direct coupling with event system types)
 export interface Clock {
   now(): number;
 }
@@ -95,7 +95,7 @@ export interface SchedulerLike {
   clear(id: number): void;
 }
 
-// 可观测事件（可选）
+// Observable events (optional)
 export interface CacheEvents<K, V> {
   onHit?(key: K): void;
   onMiss?(key: K): void;
@@ -104,12 +104,12 @@ export interface CacheEvents<K, V> {
   onExpire?(entry: CacheEntry<K, V>): void;
 }
 
-// 多级缓存（可选组合）
+// Multi-level cache (optional composition)
 export interface MultiLevelCache<K, V> extends Cache<K, V> {
-  levels: Cache<K, V>[]; // 优先级从高到低
+  levels: Cache<K, V>[]; // Priority from high to low
 }
 
-// 简化版工厂接口（仅类型）
+// Simplified factory interface (types only)
 export interface CacheFactory {
   createMemoryCache<K, V>(
     options?: CacheBuilderOptions<K, V> & CacheEvents<K, V>
@@ -125,5 +125,5 @@ export interface CacheFactory {
 
 export interface CacheBuilderOptions<K, V> extends CachePolicy<K, V> {
   namespace?: string;
-  keyHash?: (key: K) => string; // 结构化 Key 的稳定哈希
+  keyHash?: (key: K) => string; // Stable hash for structured keys
 }

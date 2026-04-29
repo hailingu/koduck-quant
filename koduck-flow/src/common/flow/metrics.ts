@@ -206,7 +206,7 @@ export class FlowMetrics {
     if (options?.batchEnabled !== undefined) {
       this.batchEnabled = options.batchEnabled;
     }
-    // 使用配置中的默认值，如果没有提供选项的话
+    // Use default values from config if options are not provided
     this.batchFlushInterval = options?.batchFlushInterval ?? config.event.batchInterval;
 
     if (this.batchEnabled) {

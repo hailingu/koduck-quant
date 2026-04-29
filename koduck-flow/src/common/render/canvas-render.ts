@@ -104,7 +104,7 @@ const canvasLogger = logger.withContext({
 import type { ICapabilityAwareRegistry, IMeta } from "../registry/types";
 
 /**
- * Canvas 渲染操作接口
+ * Canvas render operation interface
  */
 interface CanvasRenderOperation {
   type: string;
@@ -115,13 +115,13 @@ interface CanvasRenderOperation {
 }
 
 /**
- * Canvas 性能优化配置
+ * Canvas performance optimization configuration
  */
 interface CanvasPerformanceOptimization {
   enableOffscreenRendering: boolean;
   enableLayerCaching: boolean;
   enableViewportCulling: boolean;
-  enableDPR: boolean; // 新增：DPR处理开关
+  enableDPR: boolean; // New: DPR handling switch
   cacheExpiration: number;
   maxOperationsPerFrame: number;
 }
@@ -234,23 +234,23 @@ class CanvasRender extends BaseRenderer implements ICanvasRenderer {
     this.initializeCanvas(ctx);
   }
 
-  // 性能配置
+  // Performance configuration
   private readonly config: CanvasPerformanceOptimization = {
     enableOffscreenRendering: true,
     enableLayerCaching: true,
     enableViewportCulling: true,
-    enableDPR: true, // 新增：默认启用DPR处理
-    cacheExpiration: 5 * 60 * 1000, // 5分钟
+    enableDPR: true, // New: enable DPR handling by default
+    cacheExpiration: 5 * 60 * 1000, // 5 minutes
     maxOperationsPerFrame: 100,
   };
 
-  // 离屏 Canvas（用于优化）
+  // Offscreen Canvas (for optimization)
   private offscreenCanvas: OffscreenCanvas | null = null;
   // Reserved for future offscreen canvas optimization - not currently used
   private offscreenCtx: OffscreenCanvasRenderingContext2D | null = null;
 
-  // DPR相关属性
-  private dpr: number = 1; // 当前设备像素比
+  // DPR-related properties
+  private dpr: number = 1; // Current device pixel ratio
 
   // Cache manager for rendered entity results
   private readonly cache!: RenderCacheManager<string, ImageData>;
@@ -326,7 +326,7 @@ class CanvasRender extends BaseRenderer implements ICanvasRenderer {
   updateRenderContext(updates: Partial<IRenderContext>): void {
     if (!this.ctx) return;
     this.ctx = { ...this.ctx, ...updates };
-    // 如果 canvas 被更新，重新初始化
+    // If canvas is updated, reinitialize
     if (updates.canvas) {
       this.initializeCanvas(this.ctx);
     }
@@ -340,7 +340,7 @@ class CanvasRender extends BaseRenderer implements ICanvasRenderer {
   }
 
   /**
-   * 获取Canvas 2D上下文
+   * Get Canvas 2D context
    */
   private getCanvas2DContext(): CanvasRenderingContext2D | null {
     if (!this.ctx?.canvas) {
@@ -350,10 +350,10 @@ class CanvasRender extends BaseRenderer implements ICanvasRenderer {
   }
 
   /**
-   * 初始化 Canvas
+   * Initialize Canvas
    */
   private initializeCanvas(ctx: IRenderContext): void {
-    // 新增：DPR处理
+    // New: DPR handling
     if (this.config.enableDPR) {
       this.setupDPR(ctx.canvas!);
     }
@@ -391,7 +391,7 @@ class CanvasRender extends BaseRenderer implements ICanvasRenderer {
       });
       this.m.counter("render.skipped").add(1, { reason: "no_registry" });
 
-      // 尝试直接调用实体的 render 方法作为兜底
+      // Try to directly call entity render method as fallback
       const maybeRenderable = entity as unknown as {
         render?: (ctx?: unknown) => unknown;
         canRender?: (ctx?: unknown) => boolean;
@@ -486,7 +486,7 @@ class CanvasRender extends BaseRenderer implements ICanvasRenderer {
     const startTime = performance.now();
 
     try {
-      // 直接使用成员变量ctx进行渲染
+      // Render using member variable ctx directly
       // this.drawEntityToCanvas(canvas2D, entity);
       canvasLogger.debug({
         event: CanvasRenderEvent.RenderTrace,
@@ -508,7 +508,7 @@ class CanvasRender extends BaseRenderer implements ICanvasRenderer {
           timestamp: Date.now(),
         },
       });
-      // 使用基类的 metrics 记录方法
+      // Use base class metrics recording method
       this.recordRenderMetrics(startTime, entity);
       this.updatePerformanceStats(startTime);
     } catch (error) {
@@ -531,7 +531,7 @@ class CanvasRender extends BaseRenderer implements ICanvasRenderer {
 
     const startTime = performance.now();
 
-    // 批量渲染实体，使用 registry.render 方法
+    // Batch render entities using registry.render method
     entities.forEach((entity) => {
       try {
         const registry = this.registryManager?.getRegistryForEntity(
@@ -568,7 +568,7 @@ class CanvasRender extends BaseRenderer implements ICanvasRenderer {
       }
     });
 
-    // 使用基类的批量 metrics 记录
+    // Use base class batch metrics recording
     const renderTime = performance.now() - startTime;
     this.updatePerformanceStats(startTime);
     this.recordBatchMetrics(entities.length, renderTime);
@@ -578,22 +578,22 @@ class CanvasRender extends BaseRenderer implements ICanvasRenderer {
    *
    */
   canRender(entity: IEntity): boolean {
-    // 检查渲染上下文是否存在
+    // Check if render context exists
     if (!this.ctx) {
       return false;
     }
 
-    // 检查实体类型是否以 "canvas" 结尾
+    // Check if entity type ends with "canvas"
     const isCanvasEntity = entity.type?.endsWith("canvas");
 
-    // 检查是否有可用的渲染注册表
+    // Check if a render registry is available
     const registry = this.registryManager?.getRegistryForEntity(entity) as ICapabilityAwareRegistry<
       IEntity,
       IMeta
     >;
     const hasRenderRegistry = registry && RegistryCapabilityUtils.hasCapability(registry, "render");
 
-    // 实体可以渲染的条件：类型匹配且有渲染注册表
+    // Condition for entity renderability: type matches and has render registry
     return isCanvasEntity && hasRenderRegistry;
   }
 
@@ -601,7 +601,7 @@ class CanvasRender extends BaseRenderer implements ICanvasRenderer {
    *
    */
   override configure(config: IRenderConfig): void {
-    // 映射通用配置到 Canvas 特定配置
+    // Map generic config to Canvas-specific config
     if (config.enableCache !== undefined) {
       this.config.enableLayerCaching = config.enableCache;
     }
@@ -611,7 +611,7 @@ class CanvasRender extends BaseRenderer implements ICanvasRenderer {
     if (config.batchSize !== undefined) {
       this.config.maxOperationsPerFrame = config.batchSize;
     }
-    // 新增：支持DPR配置
+    // New: support DPR config
     if ("enableDPR" in config && typeof config.enableDPR === "boolean") {
       this.config.enableDPR = config.enableDPR;
     }
@@ -632,38 +632,38 @@ class CanvasRender extends BaseRenderer implements ICanvasRenderer {
   }
 
   /**
-   * 添加多个渲染操作
+   * Add multiple render operations
    */
   addRenderOperations(operations: CanvasRenderOperation[]): void {
     this.renderOperations.push(...operations);
   }
 
   /**
-   * 执行渲染操作
+   * Execute render operations
    */
   private executeRenderOperations(): void {
     if (!this.ctx || this.renderOperations.length === 0) return;
 
-    // 按优先级排序
+    // Sort by priority
     this.renderOperations.sort((a, b) => b.priority - a.priority);
 
-    // 限制每帧的操作数量
+    // Limit operations per frame
     const operationsToExecute = this.renderOperations.splice(0, this.config.maxOperationsPerFrame);
 
-    // 清空画布（考虑DPR）
+    // Clear canvas (accounting for DPR)
     this.ctx
       .canvas!.getContext("2d")!
       .clearRect(0, 0, this.ctx.canvas!.width, this.ctx.canvas!.height);
 
-    // 执行渲染操作
+    // Execute render operations
     operationsToExecute.forEach((operation) => {
       try {
-        // 检查视口剔除
+        // Check viewport culling
         if (this.config.enableViewportCulling && !this.isInViewport(operation.bounds)) {
           return;
         }
 
-        // 检查缓存
+        // Check cache
         if (this.config.enableLayerCaching) {
           const cached = this.cache.get(operation.id);
           if (cached) {
@@ -678,10 +678,10 @@ class CanvasRender extends BaseRenderer implements ICanvasRenderer {
           this.recordCacheMiss(operation.type);
         }
 
-        // 执行渲染
+        // Execute rendering
         operation.render(this.ctx!.canvas!.getContext("2d")!);
 
-        // 缓存渲染结果
+        // Cache render result
         if (this.config.enableLayerCaching) {
           const imageData = this.ctx!.canvas!.getContext("2d")!.getImageData(
             operation.bounds.x,
@@ -705,19 +705,19 @@ class CanvasRender extends BaseRenderer implements ICanvasRenderer {
       }
     });
 
-    // 如果还有待处理的操作，调度下一帧
+    // If there are pending operations, schedule next frame
     if (this.renderOperations.length > 0) {
       requestAnimationFrame(() => this.executeRenderOperations());
     }
   }
 
   /**
-   * 检查边界是否在视口内
+   * Check if bounds are within viewport
    */
   private isInViewport(bounds: { x: number; y: number; width: number; height: number }): boolean {
     if (!this.ctx) return true;
 
-    // 考虑DPR的视口检查
+    // Viewport check accounting for DPR
     const canvasWidth = this.ctx.canvas!.width / this.dpr;
     const canvasHeight = this.ctx.canvas!.height / this.dpr;
 
@@ -730,47 +730,47 @@ class CanvasRender extends BaseRenderer implements ICanvasRenderer {
   }
 
   /**
-   * 设置 DPR 处理
+   * Setup DPR handling
    */
   private setupDPR(canvas: HTMLCanvasElement): void {
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
 
-    // 保存原始尺寸
+    // Save original dimensions
     const originalWidth = rect.width;
     const originalHeight = rect.height;
 
-    // 设置实际渲染尺寸（考虑DPR）
+    // Set actual render dimensions (accounting for DPR)
     canvas.width = Math.floor(originalWidth * dpr);
     canvas.height = Math.floor(originalHeight * dpr);
 
-    // 设置CSS显示尺寸
+    // Set CSS display dimensions
     canvas.style.width = `${originalWidth}px`;
     canvas.style.height = `${originalHeight}px`;
 
-    // 设置渲染上下文变换
+    // Set render context transform
     this.ctx!.canvas!.getContext("2d")!.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    // 保存DPR信息供后续使用
+    // Save DPR info for later use
     this.dpr = dpr;
   }
 
   /**
-   * 获取当前 DPR
+   * Get current DPR
    */
   getDPR(): number {
     return this.dpr;
   }
 
   /**
-   * 检查是否启用了 DPR
+   * Check if DPR is enabled
    */
   isDPREnabled(): boolean {
     return this.config.enableDPR;
   }
 
   /**
-   * 坐标转换（从CSS坐标转换为Canvas坐标）
+   * Coordinate conversion (from CSS coordinates to Canvas coordinates)
    */
   convertToCanvasCoordinates(cssX: number, cssY: number): { x: number; y: number } {
     return {
@@ -780,7 +780,7 @@ class CanvasRender extends BaseRenderer implements ICanvasRenderer {
   }
 
   /**
-   * 坐标转换（从Canvas坐标转换为CSS坐标）
+   * Coordinate conversion (from Canvas coordinates to CSS coordinates)
    */
   convertToCSSCoordinates(canvasX: number, canvasY: number): { x: number; y: number } {
     return {
@@ -790,7 +790,7 @@ class CanvasRender extends BaseRenderer implements ICanvasRenderer {
   }
 
   /**
-   * 清理过期缓存
+   * Clean up expired cache
    */
   cleanupCache(): void {
     this.cache.clear();
@@ -807,7 +807,7 @@ class CanvasRender extends BaseRenderer implements ICanvasRenderer {
     const legacyCache = (this as unknown as { renderCache?: Map<string, ImageData> }).renderCache;
     legacyCache?.clear();
 
-    // 重置性能统计
+    // Reset performance statistics
     this.performanceStats.totalRenderTime = 0;
     this.performanceStats.renderCount = 0;
     this.performanceStats.cacheHitCount = 0;

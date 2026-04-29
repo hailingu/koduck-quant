@@ -1,7 +1,7 @@
 /**
- * REST Handler 单元测试
+ * REST Handler unit tests
  *
- * 测试路由分发、静态路由、动态路由和错误处理
+ * Tests route dispatching, static routes, dynamic routes, and error handling
  */
 
 import { describe, it, expect, vi, beforeEach, type MockedFunction } from "vitest";

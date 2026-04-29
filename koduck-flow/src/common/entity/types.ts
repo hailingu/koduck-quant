@@ -3,7 +3,7 @@ import type { Data } from "../data";
 import React from "react";
 
 /**
- * 实体构造函数接口
+ * Entity constructor interface
  */
 export interface IEntityConstructor<
   T extends IEntity = IEntity,
@@ -15,116 +15,116 @@ export interface IEntityConstructor<
 }
 
 /**
- * 实体参数接口
+ * Entity arguments interface
  */
 export interface IEntityArguments {
   [key: string]: unknown;
 }
 
-// 向后兼容的别名
+// Backward-compatible alias
 export type EntityArguments = IEntityArguments;
 
 /**
- * 实体接口
- * 定义了实体对象的基本契约
+ * Entity interface
+ * Defines the basic contract for entity objects
  */
 export interface IEntity<D extends Data = Data, C extends IEntityArguments = IEntityArguments>
   extends IDisposable {
-  /** 实体唯一标识符 */
+  /** Entity unique identifier */
   readonly id: string;
 
-  /** 实体数据 */
+  /** Entity data */
   data: D | undefined;
 
-  /** 实体配置 */
+  /** Entity configuration */
   config: C | undefined;
 
-  /** 实体类型标识 */
+  /** Entity type identifier */
   readonly type: string;
 
-  /** 释放资源 */
+  /** Release resources */
   dispose(): void;
 }
 
 /**
- * 可渲染实体接口
- * 扩展基础实体接口，添加渲染相关的属性和方法
+ * Renderable entity interface
+ * Extends the base entity interface, adding rendering-related properties and methods
  */
 export interface IRenderableEntity<
   D extends Data = Data,
   C extends IEntityArguments = IEntityArguments,
 > extends IEntity<D, C> {
-  /** 实体在画布上的位置 */
+  /** Entity position on canvas */
   position?: { x: number; y: number };
 
-  /** 实体宽度 */
+  /** Entity width */
   width: number;
 
-  /** 实体高度 */
+  /** Entity height */
   height: number;
 
-  /** 实体显示标签 */
+  /** Entity display label */
   label: string;
 
-  /** 实体颜色 */
+  /** Entity color */
   color?: string;
 
-  /** 实体边框颜色 */
+  /** Entity border color */
   borderColor?: string;
 
-  /** 实体边框宽度 */
+  /** Entity border width */
   borderWidth?: number;
 
-  /** 实体是否可见 */
+  /** Whether the entity is visible */
   visible: boolean;
 
-  /** 实体是否被选中 */
+  /** Whether the entity is selected */
   selected: boolean;
 
-  /** 自定义样式属性 */
+  /** Custom style properties */
   style?: React.CSSProperties;
 
-  /** 实体额外渲染属性 */
+  /** Entity extra rendering properties */
   renderProps?: Record<string, unknown>;
 
   /**
-   * 更新实体位置
-   * @param x 新的 X 坐标
-   * @param y 新的 Y 坐标
+   * Update entity position
+   * @param x New X coordinate
+   * @param y New Y coordinate
    */
   updatePosition(x: number, y: number): void;
 
   /**
-   * 更新实体尺寸
-   * @param width 新的宽度
-   * @param height 新的高度
+   * Update entity size
+   * @param width New width
+   * @param height New height
    */
   updateSize(width: number, height: number): void;
 
   /**
-   * 获取实体边界框
-   * @returns 边界框信息
+   * Get entity bounding box
+   * @returns Bounding box information
    */
   getBounds(): { x: number; y: number; width: number; height: number };
 
   /**
-   * 检查点是否在实体内
-   * @param x 点的 X 坐标
-   * @param y 点的 Y 坐标
-   * @returns 是否包含该点
+   * Check if a point is inside the entity
+   * @param x Point X coordinate
+   * @param y Point Y coordinate
+   * @returns Whether the point is contained
    */
   containsPoint(x: number, y: number): boolean;
 
   /**
-   * 获取实体的渲染样式
-   * @returns CSS 样式对象
+   * Get entity rendering style
+   * @returns CSS style object
    */
   getRenderStyle(): React.CSSProperties;
 }
 
 /**
- * 可渲染实体参数接口
- * 定义创建可渲染实体时的参数
+ * Renderable entity arguments interface
+ * Defines parameters for creating renderable entities
  */
 export interface IRenderableEntityArguments extends IEntityArguments {
   position?: { x: number; y: number };

@@ -95,7 +95,7 @@ type DragState =
     };
 
 function readBounds(ent: unknown): { x: number; y: number; width: number; height: number } | null {
-  // 1) 优先使用实体提供的 getBounds（通常在首次渲染后可用）
+  // 1) Prefer using getBounds provided by the entity (usually available after first render)
   const m = ent as { getBounds?: () => unknown };
   const b = m?.getBounds?.() as
     | Partial<{ x: number; y: number; width: number; height: number }>
@@ -110,7 +110,7 @@ function readBounds(ent: unknown): { x: number; y: number; width: number; height
     return { x: b.x, y: b.y, width: b.width, height: b.height };
   }
 
-  // 2) 首帧回退：在还未有 getBounds 之前，依据实体的 position/size 字段进行命中
+  // 2) First-frame fallback: before getBounds is available, use the entity's position/size fields for hit testing
   const e = ent as {
     data?: {
       position?: { x?: number; y?: number };
@@ -280,10 +280,10 @@ export class DragTool implements Tool {
 
     if (!hit) {
       this.dragging = null;
-      return false; // 未处理，交给其他工具
+      return false; // Not handled, pass to other tools
     }
 
-    // 更新选择集
+    // Update selection set
     const current = this.opts.getSelectedIds();
     if (e.shiftKey || e.metaKey) {
       const next = new Set(current);
@@ -300,7 +300,7 @@ export class DragTool implements Tool {
     })();
 
     if (selection.size > 1 && selection.has(hit.id)) {
-      // 组拖
+      // Group drag
       const starts = new Map<string, { x: number; y: number }>();
       selection.forEach((id) => {
         const ent = this.entityManager.getEntity(id);
@@ -316,7 +316,7 @@ export class DragTool implements Tool {
         starts,
       };
     } else {
-      // 单拖
+      // Single drag
       const pos = readPosition(hit);
       this.dragging = {
         mode: "single",
@@ -328,7 +328,7 @@ export class DragTool implements Tool {
       };
     }
     this.opts.onDragStart?.();
-    return true; // 已处理
+    return true; // Handled
   };
 
   onMouseMove = (e: PointerLikeEvent, env: InteractionEnv) => {
@@ -383,7 +383,7 @@ export class DragTool implements Tool {
         for (const u of batch) {
           const ent = this.entityManager.getEntity(u.id);
           if (!ent) continue;
-          // 尝试读取旧/新 bounds 用于后续脏矩形优化
+          // Try reading old/new bounds for subsequent dirty-rectangle optimization
           const prevBounds = readBounds(ent) || undefined;
           if (writePosition(ent, u.x, u.y)) {
             const nextBounds = readBounds(ent) || undefined;
@@ -396,7 +396,7 @@ export class DragTool implements Tool {
             this.entityManager.updateEntity(ent, detail);
           }
         }
-        // 批量实体位置更新后，投递渲染事件（方案1）：只渲染涉及的实体
+        // After batch entity position updates, post render events (option 1): render only involved entities
         const ids = Array.from(new Set(batch.map((b) => b.id)));
         this.renderEvents.requestRenderEntities({
           entityIds: ids,
@@ -414,7 +414,7 @@ export class DragTool implements Tool {
     this.rafId = null;
     this.pending = null;
     this.opts.onDragEnd?.();
-    // 拖拽结束后触发一次全量或增量渲染以巩固最终状态
+    // Trigger a full or incremental render after drag ends to solidify the final state
     this.renderEvents.requestRenderAll({ reason: "drag-end" });
     return true;
   };
@@ -425,7 +425,7 @@ export class DragTool implements Tool {
     this.rafId = null;
     this.pending = null;
     this.opts.onDragEnd?.();
-    return false; // 允许其他工具继续处理
+    return false; // Allow other tools to continue processing
   };
 
   /**

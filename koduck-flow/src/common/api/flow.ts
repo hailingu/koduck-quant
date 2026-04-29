@@ -1,23 +1,23 @@
 /**
- * Flow 便捷 API
+ * Flow Convenience API
  *
- * 在通用实体模块基础上提供流程实体的便捷操作函数。
- * 主要功能包括：
- * - 创建流程实体 (createFlowEntity)
- * - 获取节点的父级节点 (getNodeParents)
- * - 获取节点的子级节点 (getNodeChildren)
+ * Provides convenient operation functions for flow entities on top of the general entity module.
+ * Main features include:
+ * - Create flow entity (createFlowEntity)
+ * - Get parent nodes of a node (getNodeParents)
+ * - Get child nodes of a node (getNodeChildren)
  *
- * 这些函数负责参数调适和节点关系查询。运行时状态变更
- * 仍然通过共享的实体 API 进行。
+ * These functions handle parameter adaptation and node relationship queries. Runtime state changes
+ * are still performed via the shared entity API.
  *
  * @module FlowAPI
  *
  * @example
  * ```typescript
- * // 创建流程实体
+ * // Create flow entity
  * const flow = createFlowEntity('workflow', { name: 'My Flow' });
  *
- * // 获取节点关系
+ * // Get node relationships
  * const parents = getNodeParents('node-123');
  * const children = getNodeChildren('node-123');
  * ```
@@ -29,38 +29,38 @@ import type { IEntity } from "../entity";
 import { createEntity, getEntity } from "./entity";
 
 /**
- * 创建流程实体
+ * Create Flow Entity
  *
- * 工厂函数，用于创建指定类型的流程实体。实体在创建后可以被
- * 添加到流程图中，并通过其他 API 进行操作。
+ * Factory function for creating flow entities of a specified type. After creation, the entity can be
+ * added to the flow graph and manipulated through other APIs.
  *
- * @template TData - 实体数据类型
- * @template TConfig - 实体配置类型
+ * @template TData - Entity data type
+ * @template TConfig - Entity configuration type
  *
- * @param nodeType - 节点类型标识符，用于实体工厂查询
- * @param data - 节点的初始数据
- * @param config - 可选的节点配置参数
+ * @param nodeType - Node type identifier used for entity factory lookup
+ * @param data - Initial data for the node
+ * @param config - Optional node configuration parameters
  *
- * @returns 创建成功返回 IEntity 对象，失败返回 null
+ * @returns IEntity object on success, null on failure
  *
- * @throws 捕获内部异常并返回 null，同时输出错误日志
+ * @throws Catches internal exceptions and returns null while logging the error
  *
  * @example
  * ```typescript
- * // 基本用法
+ * // Basic usage
  * const entity = createFlowEntity('task-node', { label: 'Task 1' });
  * if (entity) {
  *   console.log('Created entity:', entity.id);
  * }
  *
- * // 带配置的用法
+ * // Usage with configuration
  * const configuredEntity = createFlowEntity(
  *   'decision-node',
  *   { condition: true },
  *   { timeout: 5000 }
  * );
  *
- * // 处理创建失败
+ * // Handling creation failure
  * const entity2 = createFlowEntity('unknown-type', {});
  * if (!entity2) {
  *   console.error('Failed to create entity');
@@ -87,27 +87,27 @@ export function createFlowEntity<
 }
 
 /**
- * 获取节点的所有父级节点
+ * Get all parent nodes of a node
  *
- * 根据节点 ID 查询该节点在流程图中的所有父级节点 ID 列表。
- * 返回的是父节点的 ID 数组，不包含节点的完整对象。
+ * Queries all parent node IDs for the given node ID in the flow graph.
+ * Returns an array of parent node IDs, not the full node objects.
  *
- * @param entityId - 目标节点的实体 ID
+ * @param entityId - Entity ID of the target node
  *
- * @returns 父级节点 ID 数组，如果没有父级节点或查询失败返回空数组
+ * @returns Array of parent node IDs, empty array if no parents or query failed
  *
- * 注意事项：
- * - 如果实体不存在，返回空数组
- * - 如果实体没有 node 属性，返回空数组
- * - 内部异常会被捕获并记录日志，不会抛出异常
+ * Notes:
+ * - Returns empty array if entity does not exist
+ * - Returns empty array if entity has no 'node' property
+ * - Internal exceptions are caught and logged, not thrown
  *
  * @example
  * ```typescript
- * // 获取节点的所有父级
+ * // Get all parents of a node
  * const parents = getNodeParents('node-456');
  * console.log('Parent nodes:', parents); // ['node-123', 'node-789']
  *
- * // 如果节点不存在
+ * // If node does not exist
  * const orphanParents = getNodeParents('non-existent');
  * console.log('Orphan parents:', orphanParents); // []
  * ```
@@ -133,27 +133,27 @@ export function getNodeParents(entityId: string): string[] {
 }
 
 /**
- * 获取节点的所有子级节点
+ * Get all child nodes of a node
  *
- * 根据节点 ID 查询该节点在流程图中的所有子级节点 ID 列表。
- * 返回的是子节点的 ID 数组，不包含节点的完整对象。
+ * Queries all child node IDs for the given node ID in the flow graph.
+ * Returns an array of child node IDs, not the full node objects.
  *
- * @param entityId - 目标节点的实体 ID
+ * @param entityId - Entity ID of the target node
  *
- * @returns 子级节点 ID 数组，如果没有子级节点或查询失败返回空数组
+ * @returns Array of child node IDs, empty array if no children or query failed
  *
- * 注意事项：
- * - 如果实体不存在，返回空数组
- * - 如果实体没有 node 属性，返回空数组
- * - 内部异常会被捕获并记录日志，不会抛出异常
+ * Notes:
+ * - Returns empty array if entity does not exist
+ * - Returns empty array if entity has no 'node' property
+ * - Internal exceptions are caught and logged, not thrown
  *
  * @example
  * ```typescript
- * // 获取节点的所有子级
+ * // Get all children of a node
  * const children = getNodeChildren('node-456');
  * console.log('Child nodes:', children); // ['node-111', 'node-222']
  *
- * // 叶节点没有子节点
+ * // Leaf nodes have no children
  * const leafChildren = getNodeChildren('leaf-node');
  * console.log('Leaf children:', leafChildren); // []
  * ```

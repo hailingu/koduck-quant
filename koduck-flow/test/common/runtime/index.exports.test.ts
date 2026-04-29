@@ -1,6 +1,6 @@
 /**
- * @fileoverview Runtime 导出验证测试
- * 验证所有公共导出都可以正确访问
+ * @fileoverview Runtime export validation tests
+ * Verify all public exports are accessible
  */
 
 import { describe, expect, it } from "vitest";

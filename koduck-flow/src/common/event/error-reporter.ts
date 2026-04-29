@@ -2,17 +2,17 @@ import { getMinimalLogger } from "../logger/logger";
 import type { EventConfiguration, Logger } from "./types";
 
 /**
- * 错误报告器
- * 负责收集、格式化和报告监听器执行过程中的错误
+ * Error reporter
+ * Responsible for collecting, formatting, and reporting errors during listener execution
  */
 export class ErrorReporter {
-  /** 错误报告中标志，防止递归 */
+  /** Flag to prevent recursive error reporting */
   private _isReportingErrors: boolean = false;
 
-  /** 事件名称 */
+  /** Event name */
   private readonly _eventName: string;
 
-  /** 事件配置 */
+  /** Event configuration */
   private _config: Readonly<EventConfiguration>;
 
   constructor(eventName: string, config: Readonly<EventConfiguration>) {
@@ -21,22 +21,22 @@ export class ErrorReporter {
   }
 
   /**
-   * 更新配置
+   * Update configuration
    */
   updateConfiguration(config: Readonly<EventConfiguration>): void {
     this._config = config;
   }
 
   /**
-   * 获取当前logger实例
+   * Get current logger instance
    */
   private _getLogger(): Logger {
     return this._config.logger || getMinimalLogger();
   }
 
   /**
-   * 报告监听器执行中的错误
-   * @param errors 错误数组
+   * Report errors during listener execution
+   * @param errors Array of errors
    */
   reportErrors(errors: Array<{ index: number; error: unknown }>): void {
     if (this._isReportingErrors || errors.length === 0) {
@@ -52,7 +52,7 @@ export class ErrorReporter {
         logger.error(`Event ${this._eventName}[${index}]:`, error);
       }
     } catch (reportError) {
-      // 如果logger也出错了，至少在控制台输出
+      // If logger also fails, at least output to console
       console.error(
         `Failed to report errors for event ${this._eventName}:`,
         reportError
@@ -64,10 +64,10 @@ export class ErrorReporter {
   }
 
   /**
-   * 报告异步监听器执行中的警告
-   * @param index 监听器索引
-   * @param error 错误信息
-   * @param mode 并发模式
+   * Report warnings during async listener execution
+   * @param index Listener index
+   * @param error Error information
+   * @param mode Concurrency mode
    */
   reportAsyncWarning(
     index: number,
@@ -83,10 +83,10 @@ export class ErrorReporter {
   }
 
   /**
-   * 报告异步监听器超时警告
-   * @param index 监听器索引
-   * @param timeoutMs 超时时间
-   * @param mode 并发模式
+   * Report async listener timeout warnings
+   * @param index Listener index
+   * @param timeoutMs Timeout duration
+   * @param mode Concurrency mode
    */
   reportTimeoutWarning(
     index: number,
@@ -101,10 +101,10 @@ export class ErrorReporter {
   }
 
   /**
-   * 报告批量超时警告
-   * @param timeoutCount 超时数量
-   * @param timeoutMs 超时时间
-   * @param mode 并发模式
+   * Report batch timeout warnings
+   * @param timeoutCount Number of timeouts
+   * @param timeoutMs Timeout duration
+   * @param mode Concurrency mode
    */
   reportBatchTimeoutWarning(
     timeoutCount: number,
@@ -119,8 +119,8 @@ export class ErrorReporter {
   }
 
   /**
-   * 报告配置验证错误
-   * @param configError 配置错误信息
+   * Report configuration validation errors
+   * @param configError Configuration error message
    */
   reportConfigError(configError: string): void {
     this._getLogger().error(
@@ -130,7 +130,7 @@ export class ErrorReporter {
   }
 
   /**
-   * 报告数据验证失败
+   * Report data validation failure
    */
   reportValidationFailure(): void {
     if (this._config.enableDebugMode) {
@@ -141,9 +141,9 @@ export class ErrorReporter {
   }
 
   /**
-   * 报告去重统计信息（调试模式）
-   * @param droppedCount 被丢弃的事件数量
-   * @param totalCount 总事件数量
+   * Report deduplication statistics (debug mode)
+   * @param droppedCount Number of dropped events
+   * @param totalCount Total number of events
    */
   reportDedupeStats(droppedCount: number, totalCount: number): void {
     if (this._config.enableDebugMode && droppedCount > 0) {
@@ -157,9 +157,9 @@ export class ErrorReporter {
   }
 
   /**
-   * 报告批处理统计信息（调试模式）
-   * @param batchSize 批次大小
-   * @param processedCount 处理的事件数量
+   * Report batch processing statistics (debug mode)
+   * @param batchSize Batch size
+   * @param processedCount Number of processed events
    */
   reportBatchStats(batchSize: number, processedCount: number): void {
     if (this._config.enableDebugMode && processedCount > 0) {
@@ -173,9 +173,9 @@ export class ErrorReporter {
   }
 
   /**
-   * 报告内存清理信息（调试模式）
-   * @param type 清理类型
-   * @param count 清理的项目数量
+   * Report memory cleanup information (debug mode)
+   * @param type Cleanup type
+   * @param count Number of cleaned items
    */
   reportCleanupInfo(
     type: "listeners" | "batch" | "cache",
@@ -192,9 +192,9 @@ export class ErrorReporter {
   }
 
   /**
-   * 报告性能警告
-   * @param message 警告消息
-   * @param metrics 相关指标
+   * Report performance warnings
+   * @param message Warning message
+   * @param metrics Related metrics
    */
   reportPerformanceWarning(
     message: string,
@@ -210,9 +210,9 @@ export class ErrorReporter {
   }
 
   /**
-   * 报告一般性调试信息
-   * @param message 调试消息
-   * @param data 相关数据
+   * Report general debug information
+   * @param message Debug message
+   * @param data Related data
    */
   reportDebugInfo(message: string, data?: unknown): void {
     if (this._config.enableDebugMode) {

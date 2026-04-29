@@ -2,17 +2,17 @@ import { MemoryLRUCache } from "../cache/memory-lru";
 import type { EventConfiguration } from "./types";
 
 /**
- * 负载去重管理器
- * 负责事件数据的去重处理，避免重复事件的执行
+ * Payload deduplication manager
+ * Responsible for deduplication of event data to avoid duplicate event execution
  */
 export class DedupeManager<T> {
-  /** 负载去重缓存（可选） */
+  /** Payload deduplication cache (optional) */
   private _dedupeCache: MemoryLRUCache<string, true> | undefined;
 
-  /** 事件名称，用于缓存命名空间 */
+  /** Event name, used for cache namespace */
   private readonly _eventName: string;
 
-  /** 事件配置 */
+  /** Event configuration */
   private _config: Readonly<EventConfiguration>;
 
   constructor(eventName: string, config: Readonly<EventConfiguration>) {
@@ -22,9 +22,9 @@ export class DedupeManager<T> {
   }
 
   /**
-   * 检查是否应该因去重而丢弃事件
-   * @param data 事件数据
-   * @returns true 表示应该丢弃，false 表示应该处理
+   * Check whether event should be dropped due to deduplication
+   * @param data Event data
+   * @returns true means should drop, false means should process
    */
   shouldDropByDedupe(data: T): boolean {
     if (!this._dedupeCache) return false;
@@ -36,14 +36,14 @@ export class DedupeManager<T> {
   }
 
   /**
-   * 更新配置
-   * @param newConfig 新的事件配置
+   * Update configuration
+   * @param newConfig New event configuration
    */
   updateConfiguration(newConfig: Readonly<EventConfiguration>): void {
     const oldConfig = this._config;
     this._config = newConfig;
 
-    // 如果去重配置改变，重建缓存
+    // If deduplication config changes, rebuild cache
     const oldDedupe = oldConfig.payloadDedupe;
     const newDedupe = newConfig.payloadDedupe;
 
@@ -57,7 +57,7 @@ export class DedupeManager<T> {
   }
 
   /**
-   * 清理去重缓存
+   * Clear deduplication cache
    */
   clear(): void {
     if (this._dedupeCache) {
@@ -66,7 +66,7 @@ export class DedupeManager<T> {
   }
 
   /**
-   * 获取当前缓存状态
+   * Get current cache state
    */
   getCacheStats(): { size: number; enabled: boolean } {
     let cacheSize = 0;
@@ -81,12 +81,12 @@ export class DedupeManager<T> {
   }
 
   /**
-   * 确保去重缓存的正确状态
+   * Ensure correct state of deduplication cache
    */
   private _ensureDedupeCache(): void {
     const d = this._config.payloadDedupe;
     if (d?.enabled) {
-      // 重建缓存以应用策略变更
+      // Rebuild cache to apply policy changes
       this._dedupeCache = new MemoryLRUCache<string, true>({
         namespace: `event:${this._eventName}`,
         maxEntries: d.maxEntries ?? 1000,
@@ -98,9 +98,9 @@ export class DedupeManager<T> {
   }
 
   /**
-   * 生成去重键
-   * @param data 事件数据
-   * @returns 去重键，如果无法生成则返回 undefined
+   * Generate deduplication key
+   * @param data Event data
+   * @returns Deduplication key, returns undefined if unable to generate
    */
   private _dedupeKeyOf(data: T): string | undefined {
     const d = this._config.payloadDedupe;

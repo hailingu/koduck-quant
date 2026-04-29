@@ -44,7 +44,7 @@ const createRenderer = (options: { canRender?: boolean; name?: string } = {}): I
 };
 
 describe("ReactDefaultStrategyPlugin", () => {
-  it("返回 React 渲染器选择结果", () => {
+  it("returns React renderer selection result", () => {
     const renderer = createRenderer();
     const plugin = new ReactDefaultStrategyPlugin(renderer);
     const entity = createEntity();
@@ -56,7 +56,7 @@ describe("ReactDefaultStrategyPlugin", () => {
     expect(selection.confidence).toBeGreaterThan(0.5);
   });
 
-  it("对于 canvas 实体返回不适用", () => {
+  it("returns not applicable for canvas entities", () => {
     const renderer = createRenderer();
     const plugin = new ReactDefaultStrategyPlugin(renderer);
     const entity = createEntity({ type: "diagram-canvas" });
@@ -67,7 +67,7 @@ describe("ReactDefaultStrategyPlugin", () => {
     );
   });
 
-  it("支持自定义 predicate", () => {
+  it("supports custom predicate", () => {
     const renderer = createRenderer();
     const plugin = new ReactDefaultStrategyPlugin(renderer, {
       predicate: (entity) => entity.type === "react-only",
@@ -79,7 +79,7 @@ describe("ReactDefaultStrategyPlugin", () => {
     expect(selection.mode).toBe("react");
   });
 
-  it("selectForBatch 仅分组可处理实体", () => {
+  it("selectForBatch only groups handleable entities", () => {
     const renderer = createRenderer();
     const plugin = new ReactDefaultStrategyPlugin(renderer);
     const entities = [
@@ -94,7 +94,7 @@ describe("ReactDefaultStrategyPlugin", () => {
     expect(groupedEntities?.[0].id).toBe("1");
   });
 
-  it("renderer 无法渲染时抛出不可用错误", () => {
+  it("throws not applicable error when renderer cannot render", () => {
     const renderer = createRenderer({ canRender: false });
     const plugin = new ReactDefaultStrategyPlugin(renderer);
     const entity = createEntity();

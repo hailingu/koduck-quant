@@ -1,6 +1,6 @@
 /**
- * Entity Index 模块导出测试
- * 验证模块导出的完整性和正确性
+ * Entity Index module export tests
+ * Verifies the completeness and correctness of module exports
  */
 import { describe, expect, it } from "vitest";
 

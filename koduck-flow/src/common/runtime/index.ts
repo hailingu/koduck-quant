@@ -52,8 +52,8 @@
 
 export { KoduckFlowRuntime, createKoduckFlowRuntime, createScopedRuntime } from "./koduck-flow-runtime";
 
-// ==================== 核心模块导出（高级用户） ====================
-// 这些模块可用于自定义 Runtime 实现或单独使用
+// ==================== Core Module Exports (Advanced Users) ====================
+// These modules can be used for custom Runtime implementations or independently
 
 export { RuntimeContainerManager } from "./runtime-container-manager";
 export { RuntimeManagerCoordinator } from "./runtime-manager-coordinator";
@@ -63,21 +63,21 @@ export { RuntimeFeatureFlag } from "./runtime-feature-flag";
 export { RuntimeDebugConfiguration } from "./runtime-debug-configuration";
 export { RuntimeEntityOperations } from "./runtime-entity-operations";
 
-// ==================== 工具函数导出 ====================
+// ==================== Utility Exports ====================
 
 export * from "./utils";
 export { normalizeRuntimeKey } from "./runtime-key";
 export { resolveTenantContext } from "./tenant-context";
 export { DEFAULT_DEBUG_OPTIONS, mergeDebugOptions } from "./debug-options";
 
-// ==================== 工厂类导出 ====================
+// ==================== Factory Exports ====================
 
 export { KoduckFlowRuntimeFactory } from "./runtime-factory";
 export { KoduckFlowRuntimeController } from "./runtime-controller";
 
-// ==================== 类型导出 ====================
+// ==================== Type Exports ====================
 
-// Manager 相关类型
+// Manager-related types
 export type { IManager } from "../manager/types";
 export type {
   CoreManagerKey,
@@ -86,12 +86,12 @@ export type {
   ManagerRegistrationOptions,
 } from "./types";
 
-// Runtime 选项类型
+// Runtime option types
 export type { KoduckFlowRuntimeOptions } from "./types";
 export type { RuntimeEnvironmentKey } from "./runtime-key";
 export type { RuntimeCreationOptions } from "./runtime-factory";
 
-// 租户相关类型
+// Tenant-related types
 export type {
   KoduckFlowTenantConfig,
   TenantResourceQuota,
@@ -100,10 +100,10 @@ export type {
   TenantQuotaSnapshot,
 } from "./tenant-context";
 
-// 调试相关类型
+// Debug-related types
 export type { DebugOptions, DebugPanelOptions, DebugPanelPosition } from "./debug-options";
 
-// Controller 相关类型
+// Controller-related types
 export type {
   RuntimeControllerOptions,
   RuntimeControllerSnapshot,

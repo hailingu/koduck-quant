@@ -19,7 +19,7 @@ import type {
 import type { Data } from "../../../src/common/data";
 import type { AutoRegistryOptions } from "../../../src/utils/decorator/types";
 
-// Mock 依赖
+// Mock dependencies
 vi.mock("../../../src/utils/decorator/registry-generator");
 
 vi.mock("../../../src/common/logger", () => {
@@ -99,7 +99,7 @@ describe("AutoRegistry", () => {
     generateRegistry: ReturnType<typeof vi.fn>;
   };
 
-  // Mock 实体类
+  // Mock entity class
   class MockEntity extends BaseTestEntity {
     protected override getDefaultId(): string {
       return "mock-entity";
@@ -111,10 +111,10 @@ describe("AutoRegistry", () => {
   }
 
   beforeEach(() => {
-    // 重置所有 mock
+    // Reset all mocks
     vi.clearAllMocks();
 
-    // 设置 RegistryManager mock
+    // Set up RegistryManager mock
     mockRegistryManager = {
       addRegistry: vi.fn(),
       hasRegistry: vi.fn().mockReturnValue(false),
@@ -128,7 +128,7 @@ describe("AutoRegistry", () => {
       setDefaultRegistry: vi.fn(),
     };
 
-    // 设置 DynamicRegistryGenerator mock
+    // Set up DynamicRegistryGenerator mock
     mockDynamicRegistryGenerator = {
       generateRegistry: vi.fn().mockReturnValue(
         class MockDynamicRegistry {
@@ -156,7 +156,7 @@ describe("AutoRegistry", () => {
   });
 
   describe("AutoRegistry decorator", () => {
-    test("应该正确装饰类并添加元数据", () => {
+    test("should correctly decorate class and add metadata", () => {
       const options: AutoRegistryOptions = {
         registryManager: mockRegistryManager,
         capabilities: ["render", "execute"],
@@ -175,7 +175,7 @@ describe("AutoRegistry", () => {
       expect(meta?.createdAt).toBeDefined();
     });
 
-    test("应该使用默认选项", () => {
+    test("should use default options", () => {
       const options: AutoRegistryOptions = {
         registryManager: mockRegistryManager,
       };
@@ -193,7 +193,7 @@ describe("AutoRegistry", () => {
       expect(meta?.createdAt).toBeDefined();
     });
 
-    test("应该自动注册到 RegistryManager", () => {
+    test("should automatically register to RegistryManager", () => {
       const options: AutoRegistryOptions = {
         registryManager: mockRegistryManager,
         registryName: "auto-registry",
@@ -207,7 +207,7 @@ describe("AutoRegistry", () => {
         }
       }
 
-      // 触发类装饰器的执行
+      // Trigger class decorator execution
       new TestEntity();
 
       expect(mockRegistryManager.addRegistry).toHaveBeenCalledWith(
@@ -216,7 +216,7 @@ describe("AutoRegistry", () => {
       );
     });
 
-    test("当 autoRegister 为 false 时不自动注册", () => {
+    test("should not auto-register when autoRegister is false", () => {
       const options: AutoRegistryOptions = {
         registryManager: mockRegistryManager,
         registryName: "manual-registry",
@@ -235,13 +235,13 @@ describe("AutoRegistry", () => {
       expect(mockRegistryManager.addRegistry).not.toHaveBeenCalled();
     });
 
-    test("应该处理装饰器错误", () => {
+    test("should handle decorator errors", () => {
       const options: AutoRegistryOptions = {
         registryManager: mockRegistryManager,
         registryName: "error-registry",
       };
 
-      // Mock DynamicRegistryGenerator 生成失败
+      // Mock DynamicRegistryGenerator generation failure
       mockDynamicRegistryGenerator.generateRegistry.mockImplementation(() => {
         throw new Error("Generation failed");
       });
@@ -253,15 +253,15 @@ describe("AutoRegistry", () => {
             return "test-entity";
           }
         }
-        // 使用 void 运算符避免未使用变量警告
+        // Use void operator to avoid unused variable warnings
         void TestEntity;
-        // 装饰器应该抛出错误，因为 generateRegistry 在 try-catch 之前调用
+        // Decorator should throw error because generateRegistry is called before try-catch
       }).toThrow("Generation failed");
     });
   });
 
   describe("getAutoRegistryMeta", () => {
-    test("应该返回正确的元数据", () => {
+    test("should return correct metadata", () => {
       const options: AutoRegistryOptions = {
         registryManager: mockRegistryManager,
         capabilities: ["meta"],
@@ -280,7 +280,7 @@ describe("AutoRegistry", () => {
       expect(meta?.createdAt).toBeDefined();
     });
 
-    test("对于没有装饰器的类应该返回 undefined", () => {
+    test("should return undefined for classes without decorator", () => {
       class PlainEntity extends BaseTestEntity {
         protected override getDefaultId(): string {
           return "plain-entity";
@@ -293,7 +293,7 @@ describe("AutoRegistry", () => {
   });
 
   describe("getDynamicRegistryClass", () => {
-    test("应该返回动态生成的注册表类", () => {
+    test("should return dynamically generated registry class", () => {
       const options: AutoRegistryOptions = {
         registryManager: mockRegistryManager,
       };
@@ -310,7 +310,7 @@ describe("AutoRegistry", () => {
       expect(typeof registryClass).toBe("function");
     });
 
-    test("对于没有装饰器的类应该返回 undefined", () => {
+    test("should return undefined for classes without decorator", () => {
       class PlainEntity extends BaseTestEntity {
         protected override getDefaultId(): string {
           return "plain-entity";
@@ -323,7 +323,7 @@ describe("AutoRegistry", () => {
   });
 
   describe("getRegistryInstance", () => {
-    test("应该返回注册表实例", () => {
+    test("should return registry instance", () => {
       const options: AutoRegistryOptions = {
         registryManager: mockRegistryManager,
       };
@@ -335,14 +335,14 @@ describe("AutoRegistry", () => {
         }
       }
 
-      // 手动注册以设置实例
+      // Manually register to set instance
       manualRegister(TestEntity, undefined, mockRegistryManager as unknown as RegistryManager);
 
       const instance = getRegistryInstance(TestEntity);
       expect(instance).toBeDefined();
     });
 
-    test("对于没有注册的类应该返回 undefined", () => {
+    test("should return undefined for unregistered classes", () => {
       class PlainEntity extends BaseTestEntity {
         protected override getDefaultId(): string {
           return "plain-entity";
@@ -355,7 +355,7 @@ describe("AutoRegistry", () => {
   });
 
   describe("hasAutoRegistry", () => {
-    test("对于有装饰器的类应该返回 true", () => {
+    test("should return true for classes with decorator", () => {
       const options: AutoRegistryOptions = {
         registryManager: mockRegistryManager,
       };
@@ -370,7 +370,7 @@ describe("AutoRegistry", () => {
       expect(hasAutoRegistry(TestEntity)).toBe(true);
     });
 
-    test("对于没有装饰器的类应该返回 false", () => {
+    test("should return false for classes without decorator", () => {
       class PlainEntity extends BaseTestEntity {
         protected override getDefaultId(): string {
           return "plain-entity";
@@ -382,7 +382,7 @@ describe("AutoRegistry", () => {
   });
 
   describe("manualRegister", () => {
-    test("应该手动注册实体", () => {
+    test("should manually register entity", () => {
       const options: AutoRegistryOptions = {
         registryManager: mockRegistryManager,
       };
@@ -407,7 +407,7 @@ describe("AutoRegistry", () => {
       );
     });
 
-    test("应该使用自定义注册表名称", () => {
+    test("should use custom registry name", () => {
       const options: AutoRegistryOptions = {
         registryManager: mockRegistryManager,
       };
@@ -432,7 +432,7 @@ describe("AutoRegistry", () => {
       );
     });
 
-    test("对于没有装饰器的类应该返回 false", () => {
+    test("should return false for classes without decorator", () => {
       class PlainEntity extends BaseTestEntity {
         protected override getDefaultId(): string {
           return "plain-entity";
@@ -447,7 +447,7 @@ describe("AutoRegistry", () => {
       expect(result).toBe(false);
     });
 
-    test("应该处理注册错误", () => {
+    test("should handle registration errors", () => {
       const options: AutoRegistryOptions = {
         registryManager: mockRegistryManager,
       };
@@ -473,7 +473,7 @@ describe("AutoRegistry", () => {
   });
 
   describe("unregister", () => {
-    test("应该从注册表中移除", () => {
+    test("should remove from registry", () => {
       const options: AutoRegistryOptions = {
         registryManager: mockRegistryManager,
       };
@@ -495,7 +495,7 @@ describe("AutoRegistry", () => {
       expect(result).toBeDefined();
     });
 
-    test("应该使用自定义注册表名称", () => {
+    test("should use custom registry name", () => {
       const options: AutoRegistryOptions = {
         registryManager: mockRegistryManager,
       };
@@ -517,7 +517,7 @@ describe("AutoRegistry", () => {
       expect(result).toBeDefined();
     });
 
-    test("应该处理注销错误", () => {
+    test("should handle unregistration errors", () => {
       const options: AutoRegistryOptions = {
         registryManager: mockRegistryManager,
       };
@@ -543,7 +543,7 @@ describe("AutoRegistry", () => {
   });
 
   describe("updateRegistry", () => {
-    test("应该更新注册表", () => {
+    test("should update registry", () => {
       const options: AutoRegistryOptions = {
         registryManager: mockRegistryManager,
       };
@@ -555,7 +555,7 @@ describe("AutoRegistry", () => {
         }
       }
 
-      // 先注册
+      // Register first
       manualRegister(TestEntity, undefined, mockRegistryManager as unknown as RegistryManager);
 
       const result = updateRegistry(TestEntity, {
@@ -566,7 +566,7 @@ describe("AutoRegistry", () => {
       expect(result).toBeDefined();
     });
 
-    test("对于没有注册的类应该返回 false", () => {
+    test("should return false for unregistered classes", () => {
       class PlainEntity extends BaseTestEntity {
         protected override getDefaultId(): string {
           return "plain-entity";

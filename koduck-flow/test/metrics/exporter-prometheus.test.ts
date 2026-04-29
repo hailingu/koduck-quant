@@ -1,6 +1,6 @@
 /**
  * Prometheus Exporter tests
- * 测试Prometheus导出器的功能
+ * Tests the functionality of the Prometheus exporter
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
@@ -13,7 +13,7 @@ describe("PrometheusExporter", () => {
   let provider: InMemoryMetricsProvider;
 
   beforeEach(() => {
-    // 重置metrics配置
+    // Reset metrics configuration
     configureMetrics({
       governance: {
         seriesLimitPerMetric: undefined,
@@ -31,11 +31,11 @@ describe("PrometheusExporter", () => {
   });
 
   describe("renderPrometheusExposition Function", () => {
-    it("应该是一个函数", () => {
+    it("should be a function", () => {
       expect(typeof renderPrometheusExposition).toBe("function");
     });
 
-    it("应该支持配置前缀", () => {
+    it("should support configuring prefix", () => {
       configureMetrics({
         naming: {
           metricNamePrefix: "app",
@@ -54,7 +54,7 @@ describe("PrometheusExporter", () => {
   });
 
   describe("Counter Export", () => {
-    it("应该正确导出简单counter", () => {
+    it("should correctly export simple counter", () => {
       const meter = provider.getMeter("test");
       const counter = meter.counter("requests_total", {
         description: "Total number of requests",
@@ -73,7 +73,7 @@ describe("PrometheusExporter", () => {
       expect(prometheus).toContain('requests_total{method="GET",status="200",scope="test"} 5');
     });
 
-    it("应该正确处理带前缀的counter", () => {
+    it("should correctly handle counter with prefix", () => {
       configureMetrics({
         naming: {
           metricNamePrefix: "myapp",
@@ -91,7 +91,7 @@ describe("PrometheusExporter", () => {
       expect(prometheus).toContain('myapp_requests_total{scope="test"} 42');
     });
 
-    it("应该按label键排序", () => {
+    it("should sort labels by key", () => {
       const meter = provider.getMeter("test");
       const counter = meter.counter("sorted_counter");
 
@@ -103,7 +103,7 @@ describe("PrometheusExporter", () => {
       expect(prometheus).toContain('{a="first",m="middle",z="last",scope="test"}');
     });
 
-    it("应该对特殊字符进行转义", () => {
+    it("should escape special characters", () => {
       const meter = provider.getMeter("test");
       const counter = meter.counter("escapes");
 
@@ -117,7 +117,7 @@ describe("PrometheusExporter", () => {
   });
 
   describe("UpDownCounter Export", () => {
-    it("应该正确导出upDownCounter", () => {
+    it("should correctly export upDownCounter", () => {
       const meter = provider.getMeter("test");
       const upDownCounter = meter.upDownCounter("active_connections", {
         description: "Active database connections",
@@ -138,7 +138,7 @@ describe("PrometheusExporter", () => {
   });
 
   describe("Gauge Export", () => {
-    it("应该正确导出gauge", () => {
+    it("should correctly export gauge", () => {
       const meter = provider.getMeter("test");
       const gauge = meter.gauge("cpu_usage", {
         description: "Current CPU usage percentage",
@@ -159,7 +159,7 @@ describe("PrometheusExporter", () => {
   });
 
   describe("Histogram Export", () => {
-    it("应该正确导出histogram", () => {
+    it("should correctly export histogram", () => {
       const meter = provider.getMeter("test");
       const histogram = meter.histogram("request_duration", {
         description: "Request duration in milliseconds",
@@ -178,7 +178,7 @@ describe("PrometheusExporter", () => {
       expect(prometheus).toContain("# HELP request_duration histogram");
       expect(prometheus).toContain("# TYPE request_duration histogram");
 
-      // 检查累积桶 (scope在前面)
+      // Check cumulative buckets (scope comes first)
       expect(prometheus).toContain('request_duration_bucket{scope="test",le="1"} 0');
       expect(prometheus).toContain('request_duration_bucket{scope="test",le="5"} 1'); // 2 <= 5
       expect(prometheus).toContain('request_duration_bucket{scope="test",le="10"} 2'); // 2, 8 <= 10
@@ -187,12 +187,12 @@ describe("PrometheusExporter", () => {
       expect(prometheus).toContain('request_duration_bucket{scope="test",le="100"} 4'); // all values <= 100
       expect(prometheus).toContain('request_duration_bucket{scope="test",le="+Inf"} 4'); // all values
 
-      // 检查总计和计数
+      // Check sum and count
       expect(prometheus).toContain('request_duration_sum{scope="test"} 100'); // 2+8+15+75
       expect(prometheus).toContain('request_duration_count{scope="test"} 4');
     });
 
-    it("应该处理空的histogram", () => {
+    it("should handle empty histogram", () => {
       const meter = provider.getMeter("test");
       meter.histogram("empty_histogram");
 
@@ -200,14 +200,14 @@ describe("PrometheusExporter", () => {
       const prometheus = renderPrometheusExposition(snapshot);
 
       expect(prometheus).toContain("# TYPE empty_histogram histogram");
-      // 空的histogram不输出数据行，只有HELP和TYPE
+      // Empty histogram outputs no data lines, only HELP and TYPE
       expect(prometheus).not.toContain("empty_histogram_count");
       expect(prometheus).not.toContain("empty_histogram_sum");
     });
   });
 
   describe("Multiple Meters", () => {
-    it("应该正确导出多个meter的metrics", () => {
+    it("should correctly export metrics from multiple meters", () => {
       const apiMeter = provider.getMeter("api");
       const dbMeter = provider.getMeter("database");
 
@@ -215,33 +215,33 @@ describe("PrometheusExporter", () => {
       const requests = apiMeter.counter("requests_total");
       const connections = dbMeter.gauge("connection_pool_size");
 
-      // 记录数据
+      // Record data
       requests.add(100, { method: "GET" });
       connections.set(15);
 
       const snapshot = provider.snapshot();
       const prometheus = renderPrometheusExposition(snapshot);
 
-      // 验证所有metrics都存在
+      // Verify all metrics exist
       expect(prometheus).toContain("requests_total");
       expect(prometheus).toContain("connection_pool_size");
 
-      // 验证具体值
+      // Verify specific values
       expect(prometheus).toContain('requests_total{method="GET",scope="api"} 100');
       expect(prometheus).toContain('connection_pool_size{scope="database"} 15');
     });
   });
 
   describe("Edge Cases", () => {
-    it("应该处理空的snapshot", () => {
+    it("should handle empty snapshot", () => {
       const emptySnapshot: ProviderSnapshot = { meters: [] };
       const prometheus = renderPrometheusExposition(emptySnapshot);
 
       expect(prometheus).toBe("");
     });
 
-    it("应该处理没有metrics的meter", () => {
-      // 创建meter但不添加任何metrics
+    it("should handle meter without metrics", () => {
+      // Create meter but do not add any metrics
       provider.getMeter("empty");
 
       const snapshot = provider.snapshot();
@@ -250,7 +250,7 @@ describe("PrometheusExporter", () => {
       expect(prometheus).toBe("");
     });
 
-    it("应该处理特殊字符的metric名称", () => {
+    it("should handle metric names with special characters", () => {
       const meter = provider.getMeter("test");
       const counter = meter.counter("metric_with_underscores_and_numbers_123");
 
@@ -262,7 +262,7 @@ describe("PrometheusExporter", () => {
       expect(prometheus).toContain('metric_with_underscores_and_numbers_123_total{scope="test"} 1');
     });
 
-    it("应该处理零值", () => {
+    it("should handle zero values", () => {
       const meter = provider.getMeter("test");
       const counter = meter.counter("zero_counter");
       const gauge = meter.gauge("zero_gauge");
@@ -277,7 +277,7 @@ describe("PrometheusExporter", () => {
       expect(prometheus).toContain('zero_gauge{scope="test"} 0');
     });
 
-    it("应该处理负数", () => {
+    it("should handle negative numbers", () => {
       const meter = provider.getMeter("test");
       const upDownCounter = meter.upDownCounter("negative_counter");
       const gauge = meter.gauge("negative_gauge");
@@ -292,7 +292,7 @@ describe("PrometheusExporter", () => {
       expect(prometheus).toContain('negative_gauge{scope="test"} -25.5');
     });
 
-    it("应该处理浮点数", () => {
+    it("should handle floating point numbers", () => {
       const meter = provider.getMeter("test");
       const gauge = meter.gauge("float_gauge");
 
@@ -306,7 +306,7 @@ describe("PrometheusExporter", () => {
   });
 
   describe("Label Handling", () => {
-    it("应该处理空label值", () => {
+    it("should handle empty label values", () => {
       const meter = provider.getMeter("test");
       const counter = meter.counter("empty_label_counter");
 
@@ -320,7 +320,7 @@ describe("PrometheusExporter", () => {
       );
     });
 
-    it("应该处理数字label值", () => {
+    it("should handle numeric label values", () => {
       const meter = provider.getMeter("test");
       const counter = meter.counter("numeric_label_counter");
 
@@ -340,7 +340,7 @@ describe("PrometheusExporter", () => {
   });
 
   describe("Format Compliance", () => {
-    it("应该生成符合Prometheus格式的输出", () => {
+    it("should generate output in Prometheus format", () => {
       const meter = provider.getMeter("test");
 
       const counter = meter.counter("http_requests_total", {
@@ -357,21 +357,21 @@ describe("PrometheusExporter", () => {
       const snapshot = provider.snapshot();
       const prometheus = renderPrometheusExposition(snapshot);
 
-      // 验证格式结构
+      // Verify format structure
       const lines = prometheus.split("\n").filter((line: string) => line.trim());
 
-      // 应该有HELP和TYPE注释
+      // Should have HELP and TYPE comments
       expect(lines.filter((line: string) => line.startsWith("# HELP"))).toHaveLength(2);
       expect(lines.filter((line: string) => line.startsWith("# TYPE"))).toHaveLength(2);
 
-      // 每个metric应该有正确的TYPE
+      // Each metric should have the correct TYPE
       expect(prometheus).toContain("# TYPE http_requests_total counter");
       expect(prometheus).toContain("# TYPE http_request_duration_seconds histogram");
 
-      // 验证行格式
+      // Verify line format
       const metricLines = lines.filter((line: string) => !line.startsWith("#"));
       for (const line of metricLines) {
-        // 每个metric行应该以metric名称开始，以数值结束
+        // Each metric line should start with metric name and end with a numeric value
         expect(line).toMatch(/^[a-zA-Z_:][a-zA-Z0-9_:]*(\{[^}]*\})?\s+[\d.-]+(\s+\d+)?$/);
       }
     });

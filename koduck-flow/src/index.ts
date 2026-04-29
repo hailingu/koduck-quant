@@ -1,30 +1,30 @@
 /**
- * Flow - 流程管理和实体渲染框架
+ * Flow - Flow management and entity rendering framework
  *
- * 这是 Flow 框架的主要入口文件，导出所有核心功能和 API。
+ * This is the main entry file of the Flow framework, exporting all core features and APIs.
  */
 
-// 核心 API - 最常用的全局接口
+// Core API - most commonly used global interfaces
 export * from "./common/api";
 
-// 实体系统
+// Entity system
 export * from "./common/entity/entity";
 export * from "./common/entity/entity-manager";
 export * from "./common/entity/entity-registry";
 
-// 注册表系统
+// Registry system
 export * from "./common/registry";
 
-// 渲染系统
+// Rendering system
 export * from "./common/render";
 
-// 事件系统
+// Event system
 export * from "./common/event";
 
-// 数据和时间
+// Data and time
 export * from "./common/data";
 
-// 资源管理
+// Resource management
 export * from "./common/disposable";
 
 // Global Runtime Management
@@ -53,10 +53,10 @@ export {
   useTenantRollout,
 } from "./components/provider/hooks/useKoduckFlowRuntime";
 
-// 流程引擎
+// Flow engine
 export * from "./common/engine";
 
-// 对话原生 Plan Canvas
+// Conversation native Plan Canvas
 export * from "./conversation-plan";
 
-// 类型定义 (如果需要的话，可以手动导出特定类型)
+// Type definitions (if needed, specific types can be manually exported)

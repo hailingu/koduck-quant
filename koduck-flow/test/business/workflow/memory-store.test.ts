@@ -1,7 +1,7 @@
 /**
- * Memory Store 单元测试
+ * Memory Store unit tests
  *
- * 测试内存存储实现：工作流定义、运行记录、审计记录的管理
+ * Tests in-memory storage implementation: workflow definitions, run records, and audit records management
  */
 
 import { describe, it, expect, beforeEach } from "vitest";

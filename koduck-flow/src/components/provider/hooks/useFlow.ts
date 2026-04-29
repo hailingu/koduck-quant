@@ -287,7 +287,7 @@ export function useFlow(options: UseFlowOptions = {}): UseFlowResult {
         logger.error("❌ 装饰器自动注册失败:", registryError);
       }
 
-      // 🔧 使用 context 中的 registryManager 进行检查（与装饰器注册保持一致）
+      // 🔧 Use registryManager from context for checking (consistent with decorator registration)
       const globalRegistryManager = registryManager;
       [
         "uml-class-canvas",
@@ -452,7 +452,7 @@ export function useFlow(options: UseFlowOptions = {}): UseFlowResult {
 
       logger.debug("[useFlow] addNode: creating entity of type", config.type);
 
-      // 添加详细日志：检查注册表状态
+      // Add detailed logs: check registry status
       try {
         logger.info("[useFlow] 🔍 注册表详细检查", {
           type: config.type,

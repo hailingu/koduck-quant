@@ -3,68 +3,68 @@ import type { IRenderContext } from "../../../common/render/types";
 import type { IEntity } from "../../../common/entity";
 
 export interface EditorProps {
-  /** Canvas 引用，用于直接操作 Canvas 元素 */
+  /** Canvas reference for direct manipulation of the Canvas element */
   canvasRef: HTMLCanvasElement | null;
-  /** 设置 Canvas 引用的回调函数 */
+  /** Callback to set the Canvas reference */
   setCanvasRef: (canvas: HTMLCanvasElement | null) => void;
-  /** 鼠标按下事件处理器 */
+  /** Mouse down event handler */
   onMouseDown: (e: React.MouseEvent<HTMLCanvasElement>) => void;
-  /** 鼠标移动事件处理器 */
+  /** Mouse move event handler */
   onMouseMove: (e: React.MouseEvent<HTMLCanvasElement>) => void;
-  /** 鼠标释放事件处理器 */
+  /** Mouse up event handler */
   onMouseUp: (e: React.MouseEvent<HTMLCanvasElement>) => void;
-  /** 鼠标离开事件处理器 */
+  /** Mouse leave event handler */
   onMouseLeave?: (e: React.MouseEvent<HTMLCanvasElement>) => void;
-  /** 鼠标点击事件处理器 */
+  /** Mouse click event handler */
   onClick?: (e: React.MouseEvent<HTMLCanvasElement>) => void;
-  /** 绘制函数，负责在 Canvas 上绘制内容 */
+  /** Draw function responsible for rendering content on the Canvas */
   onDraw: (canvas: HTMLCanvasElement) => void;
-  /** 编辑器宽度 */
+  /** Editor width */
   width?: string | number;
-  /** 编辑器高度 */
+  /** Editor height */
   height?: string | number;
-  /** 是否正在拖拽，影响鼠标样式 */
+  /** Whether dragging is in progress, affects cursor style */
   isDragging?: boolean;
-  /** 是否正在批量拖拽，影响鼠标样式 */
+  /** Whether batch dragging is in progress, affects cursor style */
   isDraggingMultiple?: boolean;
-  /** 是否正在框选，影响鼠标样式 */
+  /** Whether box selection is in progress, affects cursor style */
   isSelecting?: boolean;
-  /** Canvas 样式自定义 */
+  /** Canvas style customization */
   canvasStyle?: React.CSSProperties;
-  /** 容器样式自定义 */
+  /** Container style customization */
   containerStyle?: React.CSSProperties;
-  /** 是否显示边框 */
+  /** Whether to show border */
   showBorder?: boolean;
-  /** 编辑器类名 */
+  /** Editor class name */
   className?: string;
-  /** 是否禁用编辑器 */
+  /** Whether the editor is disabled */
   disabled?: boolean;
-  /** 视口状态变化回调 */
+  /** Viewport state change callback */
   onViewportChange?: (viewport: IRenderContext["viewport"]) => void;
-  /** 渲染上下文构建器就绪回调 */
+  /** Render context builder ready callback */
   onRenderContextReady?: (contextBuilder: RenderContextBuilder) => void;
-  /** 外部控制的视口状态 */
+  /** Externally controlled viewport state */
   viewport?: Partial<IRenderContext["viewport"]>;
 }
 
 /**
- * 渲染上下文构建器接口
- * 提供构建和操作 IRenderContext 的方法
+ * Render context builder interface
+ * Provides methods to build and manipulate IRenderContext
  */
 export interface RenderContextBuilder {
-  /** 获取当前 Canvas 元素 */
+  /** Get current Canvas element */
   getCanvas(): HTMLCanvasElement | null;
 
-  /** 获取当前视口信息 */
+  /** Get current viewport info */
   getViewport(): IRenderContext["viewport"];
 
-  /** 构建完整的 IRenderContext */
+  /** Build a complete IRenderContext */
   buildContext(
     nodes: IEntity[],
     metadata?: Record<string, unknown>
   ): IRenderContext;
 
-  /** 更新视口信息 */
+  /** Update viewport info */
   updateViewport(updates: Partial<IRenderContext["viewport"]>): void;
 }
 

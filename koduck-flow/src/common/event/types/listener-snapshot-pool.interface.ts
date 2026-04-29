@@ -1,27 +1,27 @@
 /**
- * 监听器快照对象池接口
+ * Listener snapshot pool interface
  *
- * 该接口用于为事件系统提供监听器数组快照的借用和归还能力，
- * 避免在事件触发期间对监听器数组的增删影响迭代过程。
+ * This interface provides borrow and return capabilities for listener array snapshots to the event system,
+ * preventing additions/removals to the listener array during event firing from affecting the iteration process.
  *
  * @since 2.1.0
  * @interface IListenerSnapshotPool
  */
 export interface IListenerSnapshotPool {
   /**
-   * 从对象池借用一个数组快照，并复制源数组的内容
+   * Borrow an array snapshot from the object pool and copy the source array contents
    *
-   * @template T 监听器类型
-   * @param source 源监听器数组
-   * @returns 快照数组（从对象池借用）
+   * @template T Listener type
+   * @param source Source listener array
+   * @returns Snapshot array (borrowed from pool)
    */
   borrowSnapshot<T>(source: T[]): T[];
 
   /**
-   * 将快照数组归还到对象池以便重用
+   * Return snapshot array to the object pool for reuse
    *
-   * @template T 监听器类型
-   * @param snapshot 快照数组（之前从 borrowSnapshot 获得）
+   * @template T Listener type
+   * @param snapshot Snapshot array (previously obtained from borrowSnapshot)
    */
   releaseSnapshot<T>(snapshot: T[]): void;
 }

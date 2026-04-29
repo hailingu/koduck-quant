@@ -12,7 +12,7 @@ describe("Hot Reload Integration", () => {
 
   beforeEach(() => {
     loader = ConfigLoader.getInstance();
-    // 创建临时配置文件
+    // Create temporary config file
     testConfigPath = path.join(process.cwd(), "koduckflow.config.json");
     originalConfig = {
       environment: "development" as const,
@@ -63,44 +63,44 @@ describe("Hot Reload Integration", () => {
   });
 
   afterEach(() => {
-    // 清理临时文件和禁用hot reload
+    // Clean up temporary file and disable hot reload
     try {
       loader.disableHotReload();
       if (fs.existsSync(testConfigPath)) {
         fs.unlinkSync(testConfigPath);
       }
     } catch {
-      // 忽略清理错误
+    // Ignore cleanup errors
     }
   });
 
   describe("File Watcher Integration", () => {
     it("should enable hot reload and watch config file", () => {
-      // 启用hot reload
+    // Enable hot reload
       loader.enableHotReload();
 
-      // 验证hot reload已启用
+    // Verify hot reload is enabled
       expect((loader as unknown as { hotReloadEnabled: boolean }).hotReloadEnabled).toBe(true);
     });
 
     it("should disable hot reload and stop watching", () => {
-      // 先启用
+    // Enable first
       loader.enableHotReload();
       expect((loader as unknown as { hotReloadEnabled: boolean }).hotReloadEnabled).toBe(true);
 
-      // 再禁用
+    // Then disable
       loader.disableHotReload();
       expect((loader as unknown as { hotReloadEnabled: boolean }).hotReloadEnabled).toBe(false);
     });
 
     it("should reload configuration when file changes", async () => {
-      // 启用hot reload
+    // Enable hot reload
       loader.enableHotReload();
 
-      // 等待文件监听器设置
+    // Wait for file watcher setup
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // 修改配置文件
+    // Modify config file
       const newConfig = {
         ...originalConfig,
         render: {
@@ -112,53 +112,53 @@ describe("Hot Reload Integration", () => {
 
       fs.writeFileSync(testConfigPath, JSON.stringify(newConfig, null, 2));
 
-      // 等待文件变化被检测到和重新加载
+    // Wait for file change to be detected and reloaded
       await new Promise((resolve) => setTimeout(resolve, 200));
 
-      // 验证配置已更新
+    // Verify config has been updated
       const currentConfig = loader.load();
       expect(currentConfig.render.maxCacheSize).toBe(200);
       expect(currentConfig.render.enableDirtyRegion).toBe(true);
     });
 
     it("should handle invalid config file gracefully", async () => {
-      // 启用hot reload
+    // Enable hot reload
       loader.enableHotReload();
 
-      // 等待文件监听器设置
+    // Wait for file watcher setup
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // 获取初始配置
+    // Get initial config
       const initialConfig = loader.load();
 
-      // 写入无效的JSON
+    // Write invalid JSON
       fs.writeFileSync(testConfigPath, "{ invalid json }");
 
-      // 等待文件变化被检测到
+    // Wait for file change to be detected
       await new Promise((resolve) => setTimeout(resolve, 200));
 
-      // 验证配置没有改变（因为无效JSON应该被忽略）
+    // Verify config has not changed (invalid JSON should be ignored)
       const currentConfig = loader.load();
       expect(currentConfig.render.maxCacheSize).toBe(initialConfig.render.maxCacheSize);
     });
 
     it("should handle file deletion gracefully", async () => {
-      // 启用hot reload
+    // Enable hot reload
       loader.enableHotReload();
 
-      // 等待文件监听器设置
+    // Wait for file watcher setup
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // 获取初始配置
+    // Get initial config
       const initialConfig = loader.load();
 
-      // 删除配置文件
+    // Delete config file
       fs.unlinkSync(testConfigPath);
 
-      // 等待文件变化被检测到
+    // Wait for file change to be detected
       await new Promise((resolve) => setTimeout(resolve, 200));
 
-      // 验证配置没有改变（因为文件删除应该被忽略）
+    // Verify config has not changed (file deletion should be ignored)
       const currentConfig = loader.load();
       expect(currentConfig.render.maxCacheSize).toBe(initialConfig.render.maxCacheSize);
     });
@@ -172,19 +172,19 @@ describe("Hot Reload Integration", () => {
         loader.enableHotReload();
         expect((loader as unknown as { hotReloadEnabled: boolean }).hotReloadEnabled).toBe(false);
       } finally {
-        // 恢复原始环境
+    // Restore original environment
         delete (global as unknown as { __KODUCKFLOW_TEST_BROWSER_ENV?: boolean })
           .__KODUCKFLOW_TEST_BROWSER_ENV;
       }
     });
 
     it("should handle multiple enable/disable calls", () => {
-      // 多次启用
+    // Multiple enables
       loader.enableHotReload();
       loader.enableHotReload();
       expect((loader as unknown as { hotReloadEnabled: boolean }).hotReloadEnabled).toBe(true);
 
-      // 多次禁用
+    // Multiple disables
       loader.disableHotReload();
       loader.disableHotReload();
       expect((loader as unknown as { hotReloadEnabled: boolean }).hotReloadEnabled).toBe(false);
@@ -195,7 +195,7 @@ describe("Hot Reload Integration", () => {
     it("should provide correct reload context for file changes", async () => {
       let capturedContext: ConfigChangeContext | undefined;
 
-      // Mock配置变更监听器
+    // Mock config change listener
       const originalReload = loader.reload.bind(loader);
       const mockReload = vi.fn(
         (options?: Partial<KoduckFlowConfig>, context?: ConfigChangeContext) => {
@@ -206,13 +206,13 @@ describe("Hot Reload Integration", () => {
       (loader as unknown as { reload: typeof mockReload }).reload = mockReload;
 
       try {
-        // 启用hot reload
+    // Enable hot reload
         loader.enableHotReload();
 
-        // 等待文件监听器设置
+    // Wait for file watcher setup
         await new Promise((resolve) => setTimeout(resolve, 100));
 
-        // 修改配置文件
+    // Modify config file
         const newConfig = {
           ...originalConfig,
           render: {
@@ -223,17 +223,17 @@ describe("Hot Reload Integration", () => {
 
         fs.writeFileSync(testConfigPath, JSON.stringify(newConfig, null, 2));
 
-        // 等待文件变化被检测到
+    // Wait for file change to be detected
         await new Promise((resolve) => setTimeout(resolve, 200));
 
-        // 验证reload被调用且上下文正确
+    // Verify reload was called and context is correct
         expect(mockReload).toHaveBeenCalled();
         expect(capturedContext).toBeDefined();
         expect(capturedContext!.trigger).toBe("file-watcher");
         expect(capturedContext!.metadata).toBeDefined();
         expect((capturedContext!.metadata as { path: string }).path).toBe(testConfigPath);
       } finally {
-        // 恢复原始方法
+    // Restore original method
         (loader as unknown as { reload: typeof originalReload }).reload = originalReload;
       }
     });

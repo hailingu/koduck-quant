@@ -665,7 +665,7 @@ export class DefaultEngine<
     const ac = new AbortController();
     this._abortController = ac;
 
-    // 校验：必须能解析到入口实体
+    // Validation: must be able to resolve the entry entity
     if (this.config.validateBeforeRun) {
       const hasRootEntity = typeof flow.getRootEntity === "function" && !!flow.getRootEntity();
       if (!hasRootEntity && !options?.entryEntity) {

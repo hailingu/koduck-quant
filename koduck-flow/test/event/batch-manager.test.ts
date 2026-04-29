@@ -31,27 +31,27 @@ describe("BatchManager", () => {
     vi.restoreAllMocks();
   });
 
-  describe("构造函数和初始化", () => {
-    test("应该正确初始化批处理管理器", () => {
+  describe("Constructor and initialization", () => {
+    test("should correctly initialize batch manager", () => {
       expect(batchManager.batchCount).toBe(0);
     });
 
-    test("应该分配适当大小的缓冲区", () => {
+    test("should allocate an appropriately sized buffer", () => {
       const smallConfig = { ...config, batchSize: 2 };
       const smallBatchManager = new BatchManager(smallConfig);
       expect(smallBatchManager.batchCount).toBe(0);
     });
   });
 
-  describe("批处理决策", () => {
-    test("应该在禁用批处理时返回false", () => {
+  describe("Batch processing decisions", () => {
+    test("should return false when batching is disabled", () => {
       const noBatchConfig = { ...config, enableBatching: false };
       const noBatchManager = new BatchManager(noBatchConfig);
 
       expect(noBatchManager.shouldUseBatchProcessing(10)).toBe(false);
     });
 
-    test("应该在禁用自动优化时始终返回true", () => {
+    test("should always return true when auto-optimization is disabled", () => {
       const noOptConfig = { ...config, enableAutoOptimization: false };
       const noOptManager = new BatchManager(noOptConfig);
 
@@ -59,15 +59,15 @@ describe("BatchManager", () => {
       expect(noOptManager.shouldUseBatchProcessing(100)).toBe(true);
     });
 
-    test("应该基于监听器数量和阈值做决策", () => {
-      expect(batchManager.shouldUseBatchProcessing(2)).toBe(false); // 小于阈值
-      expect(batchManager.shouldUseBatchProcessing(3)).toBe(false); // 等于阈值
-      expect(batchManager.shouldUseBatchProcessing(4)).toBe(true); // 大于阈值
+    test("should make decisions based on listener count and threshold", () => {
+      expect(batchManager.shouldUseBatchProcessing(2)).toBe(false); // Below threshold
+      expect(batchManager.shouldUseBatchProcessing(3)).toBe(false); // At threshold
+      expect(batchManager.shouldUseBatchProcessing(4)).toBe(true); // Above threshold
     });
   });
 
-  describe("批处理队列管理", () => {
-    test("应该能添加事件到批处理队列", () => {
+  describe("Batch queue management", () => {
+    test("should be able to add events to the batch queue", () => {
       const processor = vi.fn();
 
       batchManager.addToBatch("event1", processor);
@@ -77,20 +77,20 @@ describe("BatchManager", () => {
       expect(batchManager.batchCount).toBe(2);
     });
 
-    test("应该在达到批处理大小时立即处理", () => {
+    test("should process immediately when batch size is reached", () => {
       const processor = vi.fn();
 
-      // 添加5个事件（等于批处理大小）
+      // Add 5 events (equal to batch size)
       for (let i = 0; i < 5; i++) {
         batchManager.addToBatch(`event${i}`, processor);
       }
 
-      // 应该立即处理，无需等待定时器
+      // Should process immediately without waiting for timer
       expect(processor).toHaveBeenCalledTimes(5);
       expect(batchManager.batchCount).toBe(0);
     });
 
-    test("应该通过定时器处理未满的批次", () => {
+    test("should process incomplete batches via timer", () => {
       const processor = vi.fn();
 
       batchManager.addToBatch("event1", processor);
@@ -99,21 +99,21 @@ describe("BatchManager", () => {
       expect(processor).not.toHaveBeenCalled();
       expect(batchManager.batchCount).toBe(2);
 
-      // 快进时间以触发批处理
+      // Fast-forward time to trigger batch processing
       vi.advanceTimersByTime(10);
 
       expect(processor).toHaveBeenCalledTimes(2);
       expect(batchManager.batchCount).toBe(0);
     });
 
-    test("应该正确处理循环缓冲区", () => {
+    test("should correctly handle circular buffer", () => {
       const processor = vi.fn();
 
-      // 添加大量事件以测试循环缓冲区
+      // Add a large number of events to test circular buffer
       for (let i = 0; i < 15; i++) {
         batchManager.addToBatch(`event${i}`, processor);
 
-        // 每5个处理一次
+        // Process every 5
         if ((i + 1) % 5 === 0) {
           expect(processor).toHaveBeenCalledTimes(i + 1);
         }
@@ -121,8 +121,8 @@ describe("BatchManager", () => {
     });
   });
 
-  describe("批处理数据访问", () => {
-    test("应该返回当前批次的事件数据", () => {
+  describe("Batch data access", () => {
+    test("should return current batch event data", () => {
       const processor = vi.fn();
 
       batchManager.addToBatch("event1", processor);
@@ -133,14 +133,14 @@ describe("BatchManager", () => {
       expect(batchData).toEqual(["event1", "event2", "event3"]);
     });
 
-    test("应该在空批次时返回空数组", () => {
+    test("should return an empty array for empty batches", () => {
       const batchData = batchManager.getBatchData();
       expect(batchData).toEqual([]);
     });
   });
 
-  describe("手动批处理控制", () => {
-    test("应该能强制刷新批次", () => {
+  describe("Manual batch control", () => {
+    test("should be able to force flush batch", () => {
       const processor = vi.fn();
 
       batchManager.addToBatch("event1", processor);
@@ -154,7 +154,7 @@ describe("BatchManager", () => {
       expect(batchManager.batchCount).toBe(0);
     });
 
-    test("应该能处理空批次的刷新", () => {
+    test("should be able to handle empty batch flush", () => {
       const processor = vi.fn();
 
       batchManager.flushBatch(processor);
@@ -163,7 +163,7 @@ describe("BatchManager", () => {
       expect(batchManager.batchCount).toBe(0);
     });
 
-    test("应该能使用不带数据的处理器", () => {
+    test("should be able to use processor without data", () => {
       const processor = vi.fn();
 
       batchManager.addToBatch("event1", vi.fn());
@@ -176,8 +176,8 @@ describe("BatchManager", () => {
     });
   });
 
-  describe("自定义调度器支持", () => {
-    test("应该使用自定义调度器", () => {
+  describe("Custom scheduler support", () => {
+    test("should use custom scheduler", () => {
       const customScheduler: Scheduler = {
         kind: "custom",
         schedule: vi.fn().mockReturnValue(123),
@@ -193,7 +193,7 @@ describe("BatchManager", () => {
       expect(customScheduler.schedule).toHaveBeenCalled();
     });
 
-    test("应该使用RAF调度器", () => {
+    test("should use RAF scheduler", () => {
       const rafScheduler: Scheduler = {
         kind: "raf",
         schedule: vi.fn().mockReturnValue(456),
@@ -212,7 +212,7 @@ describe("BatchManager", () => {
       );
     });
 
-    test("应该正确取消自定义调度器", () => {
+    test("should correctly cancel custom scheduler", () => {
       const customScheduler: Scheduler = {
         kind: "custom",
         schedule: vi.fn().mockReturnValue(789),
@@ -227,14 +227,14 @@ describe("BatchManager", () => {
       customBatchManager.addToBatch("event2", processor);
       customBatchManager.addToBatch("event3", processor);
       customBatchManager.addToBatch("event4", processor);
-      customBatchManager.addToBatch("event5", processor); // 触发立即处理
+      customBatchManager.addToBatch("event5", processor); // Trigger immediate processing
 
       expect(customScheduler.cancel).toHaveBeenCalledWith(789);
     });
   });
 
-  describe("内置调度器行为", () => {
-    test("应该使用setTimeout处理有延迟的批次", () => {
+  describe("Built-in scheduler behavior", () => {
+    test("should use setTimeout for batches with delay", () => {
       const setTimeoutSpy = vi.spyOn(global, "setTimeout");
       const processor = vi.fn();
 
@@ -243,7 +243,7 @@ describe("BatchManager", () => {
       expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 10);
     });
 
-    test("应该使用requestAnimationFrame处理无延迟的批次", () => {
+    test("should use requestAnimationFrame for batches without delay", () => {
       const rafSpy = vi
         .spyOn(global, "requestAnimationFrame")
         .mockReturnValue(123);
@@ -256,9 +256,9 @@ describe("BatchManager", () => {
       expect(rafSpy).toHaveBeenCalled();
     });
 
-    test("应该在没有RAF时回退到setTimeout", () => {
+    test("should fallback to setTimeout when RAF is unavailable", () => {
       const originalRAF = global.requestAnimationFrame;
-      // @ts-expect-error - 故意删除RAF以测试回退机制
+      // @ts-expect-error - Deliberately delete RAF to test fallback mechanism
       delete global.requestAnimationFrame;
 
       const setTimeoutSpy = vi.spyOn(global, "setTimeout");
@@ -274,24 +274,24 @@ describe("BatchManager", () => {
     });
   });
 
-  describe("配置更新", () => {
-    test("应该更新配置并调整缓冲区大小", () => {
+  describe("Configuration updates", () => {
+    test("should update configuration and adjust buffer size", () => {
       const processor = vi.fn();
 
-      // 添加一些数据
+      // Add some data
       batchManager.addToBatch("event1", processor);
       batchManager.addToBatch("event2", processor);
 
       const newConfig = { ...config, batchSize: 10 };
       batchManager.updateConfiguration(newConfig);
 
-      // 应该保留现有数据
+      // Existing data should be retained
       expect(batchManager.batchCount).toBe(2);
       const batchData = batchManager.getBatchData();
       expect(batchData).toEqual(["event1", "event2"]);
     });
 
-    test("应该在批处理间隔改变时重新调度", () => {
+    test("should reschedule when batch interval changes", () => {
       const processor = vi.fn();
       const clearTimeoutSpy = vi.spyOn(global, "clearTimeout");
 
@@ -301,16 +301,16 @@ describe("BatchManager", () => {
       batchManager.updateConfiguration(newConfig);
 
       expect(clearTimeoutSpy).toHaveBeenCalled();
-      // 应该使用新的间隔时间重新调度，但这里的实现有问题，缺少处理函数
+      // Should reschedule with new interval, but implementation has issues, missing handler
     });
 
-    test("应该在配置未改变时不重新分配缓冲区", () => {
+    test("should not reallocate buffer when configuration is unchanged", () => {
       const processor = vi.fn();
 
       batchManager.addToBatch("event1", processor);
       const oldData = batchManager.getBatchData();
 
-      // 使用相同配置更新
+      // Update with same configuration
       batchManager.updateConfiguration(config);
 
       const newData = batchManager.getBatchData();
@@ -318,8 +318,8 @@ describe("BatchManager", () => {
     });
   });
 
-  describe("清理和资源管理", () => {
-    test("应该能清理批处理状态", () => {
+  describe("Cleanup and resource management", () => {
+    test("should be able to clear batch state", () => {
       const processor = vi.fn();
       const clearTimeoutSpy = vi.spyOn(global, "clearTimeout");
 
@@ -333,7 +333,7 @@ describe("BatchManager", () => {
       expect(clearTimeoutSpy).toHaveBeenCalled();
     });
 
-    test("应该清理空批次而不出错", () => {
+    test("should clear empty batches without errors", () => {
       expect(() => {
         batchManager.clear();
       }).not.toThrow();
@@ -342,18 +342,18 @@ describe("BatchManager", () => {
     });
   });
 
-  describe("边界情况", () => {
-    test("应该处理零大小的批次配置", () => {
+  describe("Edge cases", () => {
+    test("should handle zero-size batch configuration", () => {
       const zeroBatchConfig = { ...config, batchSize: 0 };
       const zeroBatchManager = new BatchManager(zeroBatchConfig);
       const processor = vi.fn();
 
-      // 应该立即处理，因为大小为0
+      // Should process immediately because size is 0
       zeroBatchManager.addToBatch("event1", processor);
       expect(processor).toHaveBeenCalledTimes(1);
     });
 
-    test("应该处理负批次间隔", () => {
+    test("should handle negative batch interval", () => {
       const negativeBatchConfig = { ...config, batchInterval: -5 };
       const negativeBatchManager = new BatchManager(negativeBatchConfig);
       const processor = vi.fn();
@@ -363,28 +363,28 @@ describe("BatchManager", () => {
 
       negativeBatchManager.addToBatch("event1", processor);
 
-      // 负间隔时，由于不大于0，会使用requestAnimationFrame
+      // Negative interval, since not greater than 0, will use requestAnimationFrame
       expect(rafSpy).toHaveBeenCalled();
     });
 
-    test("应该处理大量事件而不溢出", () => {
+    test("should handle a large number of events without overflow", () => {
       const processor = vi.fn();
 
-      // 添加比缓冲区更多的事件
+      // Add more events than the buffer can hold
       for (let i = 0; i < 200; i++) {
         batchManager.addToBatch(`event${i}`, processor);
       }
 
-      // 验证处理了所有事件
+      // Verify all events were processed
       expect(processor).toHaveBeenCalledTimes(200);
     });
 
-    test("应该正确处理连续的刷新操作", () => {
+    test("should correctly handle consecutive flush operations", () => {
       const processor = vi.fn();
 
       batchManager.addToBatch("event1", processor);
       batchManager.flushBatch(processor);
-      batchManager.flushBatch(processor); // 第二次刷新应该是安全的
+      batchManager.flushBatch(processor); // Second flush should be safe
 
       expect(processor).toHaveBeenCalledTimes(1);
       expect(batchManager.batchCount).toBe(0);

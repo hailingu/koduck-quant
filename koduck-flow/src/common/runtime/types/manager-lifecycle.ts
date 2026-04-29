@@ -1,47 +1,47 @@
 /**
- * Manager 生命周期状态相关类型定义
+ * Manager lifecycle state-related type definitions
  * @module runtime/types/manager-lifecycle
  */
 
 /**
- * Manager 生命周期状态枚举
+ * Manager lifecycle status enum
  */
 export const MANAGER_LIFECYCLE_STATUS = {
-  /** 已注册但未初始化 */
+  /** Registered but not initialized */
   Registered: "registered",
-  /** 正在初始化中 */
+  /** Initializing */
   Initializing: "initializing",
-  /** 已就绪（初始化成功） */
+  /** Ready (initialization succeeded) */
   Ready: "ready",
-  /** 初始化失败 */
+  /** Initialization failed */
   Failed: "failed",
 } as const;
 
 /**
- * Manager 生命周期状态类型
+ * Manager lifecycle status type
  */
 export type ManagerLifecycleStatus =
   (typeof MANAGER_LIFECYCLE_STATUS)[keyof typeof MANAGER_LIFECYCLE_STATUS];
 
 /**
- * Manager 生命周期状态对象
+ * Manager lifecycle state object
  */
 export type ManagerLifecycleState = {
-  /** 当前状态 */
+  /** Current status */
   status: ManagerLifecycleStatus;
-  /** 初始化 Promise（如果正在初始化） */
+  /** Initialization Promise (if currently initializing) */
   promise?: Promise<void>;
-  /** 错误信息（如果初始化失败） */
+  /** Error info (if initialization failed) */
   error?: unknown;
-  /** 依赖路径（用于循环依赖检测） */
+  /** Dependency path (used for circular dependency detection) */
   path?: string[];
 };
 
 /**
- * Manager 初始化错误类
+ * Manager initialization error class
  */
 export class ManagerInitializationError extends Error {
-  /** 依赖路径 */
+  /** Dependency path */
   readonly path: string[];
 
   constructor(name: string, message: string, options?: { cause?: unknown; path?: string[] }) {
@@ -53,16 +53,16 @@ export class ManagerInitializationError extends Error {
 }
 
 /**
- * 核心 Manager 键名常量
+ * Core Manager key constants
  */
 export const CORE_MANAGER_KEYS = ["entity", "render", "registry"] as const;
 
 /**
- * 核心 Manager 键名类型
+ * Core Manager key type
  */
 export type CoreManagerKey = (typeof CORE_MANAGER_KEYS)[number];
 
 /**
- * Manager 初始化超时标志（内部使用）
+ * Manager initialization timeout flag (internal use)
  */
 export const INITIALIZATION_TIMEOUT_FLAG = Symbol("koduck-flow-manager-init-timeout");

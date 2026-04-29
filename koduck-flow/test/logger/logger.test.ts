@@ -40,8 +40,8 @@ describe("Logger", () => {
     vi.clearAllMocks();
   });
 
-  describe("配置管理", () => {
-    test("应该能设置配置", () => {
+  describe("Configuration Management", () => {
+    test("should be able to set configuration", () => {
       const config: Partial<LogConfig> = {
         enabled: false,
         level: "error",
@@ -62,7 +62,7 @@ describe("Logger", () => {
       expect(console.error).not.toHaveBeenCalled();
     });
 
-    test("应该支持部分配置更新", () => {
+    test("should support partial configuration updates", () => {
       logger.setConfig({ level: "warn" });
 
       logger.debug("debug message");
@@ -77,8 +77,8 @@ describe("Logger", () => {
     });
   });
 
-  describe("日志级别控制", () => {
-    test("debug级别应该输出所有日志", () => {
+  describe("Log Level Control", () => {
+    test("debug level should output all logs", () => {
       logger.setConfig({ level: "debug" });
 
       logger.debug("debug message");
@@ -92,7 +92,7 @@ describe("Logger", () => {
       expect(console.error).toHaveBeenCalled();
     });
 
-    test("info级别应该输出info、warn、error", () => {
+    test("info level should output info, warn, error", () => {
       logger.setConfig({ level: "info" });
 
       logger.debug("debug message");
@@ -106,7 +106,7 @@ describe("Logger", () => {
       expect(console.error).toHaveBeenCalled();
     });
 
-    test("warn级别应该只输出warn、error", () => {
+    test("warn level should only output warn, error", () => {
       logger.setConfig({ level: "warn" });
 
       logger.debug("debug message");
@@ -120,7 +120,7 @@ describe("Logger", () => {
       expect(console.error).toHaveBeenCalled();
     });
 
-    test("error级别应该只输出error", () => {
+    test("error level should only output error", () => {
       logger.setConfig({ level: "error" });
 
       logger.debug("debug message");
@@ -135,8 +135,8 @@ describe("Logger", () => {
     });
   });
 
-  describe("消息格式化", () => {
-    test("应该正确格式化字符串消息", () => {
+  describe("Message Formatting", () => {
+    test("should correctly format string messages", () => {
       logger.warn("test message");
 
       expect(console.warn).toHaveBeenCalledWith(
@@ -146,7 +146,7 @@ describe("Logger", () => {
       );
     });
 
-    test("应该正确格式化对象消息", () => {
+    test("should correctly format object messages", () => {
       const testObj = { key: "value", number: 42 };
       logger.warn(testObj);
 
@@ -157,7 +157,7 @@ describe("Logger", () => {
       );
     });
 
-    test("应该处理无法序列化的对象", () => {
+    test("should handle non-serializable objects", () => {
       const circularObj: Record<string, unknown> = { name: "circular" };
       circularObj.self = circularObj;
 
@@ -170,7 +170,7 @@ describe("Logger", () => {
       );
     });
 
-    test("应该支持自定义前缀", () => {
+    test("should support custom prefix", () => {
       logger.setConfig({ prefix: "[CustomPrefix]" });
       logger.warn("test message");
 
@@ -181,7 +181,7 @@ describe("Logger", () => {
       );
     });
 
-    test("应该支持空前缀", () => {
+    test("should support empty prefix", () => {
       logger.setConfig({ prefix: "" });
       logger.warn("test message");
 
@@ -193,8 +193,8 @@ describe("Logger", () => {
     });
   });
 
-  describe("变参数支持", () => {
-    test("应该支持多个参数", () => {
+  describe("Variadic Arguments Support", () => {
+    test("should support multiple arguments", () => {
       logger.warn("message", { data: "test" }, "extra");
 
       const warnMock = console.warn as unknown as Mock;
@@ -206,13 +206,13 @@ describe("Logger", () => {
       expect(rest).toEqual([{ data: "test" }, "extra"]);
     });
 
-    test("应该处理空参数", () => {
+    test("should handle empty arguments", () => {
       logger.warn();
 
       expect(console.warn).not.toHaveBeenCalled();
     });
 
-    test("应该处理单个undefined参数", () => {
+    test("should handle a single undefined argument", () => {
       logger.warn(undefined);
 
       expect(console.warn).toHaveBeenCalledWith(
@@ -223,8 +223,8 @@ describe("Logger", () => {
     });
   });
 
-  describe("结构化配置", () => {
-    test("includeEmoji为true时应该输出默认emoji", () => {
+  describe("Structured Configuration", () => {
+    test("should output default emoji when includeEmoji is true", () => {
       logger.setConfig({ includeEmoji: true });
 
       logger.info("emoji message");
@@ -235,7 +235,7 @@ describe("Logger", () => {
       expect(firstArg).toMatch(/\[INFO\] ℹ️/);
     });
 
-    test("format为json时应该输出JSON字符串", () => {
+    test("should output JSON string when format is json", () => {
       logger.setConfig({ format: "json" });
 
       logger.error({
@@ -257,7 +257,7 @@ describe("Logger", () => {
       expect(parsed).toHaveProperty("timestamp");
     });
 
-    test("withContext应该合并多层metadata", () => {
+    test("withContext should merge multi-layer metadata", () => {
       logger.setConfig({
         format: "json",
         metadata: { app: "koduck-flow" },
@@ -281,22 +281,22 @@ describe("Logger", () => {
     });
   });
 
-  describe("性能监控方法", () => {
-    test("time方法应该在debug级别时调用console.time", () => {
+  describe("Performance Monitoring Methods", () => {
+    test("time method should call console.time at debug level", () => {
       logger.setConfig({ level: "debug" });
       logger.time("test-timer");
 
       expect(console.time).toHaveBeenCalledWith("[KoduckFlow] test-timer");
     });
 
-    test("timeEnd方法应该在debug级别时调用console.timeEnd", () => {
+    test("timeEnd method should call console.timeEnd at debug level", () => {
       logger.setConfig({ level: "debug" });
       logger.timeEnd("test-timer");
 
       expect(console.timeEnd).toHaveBeenCalledWith("[KoduckFlow] test-timer");
     });
 
-    test("time和timeEnd在非debug级别时不应该调用console方法", () => {
+    test("time and timeEnd should not call console methods at non-debug levels", () => {
       logger.setConfig({ level: "info" });
       logger.time("test-timer");
       logger.timeEnd("test-timer");
@@ -306,8 +306,8 @@ describe("Logger", () => {
     });
   });
 
-  describe("子logger功能", () => {
-    test("应该创建带上下文的子logger", () => {
+  describe("Child Logger Functionality", () => {
+    test("should create child logger with context", () => {
       const childLogger = logger.child({ module: "test", version: "1.0" });
 
       childLogger.warn("test message");
@@ -319,7 +319,7 @@ describe("Logger", () => {
       );
     });
 
-    test("子logger应该支持所有日志级别", () => {
+    test("child logger should support all log levels", () => {
       const childLogger = logger.child({ test: true });
 
       childLogger.debug?.("debug message");
@@ -333,7 +333,7 @@ describe("Logger", () => {
       expect(console.error).toHaveBeenCalled();
     });
 
-    test("子logger的time方法应该包含上下文", () => {
+    test("child logger time method should include context", () => {
       logger.setConfig({ level: "debug" });
       const childLogger = logger.child({ module: "timer" });
 
@@ -344,7 +344,7 @@ describe("Logger", () => {
       expect(console.timeEnd).toHaveBeenCalledWith('[KoduckFlow] operation {"module":"timer"}');
     });
 
-    test("应该处理无法序列化的上下文", () => {
+    test("should handle non-serializable context", () => {
       const circularContext: Record<string, unknown> = { name: "test" };
       circularContext.self = circularContext;
 
@@ -359,8 +359,8 @@ describe("Logger", () => {
     });
   });
 
-  describe("LoggerCore适配", () => {
-    test("asCore方法应该返回LoggerCore实例", () => {
+  describe("LoggerCore Adaptation", () => {
+    test("asCore method should return LoggerCore instance", () => {
       const core = logger.asCore();
 
       expect(core).toHaveProperty("debug");
@@ -373,7 +373,7 @@ describe("Logger", () => {
       expect(typeof core.error).toBe("function");
     });
 
-    test("asMinimal方法应该与asCore方法行为一致", () => {
+    test("asMinimal method should behave consistently with asCore method", () => {
       const minimal = logger.asMinimal();
       const core = logger.asCore();
 
@@ -383,7 +383,7 @@ describe("Logger", () => {
       expect(typeof minimal.error).toBe(typeof core.error);
     });
 
-    test("LoggerCore的warn和error方法应该正常工作", () => {
+    test("LoggerCore warn and error methods should work correctly", () => {
       const core = logger.asCore();
 
       core.warn("core warn message");
@@ -393,7 +393,7 @@ describe("Logger", () => {
       expect(console.error).toHaveBeenCalled();
     });
 
-    test("LoggerCore的debug和info方法应该是no-op", () => {
+    test("LoggerCore debug and info methods should be no-op", () => {
       const core = logger.asCore();
 
       // These should not throw and should not call console methods
@@ -409,8 +409,8 @@ describe("Logger", () => {
     });
   });
 
-  describe("全局函数", () => {
-    test("getLoggerCore应该返回LoggerCore实例", () => {
+  describe("Global Functions", () => {
+    test("getLoggerCore should return LoggerCore instance", () => {
       const core = getLoggerCore();
 
       expect(core).toHaveProperty("warn");
@@ -419,7 +419,7 @@ describe("Logger", () => {
       expect(typeof core.error).toBe("function");
     });
 
-    test("noopMinimalLogger应该是完全静默的", () => {
+    test("noopMinimalLogger should be completely silent", () => {
       noopMinimalLogger.debug?.("debug");
       noopMinimalLogger.info?.("info");
       noopMinimalLogger.warn("warn");
@@ -432,8 +432,8 @@ describe("Logger", () => {
     });
   });
 
-  describe("日志启用/禁用", () => {
-    test("禁用日志时不应该输出任何日志", () => {
+  describe("Log Enable/Disable", () => {
+    test("should not output any logs when logging is disabled", () => {
       logger.setConfig({ enabled: false });
 
       logger.debug("debug message");
@@ -447,7 +447,7 @@ describe("Logger", () => {
       expect(console.error).not.toHaveBeenCalled();
     });
 
-    test("禁用日志时time和timeEnd也不应该工作", () => {
+    test("time and timeEnd should not work when logging is disabled", () => {
       logger.setConfig({ enabled: false, level: "debug" });
 
       logger.time("test-timer");
@@ -458,8 +458,8 @@ describe("Logger", () => {
     });
   });
 
-  describe("边界情况", () => {
-    test("应该处理null和undefined消息", () => {
+  describe("Edge Cases", () => {
+    test("should handle null and undefined messages", () => {
       logger.warn(null);
       logger.error(undefined);
 
@@ -475,7 +475,7 @@ describe("Logger", () => {
       );
     });
 
-    test("应该处理数字和布尔值消息", () => {
+    test("should handle number and boolean messages", () => {
       logger.warn(42);
       logger.error(true);
 
@@ -491,7 +491,7 @@ describe("Logger", () => {
       );
     });
 
-    test("应该处理数组消息", () => {
+    test("should handle array messages", () => {
       logger.warn([1, 2, 3]);
 
       expect(console.warn).toHaveBeenCalledWith(
@@ -501,11 +501,11 @@ describe("Logger", () => {
       );
     });
 
-    test("应该处理Function消息", () => {
+    test("should handle Function messages", () => {
       const testFn = () => "test";
       logger.warn(testFn);
 
-      // Function消息会被直接转换为函数源代码字符串
+      // Function messages will be directly converted to function source code strings
       expect(console.warn).toHaveBeenCalledWith(
         expect.stringMatching(
           /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[KoduckFlow\] \[WARN\] \| \(\) => "test"$/

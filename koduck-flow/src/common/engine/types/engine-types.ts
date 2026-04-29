@@ -2,42 +2,42 @@ import type { IEdge, IFlow, IFlowNodeEntity, INode } from "../../flow/types";
 import type { WorkerPool } from "../../worker-pool";
 import type { IDisposable } from "../../disposable";
 
-// 基础类型：引擎配置
+// Base type: engine config
 /**
  *
  */
 export interface EngineConfig {
-  // 最大并发数（同一层级的兄弟节点可并行执行）
+  // Maximum concurrency (sibling nodes at the same level can execute in parallel)
   concurrency?: number;
-  // 节点执行出错时是否停止整个流程
+  // Whether to stop the entire flow when a node execution errors
   stopOnError?: boolean;
-  // 是否在开始执行前自动校验（例如检测 root、环等）
+  // Whether to auto-validate before execution (e.g., detect root, cycles, etc.)
   validateBeforeRun?: boolean;
-  // 严格实体图模式：仅依赖实体关系，不允许回退到 INode 映射
+  // Strict entity graph mode: only rely on entity relationships, fallback to INode mapping is not allowed
   strictEntityGraph?: boolean;
-  // Worker 线程配置（后向兼容）
+  // Worker thread config (backward compatible)
   worker?: EngineWorkerConfig | null;
-  // 是否启用 Worker Pool
+  // Whether to enable Worker Pool
   enableWorkerPool?: boolean;
-  // Worker Pool 配置
+  // Worker Pool config
   workerPoolConfig?: WorkerPoolEngineConfig | null;
 }
 
 /**
- * Worker Pool 在 Engine 中的配置接口
+ * Worker Pool configuration interface in Engine
  *
- * 提供 Worker Pool 与 DefaultEngine 集成所需的配置选项
+ * Provides configuration options required for Worker Pool and DefaultEngine integration
  */
 export interface WorkerPoolEngineConfig {
-  // 创建 Worker Pool 实例（如果未提供则引擎会创建）
+  // Create Worker Pool instance (engine will create one if not provided)
   pool?: WorkerPool;
-  // Worker Pool 任务类型标记
+  // Worker Pool task type marker
   taskType?: string;
-  // Worker Pool 任务超时（ms）
+  // Worker Pool task timeout (ms)
   taskTimeoutMs?: number;
-  // 支持 Worker 执行的实体类型列表（如为空则全部支持）
+  // List of entity types supported by Worker execution (all supported if empty)
   supportedEntityTypes?: string[];
-  // 基于负载情况的路由阈值
+  // Routing threshold based on load conditions
   routingStrategy?: "always" | "on-demand" | "balanced";
 }
 
@@ -50,7 +50,7 @@ export interface EngineWorkerConfig {
   taskTimeoutMs?: number;
 }
 
-// 运行选项（一次 run 调用的可选参数）
+// Run options (optional parameters for a single run call)
 /**
  *
  */
@@ -58,13 +58,13 @@ export interface RunOptions<
   N extends INode = INode,
   NE extends IFlowNodeEntity<N> = IFlowNodeEntity<N>,
 > {
-  // 从指定实体开始执行；缺省为根实体
+  // Start execution from the specified entity; defaults to root entity
   entryEntity?: NE;
-  // 取消信号
+  // Cancellation signal
   signal?: AbortSignal;
 }
 
-// 节点执行上下文（传给执行器）
+// Node execution context (passed to executor)
 /**
  *
  */
@@ -72,19 +72,19 @@ export interface ExecutionContext<
   N extends INode = INode,
   NE extends IFlowNodeEntity<N> = IFlowNodeEntity<N>,
 > {
-  // 流
+  // Flow
   flow: IFlow<N, IEdge, NE>;
-  // 当前执行实体（权威数据载体）
+  // Currently executing entity (authoritative data carrier)
   entity: NE;
-  // 关联节点（仅用于结构与顺序）
+  // Associated node (used only for structure and ordering)
   node: N;
-  // 同一次 run 的共享 KV 区
+  // Shared KV area for the same run
   shared: Map<string, unknown>;
-  // Worker Pool 实例（如已启用）
+  // Worker Pool instance (if enabled)
   workerPool?: WorkerPool;
 }
 
-// 节点执行结果
+// Node execution result
 /**
  *
  */
@@ -94,7 +94,7 @@ export type EntityResult = {
   error?: Error;
 };
 
-// 节点执行器：由具体引擎或业务侧注册
+// Node executor: registered by specific engine or business side
 /**
  *
  */
@@ -103,7 +103,7 @@ export type EntityExecutor<
   NE extends IFlowNodeEntity<N> = IFlowNodeEntity<N>,
 > = (ctx: ExecutionContext<N, NE>) => Promise<EntityResult> | EntityResult;
 
-// 流程运行结果
+// Flow run result
 /**
  *
  */
@@ -115,13 +115,13 @@ export interface FlowRunResult {
   finishedAt: number;
 }
 
-// 引擎状态
+// Engine status
 /**
  *
  */
 export type EngineStatus = "idle" | "running" | "paused" | "stopped";
 
-// 引擎接口
+// Engine interface
 /**
  *
  */
@@ -136,13 +136,13 @@ export interface IEngine<
   detachFlow(): void;
   getFlow(): IFlow<N, IEdge, NE> | undefined;
 
-  // 执行
+  // Execution
   run(options?: RunOptions<N, NE>): Promise<FlowRunResult>;
   pause(): void;
   resume(): void;
   stop(): void;
 
-  // 执行器注册
+  // Executor registration
   registerExecutor(type: string, executor: EntityExecutor<N, NE>): void;
   unregisterExecutor(type: string): void;
   hasExecutor(type: string): boolean;

@@ -61,9 +61,9 @@ export class EntityRegistryBridge {
       | undefined;
 
     if (!registry) {
-      // 需要访问实际的 RegistryManager 来进行自动注册
-      // 这里需要通过 broker 获取 RegistryManager 实例
-      // 暂时注释掉，稍后通过其他方式处理
+      // Need to access the actual RegistryManager for auto-registration
+      // Need to get RegistryManager instance via broker here
+      // Temporarily commented out, will be handled via other means later
       // const restored = ensureAutoRegistry(typeNameOrRegistry, this.getRegistryManager());
       // if (restored) {
       //   registry = this.registryBroker.getRegistryForType(typeNameOrRegistry) as

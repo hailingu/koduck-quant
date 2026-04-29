@@ -1,7 +1,7 @@
 /**
- * Worker Pool 类型定义单元测试
+ * Worker Pool type definition unit tests
  *
- * 测试 WorkerPool 相关的类型定义和错误类
+ * Tests type definitions and error classes related to WorkerPool
  */
 
 import { describe, it, expect } from "vitest";

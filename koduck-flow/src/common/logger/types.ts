@@ -1,8 +1,8 @@
 /**
- * Logger 模块公共类型定义
+ * Logger module public type definitions
  *
- * LoggerCore: 供事件系统等低耦合模块依赖的最小日志协议。
- * 语义：只约束四类方法；warn / error 为强制（语义最关键），debug / info 可选。
+ * LoggerCore: minimal logging protocol for low-coupling modules such as the event system.
+ * Semantics: only constrains four method types; warn / error are mandatory (semantically most critical), debug / info are optional.
  */
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
@@ -20,9 +20,9 @@ export interface LogConfig {
 }
 
 /**
- * 最小日志协议（原 MinimalLogger，重命名为 LoggerCore）
- * - debug / info 可选，便于在精简模式下降低实现成本
- * - warn / error 必须，保障最关键的告警与错误通道不缺失
+ * Minimal logging protocol (formerly MinimalLogger, renamed to LoggerCore)
+ * - debug / info are optional to reduce implementation cost in trimmed-down modes
+ * - warn / error are mandatory to ensure the most critical warning and error channels are not missing
  */
 export interface LoggerCore {
   debug?: (...args: unknown[]) => void;
@@ -60,6 +60,6 @@ export interface LoggerContextAdapter {
 }
 
 /**
- * 兼容别名（如果后续需要迁移期，可开启导出）
+ * Compatibility alias (can be enabled during a migration period if needed)
  * export type MinimalLogger = LoggerCore;
  */

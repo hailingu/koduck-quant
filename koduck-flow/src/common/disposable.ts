@@ -1,13 +1,13 @@
 /**
- * 可释放资源接口
- * 定义了一个标准的资源清理接口，用于管理需要手动释放的资源
+ * Disposable resource interface
+ * Defines a standard resource cleanup interface for managing resources that require manual release
  *
  * @example
  * ```typescript
  * const resource: IDisposable = {
  *   dispose() {
- *     // 清理资源逻辑
- * // 使用示例代码
+ *     // Resource cleanup logic
+ * // Usage example code
  *   }
  * };
  * resource.dispose();
@@ -15,31 +15,31 @@
  */
 interface IDisposable {
   /**
-   * 释放资源方法
-   * 当资源不再需要时调用此方法来清理和释放相关资源
+   * Resource release method
+   * Call this method to clean up and release related resources when they are no longer needed
    */
   dispose(): void;
 }
 
 /**
- * 可释放资源工具类
- * 提供创建和检测 IDisposable 对象的工具方法
+ * Disposable resource utility class
+ * Provides utility methods for creating and detecting IDisposable objects
  */
 const Disposable = {
   /**
-   * 创建一个可释放的资源对象
+   * Creates a disposable resource object
    *
-   * @param func - 资源释放时要执行的清理函数
-   * @returns 返回一个实现了 IDisposable 接口的对象
+   * @param func - Cleanup function to execute when releasing the resource
+   * @returns Returns an object implementing the IDisposable interface
    *
    * @example
    * ```typescript
    * const disposable = Disposable.create(() => {
-   *   console.log('清理定时器');
+   *   console.log('Clean up timer');
    *   clearInterval(timerId);
    * });
    *
-   * // 使用完毕后释放资源
+   * // Release resources after use is complete
    * disposable.dispose();
    * ```
    */
@@ -50,16 +50,16 @@ const Disposable = {
   },
 
   /**
-   * 检查对象是否实现了 IDisposable 接口
+   * Checks whether an object implements the IDisposable interface
    *
-   * @param thing - 要检查的对象
-   * @returns 如果对象实现了 IDisposable 接口则返回 true，否则返回 false
+   * @param thing - Object to check
+   * @returns true if the object implements IDisposable, otherwise false
    *
    * @example
    * ```typescript
    * const obj = { dispose: () => console.log('dispose') };
    * if (Disposable.is(obj)) {
-   *   obj.dispose(); // TypeScript 知道 obj 有 dispose 方法
+   *   obj.dispose(); // TypeScript knows obj has dispose method
    * }
    * ```
    */

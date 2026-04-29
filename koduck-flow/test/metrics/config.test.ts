@@ -1,6 +1,6 @@
 /**
  * Metrics config tests
- * 测试metrics配置模块的功能
+ * Tests the functionality of the metrics config module
  */
 
 import { describe, it, expect } from "vitest";
@@ -17,7 +17,7 @@ import type { Attributes } from "../../src/common/metrics/types";
 
 describe("Metrics Config", () => {
   describe("Configuration Management", () => {
-    it("应该支持配置metrics", () => {
+    it("should support configuring metrics", () => {
       const config: MetricsConfig = {
         governance: {
           seriesLimitPerMetric: 1000,
@@ -45,8 +45,8 @@ describe("Metrics Config", () => {
       expect(retrievedConfig.naming?.metricNamePrefix).toBe("app");
     });
 
-    it("应该支持增量配置更新", () => {
-      // 第一次配置
+    it("should support incremental config updates", () => {
+      // First configuration
       configureMetrics({
         governance: {
           seriesLimitPerMetric: 500,
@@ -57,7 +57,7 @@ describe("Metrics Config", () => {
         },
       });
 
-      // 第二次配置，应该合并而不是替换
+      // Second configuration, should merge instead of replace
       configureMetrics({
         governance: {
           seriesTTLms: 600000,
@@ -66,14 +66,14 @@ describe("Metrics Config", () => {
       });
 
       const config = getMetricsConfig();
-      expect(config.governance?.seriesLimitPerMetric).toBe(500); // 保留
-      expect(config.governance?.samplingRate).toBe(1.0); // 保留
-      expect(config.governance?.seriesTTLms).toBe(600000); // 新增
-      expect(config.governance?.labelWhitelist).toEqual(["env", "service"]); // 新增
-      expect(config.naming?.metricNamePrefix).toBe("service1"); // 保留
+      expect(config.governance?.seriesLimitPerMetric).toBe(500); // retained
+      expect(config.governance?.samplingRate).toBe(1.0); // retained
+      expect(config.governance?.seriesTTLms).toBe(600000); // newly added
+      expect(config.governance?.labelWhitelist).toEqual(["env", "service"]); // newly added
+      expect(config.naming?.metricNamePrefix).toBe("service1"); // retained
     });
 
-    it("应该支持部分配置覆盖", () => {
+    it("should support partial config override", () => {
       configureMetrics({
         governance: {
           seriesLimitPerMetric: 100,
@@ -83,18 +83,18 @@ describe("Metrics Config", () => {
 
       configureMetrics({
         governance: {
-          samplingRate: 0.9, // 覆盖原值
-          seriesTTLms: 120000, // 新增
+          samplingRate: 0.9, // overrides original value
+          seriesTTLms: 120000, // newly added
         },
       });
 
       const config = getMetricsConfig();
-      expect(config.governance?.seriesLimitPerMetric).toBe(100); // 保留
-      expect(config.governance?.samplingRate).toBe(0.9); // 覆盖
-      expect(config.governance?.seriesTTLms).toBe(120000); // 新增
+      expect(config.governance?.seriesLimitPerMetric).toBe(100); // retained
+      expect(config.governance?.samplingRate).toBe(0.9); // overridden
+      expect(config.governance?.seriesTTLms).toBe(120000); // newly added
     });
 
-    it("应该返回当前配置", () => {
+    it("should return current configuration", () => {
       const config = getMetricsConfig();
       expect(config).toBeDefined();
       expect(typeof config).toBe("object");
@@ -102,26 +102,26 @@ describe("Metrics Config", () => {
   });
 
   describe("Label Filtering", () => {
-    it("应该处理undefined属性", () => {
+    it("should handle undefined attributes", () => {
       const result = filterAttributes(undefined);
       expect(result).toBeUndefined();
     });
 
-    it("应该处理空属性", () => {
+    it("should handle empty attributes", () => {
       const result = filterAttributes({});
       expect(result).toEqual({});
     });
 
-    it("应该在没有治理配置时处理属性过滤", () => {
-      // 由于前面的测试可能已经设置了配置，我们测试过滤逻辑本身
+    it("should handle attribute filtering without governance config", () => {
+      // Previous tests may have set config, so we test the filtering logic itself
       const attrs: Attributes = { service: "api", version: "1.0", env: "prod" };
       const result = filterAttributes(attrs);
       expect(result).toBeDefined();
       expect(typeof result).toBe("object");
-      // 如果有白名单，应该只包含白名单属性；如果有黑名单，应该排除黑名单属性
+      // If whitelist exists, only include whitelisted attributes; if blacklist exists, exclude blacklisted attributes
     });
 
-    it("应该支持白名单过滤", () => {
+    it("should support whitelist filtering", () => {
       configureMetrics({
         governance: {
           labelWhitelist: ["service", "version"],
@@ -142,12 +142,12 @@ describe("Metrics Config", () => {
       });
     });
 
-    it("应该支持黑名单过滤", () => {
-      // 创建一个新的测试配置，只设置黑名单
+    it("should support blacklist filtering", () => {
+      // Create a new test configuration with only blacklist
       configureMetrics({
         governance: {
           labelBlacklist: ["internal", "debug"],
-          labelWhitelist: undefined, // 确保没有白名单干扰
+          labelWhitelist: undefined, // ensure no whitelist interference
         },
       });
 
@@ -160,7 +160,7 @@ describe("Metrics Config", () => {
       };
 
       const result = filterAttributes(attrs);
-      // 结果应该排除黑名单项
+      // Result should exclude blacklisted items
       expect(result).not.toHaveProperty("internal");
       expect(result).not.toHaveProperty("debug");
       expect(result).toHaveProperty("service");
@@ -168,7 +168,7 @@ describe("Metrics Config", () => {
       expect(result).toHaveProperty("env");
     });
 
-    it("应该支持白名单和黑名单组合", () => {
+    it("should support whitelist and blacklist combination", () => {
       configureMetrics({
         governance: {
           labelWhitelist: ["service", "version", "env", "debug"],
@@ -189,12 +189,12 @@ describe("Metrics Config", () => {
         service: "api",
         version: "1.0",
         env: "prod",
-        // debug被黑名单移除，internal不在白名单中
+        // debug is removed by blacklist, internal is not in whitelist
       });
     });
 
-    it("应该正确处理标签过滤逻辑", () => {
-      // 测试过滤属性的基本功能
+    it("should correctly handle label filtering logic", () => {
+      // Test basic attribute filtering functionality
       const attrs: Attributes = {
         service: "api",
         version: "1.0",
@@ -202,11 +202,11 @@ describe("Metrics Config", () => {
       };
       const result = filterAttributes(attrs);
 
-      // filterAttributes应该返回一个结果
+      // filterAttributes should return a result
       expect(result).toBeDefined();
       expect(typeof result).toBe("object");
 
-      // 如果有结果，它应该是Attributes类型
+      // If there is a result, it should be of type Attributes
       if (result) {
         for (const [key, value] of Object.entries(result)) {
           expect(typeof key).toBe("string");
@@ -217,7 +217,7 @@ describe("Metrics Config", () => {
       }
     });
 
-    it("应该处理空黑名单", () => {
+    it("should handle empty blacklist", () => {
       configureMetrics({
         governance: {
           labelBlacklist: [],
@@ -226,10 +226,10 @@ describe("Metrics Config", () => {
 
       const attrs: Attributes = { service: "api", version: "1.0" };
       const result = filterAttributes(attrs);
-      expect(result).toEqual(attrs); // 空黑名单不应该过滤任何属性
+      expect(result).toEqual(attrs); // empty blacklist should not filter any attributes
     });
 
-    it("应该处理不存在的属性键", () => {
+    it("should handle non-existent attribute keys", () => {
       configureMetrics({
         governance: {
           labelWhitelist: ["nonexistent", "service"],
@@ -244,12 +244,12 @@ describe("Metrics Config", () => {
   });
 
   describe("Sampling", () => {
-    it("应该根据当前配置返回采样结果", () => {
-      // 由于前面的测试可能已经设置了采样率，我们测试当前的采样行为
+    it("should return sampling result based on current configuration", () => {
+      // Previous tests may have set the sampling rate, so we test current sampling behavior
       const result = shouldSample();
       expect(typeof result).toBe("boolean");
 
-      // 获取当前配置的采样率
+      // Get sampling rate from current configuration
       const currentConfig = getMetricsConfig();
       const samplingRate = currentConfig.governance?.samplingRate;
 
@@ -260,10 +260,10 @@ describe("Metrics Config", () => {
       } else if (samplingRate <= 0) {
         expect(result).toBe(false);
       }
-      // 对于0-1之间的值，结果是随机的，我们只检查它是布尔值
+      // For values between 0-1, the result is random, so we only check it's a boolean
     });
 
-    it("应该在samplingRate为1时总是返回true", () => {
+    it("should always return true when samplingRate is 1", () => {
       configureMetrics({
         governance: {
           samplingRate: 1.0,
@@ -275,7 +275,7 @@ describe("Metrics Config", () => {
       }
     });
 
-    it("应该在samplingRate为0时总是返回false", () => {
+    it("should always return false when samplingRate is 0", () => {
       configureMetrics({
         governance: {
           samplingRate: 0.0,
@@ -287,7 +287,7 @@ describe("Metrics Config", () => {
       }
     });
 
-    it("应该在samplingRate大于1时总是返回true", () => {
+    it("should always return true when samplingRate is greater than 1", () => {
       configureMetrics({
         governance: {
           samplingRate: 1.5,
@@ -299,7 +299,7 @@ describe("Metrics Config", () => {
       }
     });
 
-    it("应该在samplingRate小于0时总是返回false", () => {
+    it("should always return false when samplingRate is less than 0", () => {
       configureMetrics({
         governance: {
           samplingRate: -0.1,
@@ -311,19 +311,19 @@ describe("Metrics Config", () => {
       }
     });
 
-    it("应该支持0到1之间的采样率", () => {
+    it("should support sampling rate between 0 and 1", () => {
       configureMetrics({
         governance: {
           samplingRate: 0.5,
         },
       });
 
-      // 测试多次，应该有true和false的结果
+      // Test multiple times, there should be both true and false results
       const results = Array.from({ length: 100 }, () => shouldSample());
       const trueCount = results.filter(Boolean).length;
       const falseCount = results.length - trueCount;
 
-      // 期望大约50%的true和50%的false（允许一定的随机变化）
+      // Expect approximately 50% true and 50% false (allowing some random variation)
       expect(trueCount).toBeGreaterThan(30);
       expect(trueCount).toBeLessThan(70);
       expect(falseCount).toBeGreaterThan(30);
@@ -332,7 +332,7 @@ describe("Metrics Config", () => {
   });
 
   describe("Type Definitions", () => {
-    it("应该正确定义MetricsGovernanceConfig类型", () => {
+    it("should correctly define MetricsGovernanceConfig type", () => {
       const config: MetricsGovernanceConfig = {
         seriesLimitPerMetric: 1000,
         seriesTTLms: 300000,
@@ -348,7 +348,7 @@ describe("Metrics Config", () => {
       expect(Array.isArray(config.labelBlacklist)).toBe(true);
     });
 
-    it("应该正确定义MetricsNamingConfig类型", () => {
+    it("should correctly define MetricsNamingConfig type", () => {
       const config: MetricsNamingConfig = {
         metricNamePrefix: "myapp",
       };
@@ -356,7 +356,7 @@ describe("Metrics Config", () => {
       expect(typeof config.metricNamePrefix).toBe("string");
     });
 
-    it("应该正确定义MetricsConfig类型", () => {
+    it("should correctly define MetricsConfig type", () => {
       const config: MetricsConfig = {
         governance: {
           seriesLimitPerMetric: 500,
@@ -376,7 +376,7 @@ describe("Metrics Config", () => {
   });
 
   describe("Edge Cases", () => {
-    it("应该处理复杂的属性值", () => {
+    it("should handle complex attribute values", () => {
       configureMetrics({
         governance: {
           labelWhitelist: ["service", "version", "enabled"],
@@ -399,7 +399,7 @@ describe("Metrics Config", () => {
       });
     });
 
-    it("应该处理特殊字符串", () => {
+    it("should handle special strings", () => {
       configureMetrics({
         governance: {
           labelWhitelist: ["special", "unicode"],
@@ -419,8 +419,8 @@ describe("Metrics Config", () => {
       });
     });
 
-    it("应该处理极端采样率值", () => {
-      // 测试极小的正值
+    it("should handle extreme sampling rate values", () => {
+      // Test very small positive value
       configureMetrics({
         governance: {
           samplingRate: 0.001,
@@ -429,9 +429,9 @@ describe("Metrics Config", () => {
 
       const results = Array.from({ length: 1000 }, () => shouldSample());
       const trueCount = results.filter(Boolean).length;
-      expect(trueCount).toBeLessThan(50); // 应该很少为true
+      expect(trueCount).toBeLessThan(50); // should rarely be true
 
-      // 测试接近1的值
+      // Test value close to 1
       configureMetrics({
         governance: {
           samplingRate: 0.999,
@@ -440,7 +440,7 @@ describe("Metrics Config", () => {
 
       const results2 = Array.from({ length: 100 }, () => shouldSample());
       const trueCount2 = results2.filter(Boolean).length;
-      expect(trueCount2).toBeGreaterThan(90); // 应该大多数为true
+      expect(trueCount2).toBeGreaterThan(90); // should mostly be true
     });
   });
 });

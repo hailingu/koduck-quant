@@ -1,8 +1,8 @@
-// 统一导出所有引擎相关类型
+// Unified export of all engine-related types
 export * from "./engine-types";
 export * from "./worker-bridge-types";
 
-// 兼容性：从 worker-bridge-types 导出的类型
+// Compatibility: types exported from worker-bridge-types
 export type {
   FlowEngineWorkerObserver,
   FlowEngineWorkerTaskSuccessEvent,

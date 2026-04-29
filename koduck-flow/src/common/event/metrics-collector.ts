@@ -8,8 +8,8 @@ import type {
 } from "../metrics";
 
 /**
- * 指标收集器
- * 负责事件系统的性能指标收集和监控
+ * Metrics collector
+ * Responsible for collecting and monitoring event system performance metrics
  */
 export class MetricsCollector {
   private readonly _m?: {
@@ -33,8 +33,8 @@ export class MetricsCollector {
   };
 
   constructor(eventName: string, getBatchCount: () => number) {
-    // 初始化指标工具，延迟创建以避免不必要的开销
-    // 使用事件名称属性进行作用域划分
+    // Initialize metrics tools, lazily created to avoid unnecessary overhead
+    // Use event name attribute for scope division
     const base = new ScopedMeter(meter("event"), { event: eventName });
     this._m = {
       meter: base,
@@ -66,12 +66,12 @@ export class MetricsCollector {
         dispatchMs: base.histogram("event_dispatch_ms", {
           description: "Event dispatch duration",
           unit: "ms",
-          // 留空边界，使用提供者默认值
+          // Leave boundaries empty, use provider defaults
         }),
       },
     };
 
-    // 为当前批次深度创建可观察计量器
+    // Create observable gauge for current batch depth
     try {
       const og = this._m.meter.observableGauge("event_batch_queue_depth", {
         description: "Pending events in batch queue",
@@ -83,13 +83,13 @@ export class MetricsCollector {
       og.addCallback(cb);
       this._m.batchDepth = { og, cb };
     } catch {
-      /* no-op */ void 0; // 提供者可能不支持可观察计量器
+      /* no-op */ void 0; // Provider may not support observable gauges
     }
   }
 
   /**
-   * 记录事件发出
-   * @param mode 事件模式（同步/异步）
+   * Record event emission
+   * @param mode Event mode (sync/async)
    */
   recordEmitted(mode: "sync" | "async"): void {
     try {
@@ -100,9 +100,9 @@ export class MetricsCollector {
   }
 
   /**
-   * 记录监听器调用
-   * @param count 调用的监听器数量
-   * @param mode 事件模式（同步/异步）
+   * Record listener invocation
+   * @param count Number of listeners invoked
+   * @param mode Event mode (sync/async)
    */
   recordListenersInvoked(count: number, mode: "sync" | "async"): void {
     try {
@@ -115,9 +115,9 @@ export class MetricsCollector {
   }
 
   /**
-   * 记录监听器错误
-   * @param count 错误数量
-   * @param mode 事件模式（同步/异步）
+   * Record listener errors
+   * @param count Number of errors
+   * @param mode Event mode (sync/async)
    */
   recordListenerErrors(count: number, mode: "sync" | "async"): void {
     try {
@@ -130,9 +130,9 @@ export class MetricsCollector {
   }
 
   /**
-   * 记录监听器超时
-   * @param count 超时数量
-   * @param mode 事件模式（异步）
+   * Record listener timeouts
+   * @param count Number of timeouts
+   * @param mode Event mode (async)
    */
   recordListenerTimeouts(count: number, mode: "async"): void {
     try {
@@ -145,9 +145,9 @@ export class MetricsCollector {
   }
 
   /**
-   * 记录事件分发持续时间
-   * @param duration 持续时间（毫秒）
-   * @param mode 事件模式（同步/异步）
+   * Record event dispatch duration
+   * @param duration Duration in milliseconds
+   * @param mode Event mode (sync/async)
    */
   recordDispatchDuration(duration: number, mode: "sync" | "async"): void {
     try {
@@ -158,8 +158,8 @@ export class MetricsCollector {
   }
 
   /**
-   * 更新活跃监听器数量
-   * @param count 当前监听器数量
+   * Update active listener count
+   * @param count Current listener count
    */
   updateActiveListeners(count: number): void {
     try {
@@ -170,7 +170,7 @@ export class MetricsCollector {
   }
 
   /**
-   * 清理资源，移除可观察计量器回调以避免内存泄漏
+   * Clean up resources, remove observable gauge callbacks to avoid memory leaks
    */
   dispose(): void {
     try {
@@ -184,7 +184,7 @@ export class MetricsCollector {
   }
 
   /**
-   * 获取指标收集器的状态
+   * Get metrics collector status
    */
   getStatus(): {
     initialized: boolean;

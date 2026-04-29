@@ -1,17 +1,17 @@
 /**
- * @file ActionNode - 动作节点示例
+ * @file ActionNode - Action node example
  * @description
- * 动作节点用于表示流程中执行某个操作的步骤。
- * 这是最基础的节点类型，具有单个输入和输出端口。
+ * Action node represents a step in the flow that executes an operation.
+ * This is the most basic node type with a single input and output port.
  *
  * @example
  * ```tsx
  * import { ActionNode, createActionNode } from './ActionNode';
  *
  * const nodeEntity = createActionNode({
- *   label: '处理数据',
+ *   label: 'Process Data',
  *   actionType: 'process',
- *   description: '对输入数据进行处理'
+ *   description: 'Process input data'
  * });
  * ```
  */
@@ -26,36 +26,36 @@ import type { FormSchema, PortDefinition, FlowNodeTheme } from "../types";
 // ============================================================================
 
 /**
- * 动作节点配置
+ * Action node configuration
  */
 export interface ActionNodeConfig {
-  /** 节点标签 */
+  /** Node label */
   label?: string;
-  /** 动作类型 */
+  /** Action type */
   actionType?: "process" | "transform" | "validate" | "custom";
-  /** 动作描述 */
+  /** Action description */
   description?: string;
-  /** 自定义动作名称（当 actionType 为 custom 时使用） */
+  /** Custom action name (used when actionType is custom) */
   customAction?: string;
-  /** 初始位置 */
+  /** Initial position */
   position?: { x: number; y: number };
 }
 
 /**
- * ActionNode 组件的 Props
+ * ActionNode component props
  */
 export interface ActionNodeProps {
-  /** FlowNodeEntity 实例 */
+  /** FlowNodeEntity instance */
   entity: FlowNodeEntity;
-  /** 是否选中 */
+  /** Whether selected */
   selected?: boolean;
-  /** 选中回调 */
+  /** Select callback */
   onSelect?: (entity: FlowNodeEntity) => void;
-  /** 表单值变更回调 */
+  /** Form value change callback */
   onFormChange?: (entity: FlowNodeEntity, values: Record<string, unknown>) => void;
-  /** 额外 CSS 类 */
+  /** Extra CSS class */
   className?: string;
-  /** 测试 ID */
+  /** Test ID */
   testId?: string;
 }
 
@@ -64,7 +64,7 @@ export interface ActionNodeProps {
 // ============================================================================
 
 /**
- * 动作类型选项
+ * Action type options
  */
 const ACTION_TYPES = [
   { value: "process", label: "处理" },
@@ -74,7 +74,7 @@ const ACTION_TYPES = [
 ] as const;
 
 /**
- * 动作节点表单配置
+ * Action node form configuration
  */
 export const ACTION_FORM_SCHEMA: FormSchema = {
   type: "object",
@@ -111,7 +111,7 @@ export const ACTION_FORM_SCHEMA: FormSchema = {
 };
 
 /**
- * 动作节点端口定义
+ * Action node port definitions
  */
 const ACTION_PORTS: PortDefinition[] = [
   {
@@ -129,7 +129,7 @@ const ACTION_PORTS: PortDefinition[] = [
 ];
 
 /**
- * 动作节点主题
+ * Action node theme
  */
 const ACTION_NODE_THEME: Partial<FlowNodeTheme> = {
   backgroundColor: "#EFF6FF",
@@ -143,17 +143,17 @@ const ACTION_NODE_THEME: Partial<FlowNodeTheme> = {
 // ============================================================================
 
 /**
- * 创建动作节点实体
+ * Create action node entity
  *
- * @param config - 节点配置
- * @returns FlowNodeEntity 实例
+ * @param config - Node configuration
+ * @returns FlowNodeEntity instance
  *
  * @example
  * ```tsx
  * const entity = createActionNode({
- *   label: '数据处理',
+ *   label: 'Data Processing',
  *   actionType: 'process',
- *   description: '清理和格式化数据'
+ *   description: 'Clean and format data'
  * });
  * ```
  */
@@ -189,19 +189,19 @@ export function createActionNode(config?: ActionNodeConfig): FlowNodeEntity {
 // ============================================================================
 
 /**
- * 动作节点组件
+ * Action node component
  *
  * @description
- * 动作节点是流程图中最基础的节点类型，用于表示执行某个操作的步骤。
- * 具有一个输入端口和一个输出端口，支持配置动作类型和描述。
+ * Action node is the most basic node type in the flow diagram, representing a step that executes an operation.
+ * Has one input port and one output port, supports configuring action type and description.
  *
- * @param props - 组件属性
- * @returns JSX 元素
+ * @param props - Component props
+ * @returns JSX element
  *
  * @example
  * ```tsx
  * const actionEntity = createActionNode({
- *   label: '处理数据',
+ *   label: 'Process Data',
  *   actionType: 'process'
  * });
  *

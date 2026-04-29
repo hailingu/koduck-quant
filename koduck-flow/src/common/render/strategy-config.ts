@@ -6,21 +6,21 @@ import type {
 } from "./plugins/options";
 
 export interface StrategyPluginConfig<TOptions> {
-  /** 是否启用该策略插件，默认启用 */
+  /** Whether to enable this strategy plugin, enabled by default */
   enabled?: boolean;
-  /** 关联渲染器 ID，默认为对应插件的标准 ID */
+  /** Associated renderer ID, defaults to the standard ID for the corresponding plugin */
   rendererId?: string;
-  /** 插件构造时的额外选项 */
+  /** Extra options when constructing the plugin */
   options?: TOptions;
 }
 
 export interface WebGPUPluginConfig extends StrategyPluginConfig<WebGPUStrategyPluginOptions> {
-  /** 若缺少 WebGPU 渲染器，是否自动注册默认实现。默认 true */
+  /** Whether to automatically register the default implementation if the WebGPU renderer is missing. Default true */
   autoRegisterRenderer?: boolean;
 }
 
 export interface SSRPluginConfig extends StrategyPluginConfig<SSRStrategyPluginOptions> {
-  /** 当未找到 SSR 渲染器时是否视为错误。默认 true */
+  /** Whether to treat missing SSR renderer as an error. Default true */
   required?: boolean;
 }
 
@@ -37,16 +37,16 @@ export interface StrategyPluginInstanceLike {
 }
 
 export interface RenderStrategySelectorRuntimeConfig {
-  /** 是否启用插件化策略选择器 */
+  /** Whether to enable the plugin-based strategy selector */
   enabled?: boolean;
-  /** 传递给 RenderStrategySelector 的构造选项 */
+  /** Constructor options passed to RenderStrategySelector */
   selectorOptions?: RenderStrategySelectorOptions;
-  /** React 策略插件配置，默认启用 */
+  /** React strategy plugin configuration, enabled by default */
   react?: StrategyPluginConfig<ReactStrategyPluginOptions>;
-  /** WebGPU 策略插件配置，默认禁用 */
+  /** WebGPU strategy plugin configuration, disabled by default */
   webgpu?: WebGPUPluginConfig;
-  /** SSR 策略插件配置，默认禁用 */
+  /** SSR strategy plugin configuration, disabled by default */
   ssr?: SSRPluginConfig;
-  /** 附加的自定义策略插件 */
+  /** Additional custom strategy plugins */
   plugins?: StrategyPluginInstanceLike[];
 }

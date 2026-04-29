@@ -40,33 +40,33 @@ export default tseslint.config([
     },
     rules: {
       /**
-       * JSDoc 注释检查规则
-       * 参考: docs/templates/comment-templates.md
+       * JSDoc comment checking rules
+       * Reference: docs/templates/comment-templates.md
        */
 
-      // 要求导出的类、方法必须有 JSDoc
-      // 暂不启用：当前代码库中大量函数缺少 JSDoc，待逐步补充后再开启
+      // Require exported classes and methods to have JSDoc
+      // Temporarily disabled: many functions in the current codebase lack JSDoc; enable after gradual supplementation
       "jsdoc/require-jsdoc": "off",
 
-      // 要求参数有说明
-      // 暂不启用：与 require-jsdoc 配套，待 JSDoc 完善后再开启
+      // Require parameter descriptions
+      // Temporarily disabled: paired with require-jsdoc; enable after JSDoc is complete
       "jsdoc/require-param": "off",
       "jsdoc/require-param-description": "off",
-      "jsdoc/require-param-type": "off", // TypeScript 类型系统已提供
+      "jsdoc/require-param-type": "off", // TypeScript type system already provides this
 
-      // 要求返回值有说明
-      // 暂不启用：与 require-jsdoc 配套，待 JSDoc 完善后再开启
+      // Require return value descriptions
+      // Temporarily disabled: paired with require-jsdoc; enable after JSDoc is complete
       "jsdoc/require-returns": "off",
       "jsdoc/require-returns-description": "off",
-      "jsdoc/require-returns-type": "off", // TypeScript 类型系统已提供
+      "jsdoc/require-returns-type": "off", // TypeScript type system already provides this
 
-      // JSDoc 语法检查
+      // JSDoc syntax checking
       "jsdoc/check-syntax": "error",
       "jsdoc/check-alignment": "warn",
       "jsdoc/check-indentation": "warn",
       "jsdoc/check-line-alignment": "warn",
 
-      // 检查标记有效性
+      // Check tag validity
       "jsdoc/check-tag-names": [
         "warn",
         {
@@ -75,10 +75,10 @@ export default tseslint.config([
       ],
       "jsdoc/valid-types": "warn",
 
-      // 示例代码检查
-      "jsdoc/check-examples": "off", // 可选：检查示例代码是否有效
+      // Example code checking
+      "jsdoc/check-examples": "off", // Optional: check if example code is valid
 
-      // 不允许空描述
+      // Empty descriptions are not allowed
       "jsdoc/require-description": [
         "warn",
         {
@@ -90,11 +90,11 @@ export default tseslint.config([
   {
     files: ["test/**/*.{ts,tsx}"],
     rules: {
-      // 测试文件的 JSDoc 要求宽松一些
+      // Relaxed JSDoc requirements for test files
       "jsdoc/require-jsdoc": "off",
       "jsdoc/require-param": "off",
       "jsdoc/require-returns": "off",
-      // 测试用例里经常需要构造局部 mock、故意保留夹具变量、以及用 any 模拟坏输入。
+      // Test cases often require constructing local mocks, intentionally preserving fixture variables, and using any to simulate bad inputs.
       "@typescript-eslint/no-unused-vars": "off",
       "@typescript-eslint/no-explicit-any": "off",
     },

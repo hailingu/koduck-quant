@@ -23,19 +23,19 @@ import { TENANT_ENTITY_QUOTA_KEY } from "./types";
 /**
  * RuntimeQuotaManager
  *
- * 负责管理租户配额（Tenant Quota）的申请、释放和跟踪。
+ * Responsible for managing tenant quota claims, releases, and tracking.
  *
- * **核心职责**:
- * - 管理租户配额的申请与释放（支持自定义配额桶）
- * - 跟踪配额使用情况（实体配额专用管理）
- * - 生成配额快照（用于监控和报告）
- * - 处理配额限制检查（防止超额使用）
+ * **Core Responsibilities**:
+ * - Manage tenant quota claims and releases (supports custom quota buckets)
+ * - Track quota usage (dedicated entity quota management)
+ * - Generate quota snapshots (for monitoring and reporting)
+ * - Handle quota limit checks (prevent overuse)
  *
- * **设计原则**:
- * - 使用 Provider 函数注入依赖，避免循环依赖
- * - 通过 Map 跟踪各配额桶的使用量
- * - 特殊处理实体配额（TENANT_ENTITY_QUOTA_KEY）
- * - 配额超限时记录警告日志但不抛出异常
+ * **Design Principles**:
+ * - Use Provider functions for dependency injection to avoid circular dependencies
+ * - Track usage per quota bucket via Map
+ * - Special handling for entity quota (TENANT_ENTITY_QUOTA_KEY)
+ * - Log warning when quota exceeded but do not throw exceptions
  *
  * @example
  * ```typescript
@@ -44,46 +44,46 @@ import { TENANT_ENTITY_QUOTA_KEY } from "./types";
  *   () => entityManager.getEntities().length
  * );
  *
- * // 申请配额
+ * // Claim quota
  * if (quotaManager.claimQuota("api-calls", 1)) {
- *   // 执行需要配额的操作
+ *   // Execute operation that requires quota
  * }
  *
- * // 释放配额
+ * // Release quota
  * quotaManager.releaseQuota("api-calls", 1);
  *
- * // 查询配额快照
+ * // Query quota snapshot
  * const snapshot = quotaManager.getQuotaSnapshot("api-calls");
- * console.log(`使用: ${snapshot?.usage}, 限制: ${snapshot?.limit}`);
+ * console.log(`Usage: ${snapshot?.usage}, Limit: ${snapshot?.limit}`);
  * ```
  *
  * @since 2.1.0
  */
 export class RuntimeQuotaManager {
   /**
-   * 租户配额使用量跟踪表
-   * - Key: 配额桶名称（如 "api-calls", "storage", TENANT_ENTITY_QUOTA_KEY）
-   * - Value: 当前使用量
+   * Tenant quota usage tracking table
+   * - Key: quota bucket name (e.g., "api-calls", "storage", TENANT_ENTITY_QUOTA_KEY)
+   * - Value: current usage
    */
   private readonly tenantQuotaUsage = new Map<string, number>();
 
   /**
-   * 租户上下文提供函数
-   * 通过 Provider 模式避免循环依赖
+   * Tenant context provider function
+   * Avoids circular dependencies via Provider pattern
    */
   private readonly tenantContextProvider: () => ResolvedTenantContext | null;
 
   /**
-   * 实体数量提供函数
-   * 用于同步实体配额使用情况
+   * Entity count provider function
+   * Used to sync entity quota usage
    */
   private readonly entityCountProvider: () => number;
 
   /**
-   * 创建配额管理器实例
+   * Create quota manager instance
    *
-   * @param tenantContextProvider - 租户上下文提供函数，返回当前租户上下文或 null
-   * @param entityCountProvider - 实体数量提供函数，返回当前实体总数
+   * @param tenantContextProvider - Tenant context provider function, returns current tenant context or null
+   * @param entityCountProvider - Entity count provider function, returns current total entity count
    *
    * @example
    * ```typescript
@@ -102,58 +102,58 @@ export class RuntimeQuotaManager {
   }
 
   /**
-   * 申请租户配额
+   * Claim tenant quota
    *
-   * 尝试从指定配额桶中申请指定数量的配额。
-   * - 如果没有配置租户上下文，则总是返回 true（无限制）
-   * - 如果指定配额桶没有设置限制，则总是返回 true
-   * - 如果申请后会超过限制，则返回 false 并记录警告日志
-   * - 如果申请成功，则更新配额使用量并返回 true
+   * Attempts to claim a specified amount from the given quota bucket.
+   * - If no tenant context is configured, always returns true (unlimited)
+   * - If the specified quota bucket has no limit set, always returns true
+   * - If claim would exceed the limit, returns false and logs a warning
+   * - If claim succeeds, updates quota usage and returns true
    *
-   * **特殊处理**:
-   * - 对于实体配额（TENANT_ENTITY_QUOTA_KEY），使用实际实体数量进行检查
+   * **Special Handling**:
+   * - For entity quota (TENANT_ENTITY_QUOTA_KEY), uses actual entity count for checking
    *
-   * @param bucket - 配额桶名称（如 "api-calls", "storage", TENANT_ENTITY_QUOTA_KEY）
-   * @param amount - 申请的配额数量，默认为 1
-   * @returns 申请是否成功（true: 成功, false: 超限）
+   * @param bucket - Quota bucket name (e.g., "api-calls", "storage", TENANT_ENTITY_QUOTA_KEY)
+   * @param amount - Quota amount to claim, defaults to 1
+   * @returns Whether claim succeeded (true: success, false: exceeded)
    *
    * @example
    * ```typescript
-   * // 申请 API 调用配额
+   * // Claim API call quota
    * if (quotaManager.claimQuota("api-calls", 1)) {
    *   await callExternalAPI();
    * } else {
-   *   throw new Error("API 调用配额已用尽");
+   *   throw new Error("API call quota exhausted");
    * }
    *
-   * // 申请实体配额（创建实体前）
+   * // Claim entity quota (before creating entity)
    * if (quotaManager.claimQuota(TENANT_ENTITY_QUOTA_KEY)) {
    *   const entity = createEntity("MyEntity");
    * }
    * ```
    */
   claimQuota(bucket: string, amount = 1): boolean {
-    // 参数校验
+    // Parameter validation
     if (!bucket || amount <= 0) {
       return true;
     }
 
     const tenantContext = this.tenantContextProvider();
     if (!tenantContext) {
-      return true; // 无租户上下文，不限制
+      return true; // No tenant context, unlimited
     }
 
-    // 实体配额特殊处理
+    // Special handling for entity quota
     if (bucket === TENANT_ENTITY_QUOTA_KEY) {
       return this.ensureEntityQuotaAvailable();
     }
 
-    // 获取配额限制
+    // Get quota limit
     const limit = this.getQuotaLimit(bucket);
     const current = this.tenantQuotaUsage.get(bucket) ?? 0;
     const next = current + amount;
 
-    // 检查是否超限
+    // Check if exceeded
     if (limit !== undefined && next > limit) {
       logger.warn("KoduckFlowRuntime tenant quota exceeded", {
         tenantId: tenantContext.tenantId,
@@ -164,43 +164,43 @@ export class RuntimeQuotaManager {
       return false;
     }
 
-    // 更新配额使用量
+    // Update quota usage
     this.tenantQuotaUsage.set(bucket, next);
     return true;
   }
 
   /**
-   * 释放租户配额
+   * Release tenant quota
    *
-   * 从指定配额桶中释放指定数量的配额。
-   * - 如果配额桶不存在或使用量为 0，则直接返回 0
-   * - 释放后使用量不会低于 0
-   * - 如果释放后使用量为 0，则从跟踪表中删除该配额桶
+   * Releases a specified amount from the given quota bucket.
+   * - If quota bucket does not exist or usage is 0, returns 0 directly
+   * - Usage will not go below 0 after release
+   * - If usage becomes 0 after release, removes the quota bucket from tracking
    *
-   * **特殊处理**:
-   * - 对于实体配额（TENANT_ENTITY_QUOTA_KEY），自动同步实际实体数量
+   * **Special Handling**:
+   * - For entity quota (TENANT_ENTITY_QUOTA_KEY), automatically syncs actual entity count
    *
-   * @param bucket - 配额桶名称
-   * @param amount - 释放的配额数量，默认为 1
-   * @returns 释放后的剩余使用量
+   * @param bucket - Quota bucket name
+   * @param amount - Quota amount to release, defaults to 1
+   * @returns Remaining usage after release
    *
    * @example
    * ```typescript
-   * // 释放 API 调用配额
+   * // Release API call quota
    * const remaining = quotaManager.releaseQuota("api-calls", 1);
-   * console.log(`剩余配额使用量: ${remaining}`);
+   * console.log(`Remaining quota usage: ${remaining}`);
    *
-   * // 释放实体配额（删除实体后）
+   * // Release entity quota (after deleting entity)
    * quotaManager.releaseQuota(TENANT_ENTITY_QUOTA_KEY);
    * ```
    */
   releaseQuota(bucket: string, amount = 1): number {
-    // 参数校验
+    // Parameter validation
     if (!bucket || amount <= 0) {
       return this.tenantQuotaUsage.get(bucket) ?? 0;
     }
 
-    // 实体配额特殊处理：同步实际数量
+    // Special handling for entity quota: sync actual count
     if (bucket === TENANT_ENTITY_QUOTA_KEY) {
       this.syncEntityQuotaUsage();
       return this.tenantQuotaUsage.get(bucket) ?? 0;
@@ -211,7 +211,7 @@ export class RuntimeQuotaManager {
       return 0;
     }
 
-    // 计算释放后的使用量（不低于 0）
+    // Calculate usage after release (not below 0)
     const next = Math.max(current - amount, 0);
     if (next === 0) {
       this.tenantQuotaUsage.delete(bucket);
@@ -223,23 +223,23 @@ export class RuntimeQuotaManager {
   }
 
   /**
-   * 获取指定配额桶的快照
+   * Get snapshot for specified quota bucket
    *
-   * 返回配额桶的当前使用情况，包括使用量、限制和剩余量。
-   * - 如果没有配置租户上下文，则返回 undefined
-   * - 如果配额桶没有设置限制，则只返回使用量
+   * Returns current usage of the quota bucket, including usage, limit, and remaining.
+   * - If no tenant context is configured, returns undefined
+   * - If the quota bucket has no limit set, returns only usage
    *
-   * @param bucket - 配额桶名称
-   * @returns 配额快照对象，或 undefined（无租户上下文时）
+   * @param bucket - Quota bucket name
+   * @returns Quota snapshot object, or undefined (when no tenant context)
    *
    * @example
    * ```typescript
    * const snapshot = quotaManager.getQuotaSnapshot("api-calls");
    * if (snapshot) {
-   *   console.log(`配额桶: ${snapshot.key}`);
-   *   console.log(`使用量: ${snapshot.usage}`);
-   *   console.log(`限制: ${snapshot.limit}`);
-   *   console.log(`剩余: ${snapshot.remaining}`);
+   *   console.log(`Quota bucket: ${snapshot.key}`);
+   *   console.log(`Usage: ${snapshot.usage}`);
+   *   console.log(`Limit: ${snapshot.limit}`);
+   *   console.log(`Remaining: ${snapshot.remaining}`);
    * }
    * ```
    */
@@ -266,20 +266,20 @@ export class RuntimeQuotaManager {
   }
 
   /**
-   * 列出所有配额桶的快照
+   * List snapshots for all quota buckets
    *
-   * 返回所有已配置或已使用的配额桶的快照列表。
-   * - 包括已使用的配额桶（tenantQuotaUsage）
-   * - 包括已配置但未使用的配额桶（来自租户上下文）
-   * - 如果没有配置租户上下文，则返回空数组
+   * Returns snapshots for all configured or used quota buckets.
+   * - Includes used quota buckets (tenantQuotaUsage)
+   * - Includes configured but unused quota buckets (from tenant context)
+   * - If no tenant context is configured, returns empty array
    *
-   * @returns 配额快照数组
+   * @returns Array of quota snapshots
    *
    * @example
    * ```typescript
    * const snapshots = quotaManager.listQuotaSnapshots();
    * for (const snapshot of snapshots) {
-   *   console.log(`${snapshot.key}: ${snapshot.usage}/${snapshot.limit ?? "无限制"}`);
+   *   console.log(`${snapshot.key}: ${snapshot.usage}/${snapshot.limit ?? "unlimited"}`);
    * }
    * ```
    */
@@ -289,23 +289,23 @@ export class RuntimeQuotaManager {
       return [];
     }
 
-    // 收集所有配额桶键
+    // Collect all quota bucket keys
     const keys = new Set<string>(this.tenantQuotaUsage.keys());
 
-    // 添加已配置的实体配额
+    // Add configured entity quota
     const quotas = tenantContext.quotas;
     if (quotas?.maxEntities !== undefined) {
       keys.add(TENANT_ENTITY_QUOTA_KEY);
     }
 
-    // 添加自定义配额桶
+    // Add custom quota buckets
     if (quotas?.custom) {
       for (const key of Object.keys(quotas.custom)) {
         keys.add(key);
       }
     }
 
-    // 生成快照列表
+    // Generate snapshot list
     const snapshots: TenantQuotaSnapshot[] = [];
     for (const key of keys) {
       const snapshot = this.getQuotaSnapshot(key);
@@ -318,23 +318,23 @@ export class RuntimeQuotaManager {
   }
 
   /**
-   * 确保实体配额可用
+   * Ensure entity quota is available
    *
-   * 检查当前实体数量是否已达到租户的实体配额限制。
-   * - 如果没有配置实体配额限制（maxEntities），则总是返回 true
-   * - 如果当前实体数量 >= 限制，则返回 false 并记录警告日志
-   * - 否则返回 true
+   * Checks whether current entity count has reached the tenant entity quota limit.
+   * - If no entity quota limit (maxEntities) is configured, always returns true
+   * - If current entity count >= limit, returns false and logs a warning
+   * - Otherwise returns true
    *
-   * **注意**: 此方法不更新配额使用量，仅做检查
+   * **Note**: This method does not update quota usage, only performs a check
    *
-   * @returns 是否可以创建新实体（true: 可以, false: 已达限制）
+   * @returns Whether a new entity can be created (true: yes, false: limit reached)
    *
    * @example
    * ```typescript
    * if (quotaManager.ensureEntityQuotaAvailable()) {
    *   const entity = entityManager.createEntity("MyEntity");
    * } else {
-   *   throw new Error("实体配额已用尽");
+   *   throw new Error("Entity quota exhausted");
    * }
    * ```
    */
@@ -343,7 +343,7 @@ export class RuntimeQuotaManager {
     const limit = tenantContext?.quotas?.maxEntities;
 
     if (limit === undefined) {
-      return true; // 无限制
+      return true; // Unlimited
     }
 
     const current = this.entityCountProvider();
@@ -360,24 +360,24 @@ export class RuntimeQuotaManager {
   }
 
   /**
-   * 同步实体配额使用情况
+   * Sync entity quota usage
    *
-   * 将实体配额桶（TENANT_ENTITY_QUOTA_KEY）的使用量更新为当前实际实体数量。
-   * - 如果没有配置实体配额限制（maxEntities），则从跟踪表中删除实体配额桶
-   * - 否则更新为实际实体数量
+   * Updates entity quota bucket (TENANT_ENTITY_QUOTA_KEY) usage to the current actual entity count.
+   * - If no entity quota limit (maxEntities) is configured, removes entity quota bucket from tracking
+   * - Otherwise updates to actual entity count
    *
-   * **使用场景**:
-   * - 设置或清除租户上下文时
-   * - 创建或删除实体后
-   * - 释放实体配额时
+   * **Usage Scenarios**:
+   * - When setting or clearing tenant context
+   * - After creating or deleting entities
+   * - When releasing entity quota
    *
    * @example
    * ```typescript
-   * // 删除实体后同步
+   * // Sync after deleting entity
    * entityManager.removeEntity(entityId);
    * quotaManager.syncEntityQuotaUsage();
    *
-   * // 设置租户上下文后同步
+   * // Sync after setting tenant context
    * runtime.setTenantContext(context);
    * quotaManager.syncEntityQuotaUsage();
    * ```
@@ -396,13 +396,13 @@ export class RuntimeQuotaManager {
   }
 
   /**
-   * 清空所有配额使用量
+   * Clear all quota usage
    *
-   * 清空配额跟踪表，重置所有配额桶的使用量为 0。
+   * Clears quota tracking table, resetting all quota bucket usage to 0.
    *
-   * **使用场景**:
-   * - 清除租户上下文时（setTenantContext(null)）
-   * - 租户切换时
+   * **Usage Scenarios**:
+   * - When clearing tenant context (setTenantContext(null))
+   * - When switching tenants
    *
    * @internal
    */
@@ -411,10 +411,10 @@ export class RuntimeQuotaManager {
   }
 
   /**
-   * 获取指定配额桶的限制值
+   * Get limit value for specified quota bucket
    *
-   * @param bucket - 配额桶名称
-   * @returns 配额限制值，或 undefined（无限制或未配置租户上下文）
+   * @param bucket - Quota bucket name
+   * @returns Quota limit value, or undefined (unlimited or no tenant context)
    *
    * @internal
    */

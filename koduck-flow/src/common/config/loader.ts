@@ -517,7 +517,7 @@ export class ConfigLoader implements IConfigLoaderInternal {
       const initialConfig = this.load();
       this.configStateManager = new ConfigStateManager(initialConfig);
 
-      // 订阅 state manager 的配置变更，同步到 configCache
+      // Subscribe to state manager config changes and sync to configCache
       this.configStateManager.subscribe((newConfig) => {
         this.configCache = newConfig;
       });

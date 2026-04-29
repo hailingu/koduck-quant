@@ -8,8 +8,8 @@ import {
 import { SelectionCore } from "../selection-core";
 
 /**
- * 策略插件抽象基类
- * 提供策略插件的通用实现，减少重复代码
+ * Strategy plugin abstract base class
+ * Provides generic implementation for strategy plugins, reducing duplicate code
  *
  * @example
  * ```typescript
@@ -26,12 +26,12 @@ import { SelectionCore } from "../selection-core";
  *   }
  *
  *   canHandle(entity: IEntity, context: IRenderContext): boolean {
- *     // 自定义判断逻辑
+ *     // Custom judgment logic
  *     return entity.type === 'my-type';
  *   }
  *
  *   protected doSelect(entity: IEntity, context: IRenderContext): RenderSelection {
- *     // 自定义选择逻辑
+ *     // Custom selection logic
  *     return {
  *       renderer: this.renderer as unknown as IRender,
  *       mode: 'my-mode',
@@ -49,10 +49,10 @@ export abstract class BaseStrategyPlugin<T = IRender> implements IRenderStrategy
   protected readonly renderer: T;
 
   /**
-   * 构造函数
+   * Constructor
    *
-   * @param renderer 渲染器实例
-   * @param descriptor 能力描述符
+   * @param renderer Renderer instance
+   * @param descriptor Capability descriptor
    */
   constructor(renderer: T, descriptor: RenderStrategyCapabilityDescriptor) {
     this.renderer = renderer;
@@ -61,69 +61,69 @@ export abstract class BaseStrategyPlugin<T = IRender> implements IRenderStrategy
   }
 
   /**
-   * 获取策略名称
+   * Get strategy name
    */
   getStrategyName(): string {
     return `${this.id}:strategy`;
   }
 
   /**
-   * 判断是否可以处理实体
-   * 子类必须实现此方法
+   * Determine if can handle entity
+   * Subclasses must implement this method
    *
-   * @param entity 实体
-   * @param context 渲染上下文
-   * @returns 是否可以处理
+   * @param entity Entity
+   * @param context Render context
+   * @returns Whether it can handle
    */
   abstract canHandle(entity: IEntity, context: IRenderContext): boolean;
 
   /**
-   * 选择最优渲染器
-   * 模板方法，提供通用的验证逻辑
+   * Select optimal renderer
+   * Template method providing generic validation logic
    *
-   * @param entity 实体
-   * @param context 渲染上下文
-   * @returns 渲染选择结果
+   * @param entity Entity
+   * @param context Render context
+   * @returns Render selection result
    */
   selectOptimalRenderer(entity: IEntity, context: IRenderContext): RenderSelection {
-    // 验证实体
+    // Validate entity
     if (!entity) {
       throw new RenderStrategyNotApplicableError(
         `${this.descriptor.displayName} requires a valid entity`
       );
     }
 
-    // 验证渲染器
+    // Validate renderer
     if (!this.renderer) {
       throw new RenderStrategyNotApplicableError(
         `${this.descriptor.displayName} renderer is not available`
       );
     }
 
-    // 检查是否可以处理
+    // Check if can handle
     if (!this.canHandle(entity, context)) {
       throw new RenderStrategyNotApplicableError(
         `Entity is not suitable for ${this.descriptor.displayName}`
       );
     }
 
-    // 检查渲染器是否支持该实体
+    // Check if renderer supports this entity
     if (this.hasCanRender() && !this.rendererCanRender(entity)) {
       throw new RenderStrategyNotApplicableError(
         `${this.descriptor.displayName} reports unsupported entity (${entity.id ?? "unknown"})`
       );
     }
 
-    // 调用子类实现的选择逻辑
+    // Call subclass selection logic
     return this.doSelect(entity, context);
   }
 
   /**
-   * 批量选择：按渲染器分组
-   * 提供默认实现，子类可以覆盖
+   * Batch selection: group by renderer
+   * Provides default implementation, subclasses can override
    *
-   * @param entities 实体数组
-   * @returns 按渲染器分组的实体 Map
+   * @param entities Entity array
+   * @returns Entity Map grouped by renderer
    */
   selectForBatch(entities: IEntity[]): Map<IRender, IEntity[]> {
     if (!this.renderer) {
@@ -138,7 +138,7 @@ export abstract class BaseStrategyPlugin<T = IRender> implements IRenderStrategy
       );
     }
 
-    // 过滤可以处理的实体
+    // Filter applicable entities
     const applicable = entities.filter((entity) => {
       try {
         const context = this.createContext(entity);
@@ -158,28 +158,28 @@ export abstract class BaseStrategyPlugin<T = IRender> implements IRenderStrategy
   }
 
   /**
-   * 子类实现的核心选择逻辑
-   * 此方法在通用验证之后被调用
+   * Core selection logic implemented by subclasses
+   * This method is called after generic validation
    *
-   * @param entity 实体
-   * @param context 渲染上下文
-   * @returns 渲染选择结果
+   * @param entity Entity
+   * @param context Render context
+   * @returns Render selection result
    */
   protected abstract doSelect(entity: IEntity, context: IRenderContext): RenderSelection;
 
   /**
-   * 创建默认上下文
-   * 使用 SelectionCore 提供的工具方法
+   * Create default context
+   * Uses tool methods provided by SelectionCore
    *
-   * @param entity 实体
-   * @returns 渲染上下文
+   * @param entity Entity
+   * @returns Render context
    */
   protected createContext(entity: IEntity): IRenderContext {
     return SelectionCore.createDefaultContext(entity);
   }
 
   /**
-   * 检查渲染器是否有 canRender 方法
+   * Check if renderer has canRender method
    */
   private hasCanRender(): boolean {
     return (
@@ -191,7 +191,7 @@ export abstract class BaseStrategyPlugin<T = IRender> implements IRenderStrategy
   }
 
   /**
-   * 调用渲染器的 canRender 方法
+   * Call renderer's canRender method
    */
   private rendererCanRender(entity: IEntity): boolean {
     if (!this.hasCanRender()) return true;
@@ -201,8 +201,8 @@ export abstract class BaseStrategyPlugin<T = IRender> implements IRenderStrategy
 }
 
 /**
- * 简单策略插件基类
- * 提供更简单的实现方式，适用于大多数情况
+ * Simple strategy plugin base class
+ * Provides a simpler implementation approach, suitable for most cases
  */
 export abstract class SimpleStrategyPlugin<T = IRender> extends BaseStrategyPlugin<T> {
   protected readonly confidence: number;
@@ -225,8 +225,8 @@ export abstract class SimpleStrategyPlugin<T = IRender> extends BaseStrategyPlug
   }
 
   /**
-   * 默认的选择实现
-   * 子类可以覆盖此方法以自定义行为
+   * Default selection implementation
+   * Subclasses can override this method to customize behavior
    */
   protected doSelect(): RenderSelection {
     return {

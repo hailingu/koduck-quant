@@ -1,6 +1,6 @@
 import { GenericEvent } from "./event";
 
-// 视觉渲染事件载荷类型
+// Visual render event payload types
 export interface RenderAllPayload {
   reason?: string;
   hints?: {
@@ -12,7 +12,7 @@ export interface RenderAllPayload {
 export interface RenderEntitiesPayload {
   entityIds: string[];
   reason?: string;
-  op?: "render" | "remove"; // 缺省为 render
+  op?: "render" | "remove"; // Defaults to render
 }
 
 export interface ViewportChangedPayload {
@@ -23,17 +23,17 @@ export interface ViewportChangedPayload {
 }
 
 /**
- * RenderEventManager：独立的渲染事件总线
- * - 上层（交互工具/页面）投递视觉事件
- * - RenderManager 仅订阅这些事件以进行渲染
+ * RenderEventManager: Independent render event bus
+ * - Upper layer (interaction tools/pages) posts visual events
+ * - RenderManager only subscribes to these events for rendering
  */
 export class RenderEventManager {
-  // 事件通道
+  // Event channels
   private readonly evRenderAll = new GenericEvent<RenderAllPayload>("render:all", {
     enableBatching: false,
   });
   private readonly evRenderEntities = new GenericEvent<RenderEntitiesPayload>("render:entities", {
-    // 高频批量实体渲染请求，合并到帧
+    // High-frequency batch entity render requests, merged into frames
     enableBatching: true,
     batchSize: 200,
     batchInterval: 16,
@@ -44,7 +44,7 @@ export class RenderEventManager {
     batchInterval: 16,
   });
 
-  // 订阅 API
+  // Subscription API
   onRenderAll(listener: (p: RenderAllPayload) => void): () => void {
     return this.evRenderAll.addEventListener(listener);
   }
@@ -55,7 +55,7 @@ export class RenderEventManager {
     return this.evViewportChanged.addEventListener(listener);
   }
 
-  // 发布 API
+  // Publish API
   requestRenderAll(payload?: RenderAllPayload): void {
     this.evRenderAll.fire(payload ?? {});
   }

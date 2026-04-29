@@ -2,21 +2,21 @@ import type { ScopedMeter } from "../metrics";
 import type { IEntity } from "../entity";
 
 /**
- * 渲染 Metrics 记录器接口
+ * Render metrics recorder interface
  */
 export interface RenderMetricsRecorder {
   /**
-   * 记录渲染开始，返回结束记录函数
+   * Record the start of rendering, returning an end record function
    *
-   * @param entityId - 实体 ID
-   * @param entityType - 实体类型
-   * @returns 结束记录函数，调用时会自动计算耗时并记录 metrics
+   * @param entityId - Entity ID
+   * @param entityType - Entity type
+   * @returns End record function that automatically calculates duration and records metrics when called
    *
    * @example
    * ```typescript
    * const endRecord = recorder.recordRenderStart(entity.id, entity.type);
    * try {
-   *   // 渲染逻辑
+   *   // Rendering logic
    * } finally {
    *   endRecord();
    * }
@@ -25,53 +25,53 @@ export interface RenderMetricsRecorder {
   recordRenderStart(entityId: string, entityType: string): () => void;
 
   /**
-   * 记录缓存命中
+   * Record a cache hit
    *
-   * @param entityType - 实体类型
+   * @param entityType - Entity type
    */
   recordCacheHit(entityType: string): void;
 
   /**
-   * 记录缓存未命中
+   * Record a cache miss
    *
-   * @param entityType - 实体类型
+   * @param entityType - Entity type
    */
   recordCacheMiss(entityType: string): void;
 
   /**
-   * 记录渲染错误
+   * Record a rendering error
    *
-   * @param entityType - 实体类型
-   * @param errorType - 错误类型
+   * @param entityType - Entity type
+   * @param errorType - Error type
    */
   recordError(entityType: string, errorType: string): void;
 
   /**
-   * 记录批量渲染
+   * Record batch rendering
    *
-   * @param size - 批量大小
-   * @param duration - 耗时（毫秒）
+   * @param size - Batch size
+   * @param duration - Duration (milliseconds)
    */
   recordBatch(size: number, duration: number): void;
 
   /**
-   * 记录跳过的渲染
+   * Record a skipped render
    *
-   * @param entityType - 实体类型
-   * @param reason - 跳过原因
+   * @param entityType - Entity type
+   * @param reason - Reason for skipping
    */
   recordSkipped(entityType: string, reason: string): void;
 }
 
 /**
- * 创建渲染 Metrics 记录器
+ * Create a render metrics recorder
  *
  * @remarks
- * 提供统一的 metrics 收集接口，简化渲染器中的 metrics 代码。
- * 所有渲染器都应使用此工具来收集性能指标。
+ * Provides a unified metrics collection interface to simplify metrics code in renderers.
+ * All renderers should use this utility to collect performance metrics.
  *
- * @param meter - ScopedMeter 实例
- * @returns RenderMetricsRecorder 实例
+ * @param meter - ScopedMeter instance
+ * @returns RenderMetricsRecorder instance
  *
  * @example
  * ```typescript
@@ -86,7 +86,7 @@ export interface RenderMetricsRecorder {
  *   render(entity: IEntity): void {
  *     const endRecord = this.metricsRecorder.recordRenderStart(entity.id, entity.type);
  *     try {
- *       // 渲染逻辑
+ *       // Rendering logic
  *     } finally {
  *       endRecord();
  *     }
@@ -131,13 +131,13 @@ export function createRenderMetricsRecorder(meter: ScopedMeter): RenderMetricsRe
 }
 
 /**
- * 批量渲染辅助函数
- * 自动测量耗时并记录 metrics
+ * Batch rendering helper function
+ * Automatically measures duration and records metrics
  *
- * @param recorder - Metrics 记录器
- * @param entities - 要渲染的实体数组
- * @param renderFn - 渲染函数
- * @returns 渲染结果数组
+ * @param recorder - Metrics recorder
+ * @param entities - Array of entities to render
+ * @param renderFn - Render function
+ * @returns Array of rendering results
  *
  * @example
  * ```typescript

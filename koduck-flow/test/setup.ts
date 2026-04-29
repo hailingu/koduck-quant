@@ -1,6 +1,6 @@
 /**
- * Vitest 测试环境设置
- * 提供浏览器 API 的 polyfills 和 mocks
+ * Vitest test environment setup
+ * Provides browser API polyfills and mocks
  */
 
 import "@testing-library/jest-dom";
@@ -26,7 +26,7 @@ class MockCanvasRenderingContext2D {
     style: {},
   };
 
-  // 绘图方法
+  // Drawing methods
   fillRect = vi.fn();
   clearRect = vi.fn();
   strokeRect = vi.fn();
@@ -57,7 +57,7 @@ class MockCanvasRenderingContext2D {
   fillText = vi.fn();
   strokeText = vi.fn();
 
-  // 样式属性
+  // Style properties
   fillStyle = "#000000";
   strokeStyle = "#000000";
   lineWidth = 1;
@@ -266,7 +266,7 @@ let mockTime = 0;
 
 Object.defineProperty(performance, "now", {
   value: vi.fn(() => {
-    mockTime += Math.random() * 2 + 0.1; // 模拟0.1-2.1ms的随机执行时间
+    mockTime += Math.random() * 2 + 0.1; // simulate random execution time of 0.1-2.1ms
     return mockTime;
   }),
   writable: true,
