@@ -29,6 +29,27 @@ interface PersistedConversationFlowState {
   updatedAt: number;
 }
 
+interface ConversationFlowHistorySnapshot {
+  flowSpec: ConversationFlowSpec;
+  manualNodePositions: Record<string, ConversationFlowNodePosition>;
+  createdEdges: IFlowEdgeEntityData[];
+  deletedEdgeIds: string[];
+}
+
+function isEditableEventTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  return (
+    target.isContentEditable ||
+    Boolean(target.closest("[contenteditable=''], [contenteditable='true']")) ||
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement
+  );
+}
+
 function normalizeNodeStatus(value: unknown, fallback: PlanNodeStatus): PlanNodeStatus {
   return value === "pending" ||
     value === "running" ||
@@ -482,6 +503,9 @@ export function ConversationKoduckFlowCanvas({
   );
   const [fullscreen, setFullscreen] = useState(false);
   const fullscreenHistoryActiveRef = useRef(false);
+  const undoStackRef = useRef<ConversationFlowHistorySnapshot[]>([]);
+  const redoStackRef = useRef<ConversationFlowHistorySnapshot[]>([]);
+  const activeNodeDragUndoRef = useRef<{ nodeId: string; cleanup: () => void } | null>(null);
   const layoutMode: ConversationFlowLayoutMode =
     Object.keys(manualNodePositions).length > 0 || deletedEdgeIds.size > 0 || createdEdges.length > 0
       ? "manual"
@@ -519,11 +543,52 @@ export function ConversationKoduckFlowCanvas({
   const selectedStep =
     flowSpec.steps.find((step) => step.id === editingStepId) ?? null;
 
+  const createHistorySnapshot = (): ConversationFlowHistorySnapshot => ({
+    flowSpec,
+    manualNodePositions,
+    createdEdges,
+    deletedEdgeIds: Array.from(deletedEdgeIds),
+  });
+
+  const restoreHistorySnapshot = (snapshot: ConversationFlowHistorySnapshot) => {
+    setFlowSpec(snapshot.flowSpec);
+    setManualNodePositions(snapshot.manualNodePositions);
+    setCreatedEdges(snapshot.createdEdges);
+    setDeletedEdgeIds(new Set(snapshot.deletedEdgeIds));
+  };
+
+  const pushUndoSnapshot = () => {
+    undoStackRef.current = [...undoStackRef.current.slice(-49), createHistorySnapshot()];
+    redoStackRef.current = [];
+  };
+
+  const undoConversationFlowEdit = () => {
+    const snapshot = undoStackRef.current.pop();
+    if (!snapshot) {
+      return;
+    }
+
+    redoStackRef.current.push(createHistorySnapshot());
+    restoreHistorySnapshot(snapshot);
+  };
+
+  const redoConversationFlowEdit = () => {
+    const snapshot = redoStackRef.current.pop();
+    if (!snapshot) {
+      return;
+    }
+
+    undoStackRef.current.push(createHistorySnapshot());
+    restoreHistorySnapshot(snapshot);
+  };
+
   useEffect(() => {
     if (specSignature === sourceSpecSignature && storageKey === sourceStorageKey) {
       return;
     }
 
+    undoStackRef.current = [];
+    redoStackRef.current = [];
     const persistedState = readStoredConversationFlowState(storageKey, specSignature);
     setSourceSpecSignature(specSignature);
     setSourceStorageKey(storageKey);
@@ -546,6 +611,37 @@ export function ConversationKoduckFlowCanvas({
     setSelectedEdgeId(null);
     setEditingStepId(null);
   }, [sourceSpecSignature, sourceStorageKey, spec, specSignature, storageKey]);
+
+  useEffect(
+    () => () => {
+      activeNodeDragUndoRef.current?.cleanup();
+      activeNodeDragUndoRef.current = null;
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (isEditableEventTarget(event.target) || (!event.ctrlKey && !event.metaKey)) {
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+      if (key !== "z" && key !== "y") {
+        return;
+      }
+
+      event.preventDefault();
+      if (key === "y" || event.shiftKey) {
+        redoConversationFlowEdit();
+        return;
+      }
+      undoConversationFlowEdit();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  });
 
   useEffect(() => {
     const currentNodeIds = new Set(flowSpec.steps.map((step) => step.id));
@@ -617,6 +713,7 @@ export function ConversationKoduckFlowCanvas({
       return;
     }
 
+    pushUndoSnapshot();
     setFlowSpec((prev) => ({
       ...prev,
       steps: prev.steps.map((step) =>
@@ -641,6 +738,23 @@ export function ConversationKoduckFlowCanvas({
   };
 
   const handleNodeMove = (nodeId: string, position: { x: number; y: number }) => {
+    if (activeNodeDragUndoRef.current?.nodeId !== nodeId) {
+      activeNodeDragUndoRef.current?.cleanup();
+      pushUndoSnapshot();
+
+      const cleanup = () => {
+        window.removeEventListener("pointerup", cleanup);
+        window.removeEventListener("pointercancel", cleanup);
+        if (activeNodeDragUndoRef.current?.nodeId === nodeId) {
+          activeNodeDragUndoRef.current = null;
+        }
+      };
+
+      activeNodeDragUndoRef.current = { nodeId, cleanup };
+      window.addEventListener("pointerup", cleanup);
+      window.addEventListener("pointercancel", cleanup);
+    }
+
     setManualNodePositions((prev) => ({
       ...prev,
       [nodeId]: position,
@@ -648,6 +762,7 @@ export function ConversationKoduckFlowCanvas({
   };
 
   const handleEdgeDelete = (edgeId: string) => {
+    pushUndoSnapshot();
     setDeletedEdgeIds((prev) => new Set(prev).add(edgeId));
     setSelectedEdgeId(null);
   };
@@ -658,7 +773,29 @@ export function ConversationKoduckFlowCanvas({
     targetNodeId: string,
     targetPortId: string,
   ) => {
+    pushUndoSnapshot();
     const edgeId = `${sourceNodeId}:${sourcePortId}->${targetNodeId}:${targetPortId}`;
+    const baseEdgeId = `${sourceNodeId}->${targetNodeId}`;
+    const sourceStepIndex = flowSpec.steps.findIndex((step) => step.id === sourceNodeId);
+    const isBaseGraphEdge =
+      sourcePortId === "out" &&
+      targetPortId === "in" &&
+      sourceStepIndex >= 0 &&
+      flowSpec.steps[sourceStepIndex + 1]?.id === targetNodeId;
+
+    if (isBaseGraphEdge) {
+      setDeletedEdgeIds((prev) => {
+        if (!prev.has(baseEdgeId)) {
+          return prev;
+        }
+        const next = new Set(prev);
+        next.delete(baseEdgeId);
+        return next;
+      });
+      setSelectedEdgeId(baseEdgeId);
+      return;
+    }
+
     setCreatedEdges((prev) => {
       if (prev.some((edge) => edge.id === edgeId)) {
         return prev;

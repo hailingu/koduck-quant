@@ -1,4 +1,4 @@
-import { Check, Copy, Trash2 } from "lucide-react";
+import { Check, Copy, MessageSquareQuote, Trash2 } from "lucide-react";
 import { MarkdownMessage } from "./MarkdownMessage";
 import { StreamingPlaceholder } from "./StreamingPlaceholder";
 import type { Message } from "./types";
@@ -9,6 +9,7 @@ interface MessageListProps {
   copiedMessageId: string | null;
   deletingMessageId: string | null;
   messagesEndRef: React.RefObject<HTMLDivElement>;
+  onQuote: (message: Message) => void;
   onCopy: (trigger: HTMLButtonElement, messageId: string, fallbackContent: string) => void;
   onDelete: (message: Message) => void;
 }
@@ -92,6 +93,7 @@ export function MessageList({
   copiedMessageId,
   deletingMessageId,
   messagesEndRef,
+  onQuote,
   onCopy,
   onDelete,
 }: MessageListProps) {
@@ -116,6 +118,16 @@ export function MessageList({
                   data-copy-actions="true"
                   className="flex shrink-0 items-center gap-1.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
                 >
+                  <button
+                    aria-label="引用消息"
+                    className="p-1 text-gray-400 transition-colors hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40"
+                    disabled={!message.content.trim()}
+                    onClick={() => onQuote(message)}
+                    title="引用"
+                    type="button"
+                  >
+                    <MessageSquareQuote className="h-3.5 w-3.5" />
+                  </button>
                   <button
                     aria-label="复制消息"
                     className="p-1 text-gray-400 transition-colors hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40"

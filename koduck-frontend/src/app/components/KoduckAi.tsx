@@ -68,6 +68,7 @@ export function KoduckAi() {
   const dragCounterRef = useRef(0);
   const copyFeedbackTimeoutRef = useRef<number | null>(null);
   const currentSessionIdRef = useRef<string | null>(currentSessionId);
+  const activeChatAbortControllerRef = useRef<AbortController | null>(null);
   const skipNextSessionRestoreRef = useRef(false);
   const draftBeforePromptHistoryRef = useRef("");
   const createSessionId = () => crypto.randomUUID();
@@ -463,6 +464,36 @@ export function KoduckAi() {
     }
   };
 
+  const quoteMessage = (message: Message) => {
+    const normalizedContent = normalizeCopyContent(message.content);
+    if (!normalizedContent) {
+      return;
+    }
+
+    const quotedText = normalizedContent
+      .split("\n")
+      .map((line) => `> ${line}`)
+      .join("\n");
+    const nextMessage = chatMessage.trim()
+      ? `${chatMessage.trimEnd()}\n\n${quotedText}\n\n`
+      : `${quotedText}\n\n`;
+
+    setPromptHistoryIndex(null);
+    draftBeforePromptHistoryRef.current = "";
+    setChatMessage(nextMessage);
+
+    window.requestAnimationFrame(() => {
+      const target = chatInputRef.current;
+      if (!target) {
+        return;
+      }
+      target.focus();
+      resizeChatInput(target);
+      const cursorPosition = target.value.length;
+      target.setSelectionRange(cursorPosition, cursorPosition);
+    });
+  };
+
   const deleteMessage = async (message: Message) => {
     if (message.streaming) {
       return;
@@ -573,6 +604,7 @@ export function KoduckAi() {
     setSending(true);
     const localRequestId = `web-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const abortController = new AbortController();
+    activeChatAbortControllerRef.current = abortController;
     let shouldAbortRequest = true;
     const requestTimeoutId = window.setTimeout(() => {
       abortController.abort("chat stream request timeout");
@@ -788,6 +820,29 @@ export function KoduckAi() {
       await syncSessionMessagesFromMemory(sessionId);
       shouldAbortRequest = false;
     } catch (error) {
+      if (
+        abortController.signal.aborted &&
+        abortController.signal.reason === "chat stream user stopped"
+      ) {
+        logStreamTrace(localRequestId, "request_stopped_by_user", {
+          sessionId,
+          upstreamRequestId,
+          sequenceNum: lastSequenceNum,
+          totalLength: streamedText.length,
+        });
+        updateAssistantMessage(assistantMessageId, (prev) => ({
+          ...prev,
+          content: streamedText.trim()
+            ? `${streamedText}\n\n已终止生成。`
+            : "已终止本轮请求。",
+          timestamp: prev.timestamp || Date.now(),
+          streaming: false,
+          type: "text",
+        }));
+        shouldAbortRequest = false;
+        return;
+      }
+
       if (isAuthExpiredError(error)) {
         updateAssistantMessage(assistantMessageId, (prev) => ({
           ...prev,
@@ -859,8 +914,15 @@ export function KoduckAi() {
       if (shouldAbortRequest && !abortController.signal.aborted) {
         abortController.abort("chat stream cleanup");
       }
+      if (activeChatAbortControllerRef.current === abortController) {
+        activeChatAbortControllerRef.current = null;
+      }
       setSending(false);
     }
+  };
+
+  const handleStopMessage = () => {
+    activeChatAbortControllerRef.current?.abort("chat stream user stopped");
   };
 
   const getAIResponse = (message: string): string => {
@@ -986,6 +1048,7 @@ export function KoduckAi() {
       onModelChange={setSelectedModel}
       onRemoveFile={removeFile}
       onSend={() => void handleSendMessage()}
+      onStop={handleStopMessage}
     />
   );
 
@@ -1066,6 +1129,7 @@ export function KoduckAi() {
               copiedMessageId={copiedMessageId}
               deletingMessageId={deletingMessageId}
               messagesEndRef={messagesEndRef}
+              onQuote={quoteMessage}
               onCopy={(trigger, messageId, content) => {
                 void copyMessage(trigger, messageId, content);
               }}

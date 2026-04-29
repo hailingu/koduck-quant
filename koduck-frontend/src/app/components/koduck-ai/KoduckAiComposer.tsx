@@ -1,5 +1,5 @@
 import { type RefObject } from "react";
-import { ArrowUp, ChevronDown, FileText, Mic, Paperclip, X } from "lucide-react";
+import { ArrowUp, ChevronDown, FileText, Mic, Paperclip, Square, X } from "lucide-react";
 import type { LlmOptionsConfig, LlmProvider, UploadedFile } from "./types";
 
 interface KoduckAiComposerProps {
@@ -17,6 +17,7 @@ interface KoduckAiComposerProps {
   onModelChange: (model: string) => void;
   onRemoveFile: (fileId: string) => void;
   onSend: () => void;
+  onStop: () => void;
 }
 
 export function KoduckAiComposer({
@@ -34,6 +35,7 @@ export function KoduckAiComposer({
   onModelChange,
   onRemoveFile,
   onSend,
+  onStop,
 }: KoduckAiComposerProps) {
   return (
     <div className="rounded-[32px] border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
@@ -129,18 +131,32 @@ export function KoduckAiComposer({
           >
             <Mic className="h-4 w-4" />
           </button>
-          <button
-            onClick={onSend}
-            disabled={!chatMessage.trim() || sending}
-            type="button"
-            className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
-              chatMessage.trim() && !sending
-                ? "bg-gray-700 text-white hover:bg-gray-800"
-                : "cursor-not-allowed bg-gray-200 text-gray-400"
-            }`}
-          >
-            <ArrowUp className="h-4 w-4" />
-          </button>
+          {sending ? (
+            <button
+              onClick={onStop}
+              type="button"
+              aria-label="终止本轮请求"
+              title="终止"
+              className="koduck-stop-button flex h-8 w-8 items-center justify-center rounded-full bg-red-600 text-white transition-colors hover:bg-red-700"
+            >
+              <Square className="h-3 w-3 fill-current" />
+            </button>
+          ) : (
+            <button
+              onClick={onSend}
+              disabled={!chatMessage.trim()}
+              type="button"
+              aria-label="发送消息"
+              title="发送"
+              className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
+                chatMessage.trim()
+                  ? "bg-gray-700 text-white hover:bg-gray-800"
+                  : "cursor-not-allowed bg-gray-200 text-gray-400"
+              }`}
+            >
+              <ArrowUp className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -31,6 +31,7 @@ interface UsePortConnectionDragOptions {
     targetPortId: string
   ) => void;
   screenEventToCanvasPosition: (event: PointerEvent) => Position | null;
+  getEndpointFromPointerEvent?: (event: PointerEvent) => FlowCanvasPortEndpoint | null;
 }
 
 /**
@@ -44,6 +45,7 @@ export function usePortConnectionDrag({
   validateConnection,
   onEdgeCreate,
   screenEventToCanvasPosition,
+  getEndpointFromPointerEvent,
 }: UsePortConnectionDragOptions) {
   const [hoveredPortKey, setHoveredPortKey] = useState<string | null>(null);
   const [connectionDraft, setConnectionDraft] = useState<PortConnectionDraft | null>(null);
@@ -168,16 +170,31 @@ export function usePortConnectionDrag({
       if (!pointer) {
         return;
       }
-      setConnectionDraft((prev) => (prev ? { ...prev, pointer } : prev));
+      const target = getEndpointFromPointerEvent?.(event) ?? null;
+      setHoveredPortKey(target ? `${target.nodeId}:${target.portId}` : null);
+      setConnectionDraft((prev) =>
+        prev
+          ? {
+              ...prev,
+              pointer,
+              target,
+              validation: target
+                ? validatePortConnection(prev.source, target)
+                : { valid: true },
+            }
+          : prev
+      );
     };
 
-    const handlePointerUp = () => {
+    const handlePointerUp = (event: PointerEvent) => {
       setConnectionDraft((prev) => {
-        if (prev?.target) {
-          completePortConnection(prev.source, prev.target);
+        const target = getEndpointFromPointerEvent?.(event) ?? prev?.target ?? null;
+        if (prev && target) {
+          completePortConnection(prev.source, target);
         }
         return null;
       });
+      setHoveredPortKey(null);
     };
 
     globalThis.addEventListener("pointermove", handlePointerMove);
@@ -188,7 +205,13 @@ export function usePortConnectionDrag({
       globalThis.removeEventListener("pointerup", handlePointerUp);
       globalThis.removeEventListener("pointercancel", handlePointerUp);
     };
-  }, [completePortConnection, connectionDraft, screenEventToCanvasPosition]);
+  }, [
+    completePortConnection,
+    connectionDraft,
+    getEndpointFromPointerEvent,
+    screenEventToCanvasPosition,
+    validatePortConnection,
+  ]);
 
   return {
     hoveredPortKey,

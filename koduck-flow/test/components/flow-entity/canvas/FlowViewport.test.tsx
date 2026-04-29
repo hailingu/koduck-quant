@@ -513,6 +513,41 @@ describe("FlowViewport", () => {
       expect(viewport).toHaveAttribute("data-panning", "true");
     });
 
+    it("starts panning on right mouse button down", () => {
+      const onPanStart = vi.fn();
+      render(
+        <FlowViewport onPanStart={onPanStart}>
+          <div>Content</div>
+        </FlowViewport>
+      );
+
+      const viewport = screen.getByTestId("flow-viewport");
+
+      act(() => {
+        fireEvent.mouseDown(viewport, {
+          button: 2,
+          clientX: 100,
+          clientY: 100,
+        });
+      });
+
+      expect(onPanStart).toHaveBeenCalled();
+      expect(viewport).toHaveAttribute("data-panning", "true");
+    });
+
+    it("suppresses the context menu while right-button panning is enabled", () => {
+      render(
+        <FlowViewport>
+          <div>Content</div>
+        </FlowViewport>
+      );
+
+      const viewport = screen.getByTestId("flow-viewport");
+      const prevented = !fireEvent.contextMenu(viewport);
+
+      expect(prevented).toBe(true);
+    });
+
     it("pans viewport on mouse move during pan mode", () => {
       const onViewportChange = vi.fn();
       render(

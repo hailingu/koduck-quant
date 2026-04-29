@@ -1863,13 +1863,38 @@ fn flow_canvas_output_requested(request: &ChatRequest) -> bool {
     request_execution_intent(request).presentation == PresentationIntent::FlowCanvas
 }
 
+fn request_mentions_memory_entries(request: &ChatRequest) -> bool {
+    let message = request.message.to_lowercase();
+    [
+        "memory entry",
+        "memory entries",
+        "memory_entry",
+        "memory_entries",
+        "聊天 memory",
+        "会话 memory",
+        "当前 memory",
+        "memory 条目",
+        "memory 记录",
+        "记忆条目",
+        "记忆记录",
+        "当前会话记忆",
+        "聊天记忆",
+    ]
+    .iter()
+    .any(|needle| message.contains(needle))
+}
+
 fn memory_entry_flow_requested(request: &ChatRequest) -> bool {
     if !plan_canvas_enabled(request) {
         return false;
     }
 
     let intent = request_execution_intent(request);
-    intent.target == TargetIntent::Memory && intent.presentation == PresentationIntent::FlowCanvas
+    if intent.presentation != PresentationIntent::FlowCanvas {
+        return false;
+    }
+
+    intent.target == TargetIntent::Memory || request_mentions_memory_entries(request)
 }
 
 fn parse_execution_intent_response(content: &str) -> ExecutionIntent {
@@ -3764,9 +3789,10 @@ fn api_error_response(err: AppError, request_id: String) -> Response {
 #[cfg(test)]
 mod tests {
     use super::{
-        extract_entity_like_query, resolve_knowledge_query, ChatHistoryMessage, ChatRequest,
-        QueryKnowledgeToolArgs,
+        extract_entity_like_query, memory_entry_flow_requested, resolve_knowledge_query,
+        ChatHistoryMessage, ChatRequest, QueryKnowledgeToolArgs,
     };
+    use serde_json::json;
 
     #[test]
     fn extract_entity_like_query_rejects_generic_follow_up() {
@@ -3813,5 +3839,30 @@ mod tests {
             resolve_knowledge_query(&request, &QueryKnowledgeToolArgs::default()),
             Some("威廉".to_string())
         );
+    }
+
+    #[test]
+    fn memory_entry_flow_request_does_not_depend_on_classifier_target() {
+        let request = ChatRequest {
+            session_id: None,
+            message: "以flow 的模式显示现在的我们聊天的 memory entry".to_string(),
+            history: None,
+            provider: None,
+            model: None,
+            temperature: None,
+            max_tokens: None,
+            retrieve_policy: None,
+            metadata: Some(
+                [
+                    ("enablePlanCanvas".to_string(), json!(true)),
+                    ("targetIntent".to_string(), json!("conversation")),
+                    ("presentationIntent".to_string(), json!("flow_canvas")),
+                ]
+                .into_iter()
+                .collect(),
+            ),
+        };
+
+        assert!(memory_entry_flow_requested(&request));
     }
 }

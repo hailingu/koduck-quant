@@ -586,8 +586,8 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
     (e: React.PointerEvent) => {
       if (!enablePan) return;
 
-      // Middle mouse button (button = 1)
-      if (e.button === 1) {
+      // Middle mouse button (button = 1) or right mouse button (button = 2)
+      if (e.button === 1 || e.button === 2) {
         e.preventDefault();
         e.currentTarget.setPointerCapture?.(e.pointerId);
         startPan(e.clientX, e.clientY);
@@ -602,6 +602,17 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
       }
     },
     [enablePan, isPanKeyPressed, startPan]
+  );
+
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      if (!enablePan) {
+        return;
+      }
+
+      e.preventDefault();
+    },
+    [enablePan]
   );
 
   /**
@@ -824,6 +835,7 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerCancel}
+        onContextMenu={handleContextMenu}
         style={{
           position: "relative",
           width: "100%",

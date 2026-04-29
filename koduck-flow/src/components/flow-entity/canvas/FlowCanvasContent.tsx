@@ -359,6 +359,7 @@ export const CanvasContent: React.FC<FlowCanvasContentProps> = ({
 }) => {
   const viewport = useViewportOptional();
   const contentRef = useRef<HTMLDivElement>(null);
+  const portEndpointMapRef = useRef(new Map<string, FlowCanvasPortEndpoint>());
 
   useEffect(() => {
     const el = contentRef.current;
@@ -423,6 +424,16 @@ export const CanvasContent: React.FC<FlowCanvasContentProps> = ({
     },
     [viewport]
   );
+  const getEndpointFromPointerEvent = useCallback((event: PointerEvent) => {
+    const element = document.elementFromPoint(event.clientX, event.clientY);
+    const portElement = element?.closest<HTMLElement>("[data-flow-port-key]");
+    if (!portElement) {
+      return null;
+    }
+
+    const portKey = portElement.dataset.flowPortKey;
+    return portKey ? portEndpointMapRef.current.get(portKey) ?? null : null;
+  }, []);
   const renderModel = useMemo<FlowCanvasRenderModel>(
     () =>
       buildFlowCanvasRenderModel({
@@ -441,6 +452,19 @@ export const CanvasContent: React.FC<FlowCanvasContentProps> = ({
     onRenderModelChange?.(renderModel);
   }, [onRenderModelChange, renderModel]);
 
+  useEffect(() => {
+    const next = new Map<string, FlowCanvasPortEndpoint>();
+    for (const { key, node, port, position } of renderModel.ports) {
+      next.set(key, {
+        nodeId: node.id,
+        portId: port.id,
+        port,
+        position,
+      });
+    }
+    portEndpointMapRef.current = next;
+  }, [renderModel.ports]);
+
   const {
     hoveredPortKey,
     connectionDraft,
@@ -453,6 +477,7 @@ export const CanvasContent: React.FC<FlowCanvasContentProps> = ({
   } = usePortConnectionDrag({
     edges,
     screenEventToCanvasPosition,
+    getEndpointFromPointerEvent,
     ...(portConfig === undefined ? {} : { portConfig }),
     ...(validateConnection === undefined ? {} : { validateConnection }),
     ...(onEdgeCreate === undefined ? {} : { onEdgeCreate }),
@@ -705,6 +730,7 @@ export const CanvasContent: React.FC<FlowCanvasContentProps> = ({
                   <button
                     key={portKey}
                     type="button"
+                    data-flow-port-key={portKey}
                     data-port-id={port.id}
                     data-node-id={node.id}
                     data-port-direction={port.type}
@@ -737,7 +763,6 @@ export const CanvasContent: React.FC<FlowCanvasContentProps> = ({
                       }
                       event.preventDefault();
                       event.stopPropagation();
-                      event.currentTarget.setPointerCapture?.(event.pointerId);
                       beginConnection(endpoint);
                     }}
                     onPointerUp={(event) => {

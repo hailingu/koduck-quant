@@ -1,6 +1,6 @@
 import type { Message } from "./types";
 
-export const MAX_HISTORY_MESSAGES = 5;
+export const MAX_HISTORY_MESSAGES = 20;
 const MAX_PROMPT_HISTORY_ENTRIES = 100;
 const ACTIVE_SESSION_STORAGE_KEY = "koduck.ai.activeSessionId";
 const SESSION_MESSAGES_STORAGE_PREFIX = "koduck.ai.sessionMessages";
