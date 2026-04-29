@@ -36,9 +36,6 @@ export class EventManager<T = unknown> {
   /** 实体更新事件 */
   public readonly updated = new EntityUpdateEvent<T>();
 
-  constructor() {
-    // 初始化事件实例
-  }
   /**
    * 为所有管理的事件设置调试模式
    */
@@ -67,10 +64,7 @@ export class EventManager<T = unknown> {
       Pick<EventConfiguration, "batchSize" | "batchInterval" | "enableBatching">
     >
   ): this {
-    this.added.updateConfiguration(config);
-    this.removed.updateConfiguration(config);
-    this.updated.updateConfiguration(config);
-    return this;
+    return this.configureAll(config);
   }
 
   /**
