@@ -9,7 +9,7 @@
 import React, { useMemo, type CSSProperties, type ReactNode } from "react";
 import { useFlowEntityContext } from "../context";
 import { useExecutionStateOptional } from "../hooks";
-import type { ExecutionState, FlowNodeTheme} from "../types";
+import type { ExecutionState, FlowNodeTheme } from "../types";
 
 // =============================================================================
 // Constants
