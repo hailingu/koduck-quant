@@ -430,10 +430,10 @@ export class FlowGraphAST implements IFlowGraphAST {
     return this.withWriteLock(() => {
       const node = this.nodes.get(nodeId);
       if (!node) return false;
-      for (const parentId of [...node.parents]) {
+      for (const parentId of node.parents) {
         this.detachChild(parentId, nodeId);
       }
-      for (const childLink of [...node.children.values()]) {
+      for (const childLink of node.children.values()) {
         this.detachChild(nodeId, childLink.targetId);
       }
       this.nodes.delete(nodeId);
@@ -873,6 +873,7 @@ export class FlowGraphAST implements IFlowGraphAST {
     const visited = new Set<string>();
     const queue: string[] = [...this.roots];
     const start = performance.now();
+    const dequeue = strategy === "dfs" ? () => queue.pop()! : () => queue.shift()!;
 
     const push = (id: string) => {
       if (!allowRepeat && visited.has(id)) return;
@@ -880,7 +881,7 @@ export class FlowGraphAST implements IFlowGraphAST {
     };
 
     while (queue.length > 0) {
-      const nodeId = strategy === "dfs" ? queue.pop()! : queue.shift()!;
+      const nodeId = dequeue();
       if (!allowRepeat && visited.has(nodeId)) continue;
       visited.add(nodeId);
       const node = this.nodes.get(nodeId);

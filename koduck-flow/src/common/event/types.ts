@@ -35,17 +35,13 @@ export interface PayloadDedupeConfig {
  * 事件监听器函数接口
  * @template T 事件数据类型
  */
-export interface IEventListener<T> {
-  (args: T): void;
-}
+export type IEventListener<T> = (args: T) => void;
 
 /**
  * 事件注册函数接口
  * @template T 事件数据类型
  */
-export interface IEvent<T> {
-  (listener: IEventListener<T>): () => void;
-}
+export type IEvent<T> = (listener: IEventListener<T>) => () => void;
 
 /**
  * 事件系统配置接口

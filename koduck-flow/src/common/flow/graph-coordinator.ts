@@ -547,14 +547,19 @@ export class FlowGraphCoordinator<
       if (!source?.nodeId) continue;
       for (const target of targets) {
         if (!target?.nodeId) continue;
-        const links = this.graph.getChildren(source.nodeId);
-        for (const link of links) {
-          if (link.targetId !== target.nodeId) continue;
-          const edgeId = link.metadata?.edgeId;
-          if (!edgeId || edgeId === edgeEntity.id) {
-            this.graph.detachChild(source.nodeId, target.nodeId);
-          }
-        }
+        this.detachEdgePair(source.nodeId, target.nodeId, edgeEntity.id);
+      }
+    }
+  }
+
+  private detachEdgePair(sourceId: string, targetId: string, edgeEntityId: string): void {
+    if (!this.graph) return;
+    const links = this.graph.getChildren(sourceId);
+    for (const link of links) {
+      if (link.targetId !== targetId) continue;
+      const edgeId = link.metadata?.edgeId;
+      if (!edgeId || edgeId === edgeEntityId) {
+        this.graph.detachChild(sourceId, targetId);
       }
     }
   }
