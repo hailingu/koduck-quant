@@ -106,8 +106,9 @@ export interface EdgePathProps {
 
 /**
  * Calculates a straight line path
- * @param source
- * @param target
+ * @param source Source position
+ * @param target Target position
+ * @returns SVG path string for a straight line
  */
 function calculateStraightPath(source: Position, target: Position): string {
   return `M ${source.x} ${source.y} L ${target.x} ${target.y}`;
@@ -116,9 +117,10 @@ function calculateStraightPath(source: Position, target: Position): string {
 /**
  * Calculates a bezier curve path
  * Uses horizontal control points for smooth curves
- * @param source
- * @param target
- * @param curvature
+ * @param source Source position
+ * @param target Target position
+ * @param curvature Curvature factor (0 to 1)
+ * @returns SVG path string for a bezier curve
  */
 function calculateBezierPath(source: Position, target: Position, curvature: number = 0.5): string {
   const dx = target.x - source.x;
@@ -135,8 +137,9 @@ function calculateBezierPath(source: Position, target: Position, curvature: numb
 
 /**
  * Calculates a step path (rectangular path with 90-degree angles)
- * @param source
- * @param target
+ * @param source Source position
+ * @param target Target position
+ * @returns SVG path string for a step path
  */
 function calculateStepPath(source: Position, target: Position): string {
   const midX = (source.x + target.x) / 2;
@@ -146,9 +149,10 @@ function calculateStepPath(source: Position, target: Position): string {
 
 /**
  * Calculates a smooth step path (step path with rounded corners)
- * @param source
- * @param target
- * @param borderRadius
+ * @param source Source position
+ * @param target Target position
+ * @param borderRadius Border radius for rounded corners
+ * @returns SVG path string for a smooth step path
  */
 function calculateSmoothStepPath(
   source: Position,
@@ -187,10 +191,11 @@ function calculateSmoothStepPath(
 
 /**
  * Calculates path based on path type
- * @param source
- * @param target
- * @param pathType
- * @param pathConfig
+ * @param source Source position
+ * @param target Target position
+ * @param pathType Type of path to calculate (straight, bezier, step, smoothstep)
+ * @param pathConfig Optional configuration for path calculation (e.g., curvature, borderRadius)
+ * @returns SVG path string for the calculated path
  */
 export function calculatePath(
   source: Position,

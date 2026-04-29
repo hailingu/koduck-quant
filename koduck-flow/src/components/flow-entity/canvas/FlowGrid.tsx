@@ -75,6 +75,8 @@ export const DEFAULT_GRID_PATTERN: GridPattern = {
  * FlowGrid renders a background grid pattern for the canvas.
  * The grid pattern adjusts based on viewport position and zoom level.
  *
+ * @returns The grid overlay div element, or null when `visible` is false.
+ *
  * @example
  * ```tsx
  * <FlowGrid

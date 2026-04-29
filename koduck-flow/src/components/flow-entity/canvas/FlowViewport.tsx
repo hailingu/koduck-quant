@@ -172,6 +172,7 @@ ViewportContext.displayName = "ViewportContext";
 
 /**
  * Hook to access viewport context
+ * @returns The current {@link ViewportContextValue} from the nearest FlowViewport provider.
  * @throws Error if used outside of FlowViewport
  */
 export function useViewport(): ViewportContextValue {
@@ -198,6 +199,9 @@ export function useViewportOptional(): ViewportContextValue | undefined {
  * FlowViewport provides viewport state management for the canvas.
  * It maintains translateX, translateY, and scale state, and exposes
  * methods for panning and zooming through context.
+ *
+ * @returns A container div that owns viewport interaction (wheel zoom, pointer pan)
+ * and provides {@link ViewportContextValue} to all descendant components.
  *
  * @example
  * ```tsx
@@ -250,13 +254,13 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
   );
 
   // Viewport state
-  const [viewport, setViewportState] = useState<ViewportState>(initialViewport);
+  const [viewportState, setViewportState] = useState<ViewportState>(initialViewport);
   const effectiveViewport = useMemo<ViewportState>(
     () => ({
-      ...viewport,
+      ...viewportState,
       ...controlledViewport,
     }),
-    [controlledViewport, viewport]
+    [controlledViewport, viewportState]
   );
 
   // Pan interaction state
@@ -330,8 +334,8 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
         const newScale = clampScale(prev.scale * factor);
         const actualFactor = newScale / prev.scale;
 
-        let newTranslateX = prev.translateX;
-        let newTranslateY = prev.translateY;
+        let newTranslateX: number;
+        let newTranslateY: number;
 
         // If focal point provided, zoom towards it
         if (focalPoint) {
@@ -566,7 +570,6 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
         e.preventDefault();
         e.currentTarget.setPointerCapture?.(e.pointerId);
         startPan(e.clientX, e.clientY);
-        return;
       }
     },
     [enablePan, isPanKeyPressed, startPan]
@@ -698,16 +701,16 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
-    window.addEventListener("pointerup", handleGlobalPointerUp);
-    window.addEventListener("pointercancel", handleGlobalPointerUp);
+    globalThis.addEventListener("keydown", handleKeyDown);
+    globalThis.addEventListener("keyup", handleKeyUp);
+    globalThis.addEventListener("pointerup", handleGlobalPointerUp);
+    globalThis.addEventListener("pointercancel", handleGlobalPointerUp);
 
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
-      window.removeEventListener("pointerup", handleGlobalPointerUp);
-      window.removeEventListener("pointercancel", handleGlobalPointerUp);
+      globalThis.removeEventListener("keydown", handleKeyDown);
+      globalThis.removeEventListener("keyup", handleKeyUp);
+      globalThis.removeEventListener("pointerup", handleGlobalPointerUp);
+      globalThis.removeEventListener("pointercancel", handleGlobalPointerUp);
     };
   }, [enablePan, panKey, panState.isPanning, endPan]);
 

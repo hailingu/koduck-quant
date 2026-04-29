@@ -92,9 +92,10 @@ export interface EdgeAnimationProps {
 
 /**
  * Get color for the current animation state
- * @param state
- * @param theme
- * @param customColor
+ * @param state The current animation state of the edge
+ * @param theme The edge theme configuration
+ * @param customColor Optional override color; takes precedence over theme and state colors.
+ * @returns The resolved CSS color string for the given state.
  */
 function getStateColor(
   state: EdgeAnimationState,
@@ -123,7 +124,8 @@ function getStateColor(
 
 /**
  * Get CSS class names for the animation state
- * @param state
+ * @param state The current animation state
+ * @returns A space-separated CSS class string combining the base and state-specific class names.
  */
 function getStateClassName(state: EdgeAnimationState): string {
   const baseClass = "flow-edge-animation";
@@ -134,7 +136,8 @@ function getStateClassName(state: EdgeAnimationState): string {
 
 /**
  * Calculate animation duration based on config
- * @param config
+ * @param config The edge animation configuration
+ * @returns The calculated animation duration in milliseconds
  */
 function getAnimationDuration(config: EdgeAnimationConfig): number {
   const speed = config.particleSpeed ?? DEFAULT_CONFIG.particleSpeed;
@@ -144,7 +147,8 @@ function getAnimationDuration(config: EdgeAnimationConfig): number {
 
 /**
  * Get stroke-dasharray for flowing animation
- * @param config
+ * @param config The edge animation configuration
+ * @returns The stroke-dasharray string for the SVG path
  */
 function getDashArray(config: EdgeAnimationConfig): string {
   const particleSize = config.particleSize ?? DEFAULT_CONFIG.particleSize;
