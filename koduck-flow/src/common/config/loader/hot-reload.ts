@@ -1,5 +1,5 @@
-import fs from "fs";
-import path from "path";
+import fs from "node:fs";
+import path from "node:path";
 import type { FSWatcher } from "node:fs";
 
 import { logger } from "../../logger";
@@ -17,10 +17,15 @@ const CONFIG_PATHS = [
   "./src/config/koduckflow.config.json",
 ];
 
+/**
+ * Enables configuration hot-reload by setting up a file watcher.
+ *
+ * @param state - Mutable hot-reload state object
+ */
 export function enableHotReloadImpl(state: HotReloadState): void {
   if (
     isBrowserEnv ||
-    (global as unknown as { __KODUCKFLOW_TEST_BROWSER_ENV?: boolean }).__KODUCKFLOW_TEST_BROWSER_ENV
+    (globalThis as unknown as { __KODUCKFLOW_TEST_BROWSER_ENV?: boolean }).__KODUCKFLOW_TEST_BROWSER_ENV
   )
     return;
   if (state.hotReloadEnabled) return;
@@ -30,6 +35,11 @@ export function enableHotReloadImpl(state: HotReloadState): void {
   logger.info("Hot reload enabled for configuration files");
 }
 
+/**
+ * Disables configuration hot-reload and cleans up the file watcher.
+ *
+ * @param state - Mutable hot-reload state object
+ */
 export function disableHotReloadImpl(state: HotReloadState): void {
   if (isBrowserEnv) return;
   if (!state.hotReloadEnabled) return;
