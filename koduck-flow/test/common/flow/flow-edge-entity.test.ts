@@ -9,7 +9,7 @@ import {
   FlowEdgeEntity,
   type IFlowEdgeEntityArguments,
 } from "../../../src/common/flow/flow-edge-entity";
-import type { EdgeAnimationState, PathType } from "../../../src/components/flow-entity/types";
+import type { EdgeAnimationState, PathType } from "../../../src/common/flow/model-types";
 
 describe("FlowEdgeEntity", () => {
   let entity: FlowEdgeEntity;

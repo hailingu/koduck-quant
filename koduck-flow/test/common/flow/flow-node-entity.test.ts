@@ -4,7 +4,7 @@
  * execution state, form data, and serialization.
  */
 
-import { describe, expect, it, beforeEach, vi } from "vitest";
+import { describe, expect, it, beforeEach } from "vitest";
 import {
   FlowNodeEntity,
   type IFlowNodeEntityArguments,
@@ -13,7 +13,7 @@ import type {
   ExecutionState,
   PortDefinition,
   FormSchema,
-} from "../../../src/components/flow-entity/types";
+} from "../../../src/common/flow/model-types";
 
 describe("FlowNodeEntity", () => {
   let entity: FlowNodeEntity;

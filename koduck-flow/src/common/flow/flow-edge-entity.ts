@@ -9,7 +9,7 @@
 
 import { nanoid } from "nanoid";
 import { Data } from "../data";
-import type { IEntityArguments } from "../entity/types";
+import type { IEntity, IEntityArguments } from "../entity/types";
 import type { IEdge, IFlowEdgeEntity } from "./types";
 import type {
   EdgeAnimationState,
@@ -18,7 +18,9 @@ import type {
   EdgeAnimationConfig,
   FlowEdgeTheme,
   IFlowEdgeEntityData,
-} from "./flow-entity-types";
+} from "./model-types";
+
+type FlowEdgeEntityDataRecord = IFlowEdgeEntityData & Data;
 
 /**
  * Default edge animation state
@@ -61,7 +63,9 @@ const DEFAULT_PATH_TYPE: PathType = "bezier";
  * edge.setTheme({ strokeColor: '#3b82f6', strokeWidth: 2 });
  * ```
  */
-export class FlowEdgeEntity<E extends IEdge = IEdge> implements IFlowEdgeEntity<E> {
+export class FlowEdgeEntity<E extends IEdge = IEdge>
+  implements IFlowEdgeEntity<E, IEntity<FlowEdgeEntityDataRecord>>
+{
   /**
    * Entity type identifier for registry
    */
@@ -80,7 +84,7 @@ export class FlowEdgeEntity<E extends IEdge = IEdge> implements IFlowEdgeEntity<
   /**
    * Entity data containing all edge properties
    */
-  private _data: IFlowEdgeEntityData;
+  private _data: FlowEdgeEntityDataRecord;
 
   /**
    * Entity configuration
@@ -135,7 +139,7 @@ export class FlowEdgeEntity<E extends IEdge = IEdge> implements IFlowEdgeEntity<
       ...(args?.animationConfig === undefined ? {} : { animationConfig: args.animationConfig }),
       ...(args?.theme === undefined ? {} : { theme: args.theme }),
       ...(args?.metadata === undefined ? {} : { metadata: args.metadata }),
-    }) as IFlowEdgeEntityData;
+    }) as unknown as FlowEdgeEntityDataRecord;
 
     this._config = args;
   }
@@ -149,7 +153,7 @@ export class FlowEdgeEntity<E extends IEdge = IEdge> implements IFlowEdgeEntity<
    *
    * @returns Entity data or undefined
    */
-  get data(): IFlowEdgeEntityData | undefined {
+  get data(): FlowEdgeEntityDataRecord | undefined {
     return this._data;
   }
 
@@ -160,7 +164,7 @@ export class FlowEdgeEntity<E extends IEdge = IEdge> implements IFlowEdgeEntity<
    */
   set data(value: IFlowEdgeEntityData | undefined) {
     if (!this._disposed && value) {
-      this._data = value;
+      this._data = value as FlowEdgeEntityDataRecord;
     }
   }
 

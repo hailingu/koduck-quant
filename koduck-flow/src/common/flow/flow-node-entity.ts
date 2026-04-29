@@ -9,7 +9,7 @@
 
 import { nanoid } from "nanoid";
 import { Data } from "../data";
-import type { IEntityArguments } from "../entity/types";
+import type { IEntity, IEntityArguments } from "../entity/types";
 import type { INode, IFlowNodeEntity } from "./types";
 import type {
   ExecutionState,
@@ -19,7 +19,9 @@ import type {
   Position,
   Size,
   IFlowNodeEntityData,
-} from "./flow-entity-types";
+} from "./model-types";
+
+type FlowNodeEntityDataRecord = IFlowNodeEntityData & Data;
 
 /**
  * Default node dimensions
@@ -62,7 +64,9 @@ const DEFAULT_EXECUTION_STATE: ExecutionState = "idle";
  * entity.setExecutionState('running');
  * ```
  */
-export class FlowNodeEntity<N extends INode = INode> implements IFlowNodeEntity<N> {
+export class FlowNodeEntity<N extends INode = INode>
+  implements IFlowNodeEntity<N, IEntity<FlowNodeEntityDataRecord>>
+{
   /**
    * Entity type identifier for registry
    */
@@ -81,7 +85,7 @@ export class FlowNodeEntity<N extends INode = INode> implements IFlowNodeEntity<
   /**
    * Entity data containing all node properties
    */
-  private _data: IFlowNodeEntityData;
+  private _data: FlowNodeEntityDataRecord;
 
   /**
    * Entity configuration
@@ -122,7 +126,7 @@ export class FlowNodeEntity<N extends INode = INode> implements IFlowNodeEntity<
       ...(args?.formSchema === undefined ? {} : { formSchema: args.formSchema }),
       ...(args?.theme === undefined ? {} : { theme: args.theme }),
       ...(args?.metadata === undefined ? {} : { metadata: args.metadata }),
-    }) as IFlowNodeEntityData;
+    }) as FlowNodeEntityDataRecord;
 
     this._config = args;
   }
@@ -136,7 +140,7 @@ export class FlowNodeEntity<N extends INode = INode> implements IFlowNodeEntity<
    *
    * @returns Entity data or undefined
    */
-  get data(): IFlowNodeEntityData | undefined {
+  get data(): FlowNodeEntityDataRecord | undefined {
     return this._data;
   }
 
@@ -147,7 +151,7 @@ export class FlowNodeEntity<N extends INode = INode> implements IFlowNodeEntity<
    */
   set data(value: IFlowNodeEntityData | undefined) {
     if (!this._disposed && value) {
-      this._data = value;
+      this._data = value as FlowNodeEntityDataRecord;
     }
   }
 

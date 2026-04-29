@@ -455,8 +455,8 @@ export const BaseFlowNode: React.FC<BaseFlowNodeProps> = React.memo(function Bas
   };
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
       className={
         `${className ?? ""}${isDragging ? " flow-node--dragging" : ""}${isResizing ? " flow-node--resizing" : ""}`.trim() ||
         undefined
@@ -473,9 +473,11 @@ export const BaseFlowNode: React.FC<BaseFlowNodeProps> = React.memo(function Bas
       data-disabled={isDisabled}
       data-dragging={isDragging}
       data-resizing={isResizing}
-      disabled={isDisabled}
+      tabIndex={isDisabled ? -1 : 0}
       aria-label={`Flow node: ${label}`}
+      aria-selected={effectiveIsSelected}
       aria-pressed={effectiveIsSelected}
+      aria-disabled={isDisabled}
     >
       {/* Header Region - using FlowNodeHeader sub-component */}
       <FlowNodeHeader
@@ -564,7 +566,7 @@ export const BaseFlowNode: React.FC<BaseFlowNodeProps> = React.memo(function Bas
           </div>
         </>
       )}
-    </button>
+    </div>
   );
 });
 
