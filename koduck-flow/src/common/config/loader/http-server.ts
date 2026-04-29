@@ -138,7 +138,7 @@ async function startHttpOverrideServer(
 
   server.listen(port, () => {
     const address = server.address();
-    const actualPort = address?.port ?? port;
+    const actualPort = typeof address === "object" && address !== null ? address.port : port;
     state.httpPort = actualPort;
     logger.info(
       `HTTP configuration overrides endpoint listening on port ${actualPort} at ${state.httpPath}`
