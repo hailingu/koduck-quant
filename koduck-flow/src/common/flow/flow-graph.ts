@@ -1061,35 +1061,7 @@ export class FlowGraphAST implements IFlowGraphAST {
     this.nodes.clear();
     this.roots.clear();
     for (const node of snapshot.nodes) {
-      const parents = new Set(node.parents ?? []);
-      const children = new Map<string, FlowGraphLink>();
-      const graphNode: FlowGraphNode = {
-        id: node.id,
-        parents,
-        children,
-      };
-      if (node.entityType !== undefined) {
-        graphNode.entityType = node.entityType;
-      }
-      if (node.data) {
-        graphNode.data = { ...node.data };
-      }
-      this.nodes.set(node.id, graphNode);
-      if (parents.size === 0) {
-        this.roots.add(node.id);
-      }
-      for (const child of node.children ?? []) {
-        const childLink: FlowGraphLink = {
-          id: child.linkId ?? createLinkId(node.id, child.childId),
-          sourceId: node.id,
-          targetId: child.childId,
-        };
-        const metadata = cloneMetadata(child.metadata);
-        if (metadata !== undefined) {
-          childLink.metadata = metadata;
-        }
-        children.set(child.childId, childLink);
-      }
+      this.loadSingleNode(node);
     }
     // rebuild parent links
     for (const node of this.nodes.values()) {
@@ -1101,6 +1073,38 @@ export class FlowGraphAST implements IFlowGraphAST {
           this.roots.delete(target.id);
         }
       }
+    }
+  }
+
+  private loadSingleNode(node: FlowGraphNodeSnapshot): void {
+    const parents = new Set(node.parents ?? []);
+    const children = new Map<string, FlowGraphLink>();
+    const graphNode: FlowGraphNode = {
+      id: node.id,
+      parents,
+      children,
+    };
+    if (node.entityType !== undefined) {
+      graphNode.entityType = node.entityType;
+    }
+    if (node.data) {
+      graphNode.data = { ...node.data };
+    }
+    this.nodes.set(node.id, graphNode);
+    if (parents.size === 0) {
+      this.roots.add(node.id);
+    }
+    for (const child of node.children ?? []) {
+      const childLink: FlowGraphLink = {
+        id: child.linkId ?? createLinkId(node.id, child.childId),
+        sourceId: node.id,
+        targetId: child.childId,
+      };
+      const metadata = cloneMetadata(child.metadata);
+      if (metadata !== undefined) {
+        childLink.metadata = metadata;
+      }
+      children.set(child.childId, childLink);
     }
   }
 

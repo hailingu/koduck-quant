@@ -79,7 +79,7 @@ export class RollbackManager {
     const snapshot: ConfigSnapshot = {
       id,
       timestamp,
-      config: JSON.parse(JSON.stringify(config)), // 深拷贝
+      config: structuredClone(config),
       metadata: {
         trigger: metadata?.trigger || "manual",
         checksum,

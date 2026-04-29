@@ -26,6 +26,12 @@ export function mergeConfigSources(
   return { mergedConfig: merged, conflicts };
 }
 
+type MergeContext = {
+  sourceName: ConfigSource;
+  conflicts: MergeConflict[];
+  leafOrigins: Map<string, { source: ConfigSource; value: unknown }>;
+};
+
 function mergeDeep(
   target: unknown,
   source: unknown,
@@ -49,6 +55,7 @@ function mergeDeep(
       ? (target as Record<string, unknown>)
       : {};
   const result: Record<string, unknown> = {};
+  const ctx: MergeContext = { sourceName, conflicts, leafOrigins };
 
   for (const key of Object.keys(baseObj)) {
     result[key] = cloneValue(baseObj[key]);
@@ -56,55 +63,63 @@ function mergeDeep(
 
   for (const key of Object.keys(sourceObj)) {
     const sourceValue = sourceObj[key];
-    if (sourceValue === undefined) {
-      continue;
-    }
+    if (sourceValue === undefined) continue;
 
     const currentPath = path ? `${path}.${key}` : key;
     const targetValue = result[key];
 
     if (isPlainObject(sourceValue)) {
-      const previous = leafOrigins.get(currentPath);
-      if (previous) {
-        leafOrigins.delete(currentPath);
-        if (!isPlainObject(targetValue) && !deepEqual(previous.value, sourceValue)) {
-          conflicts.push({
-            path: currentPath,
-            sources: [previous, { source: sourceName, value: cloneValue(sourceValue) }],
-            resolvedValue: cloneValue(sourceValue),
-            resolutionStrategy: "merge",
-          });
-        }
-      }
-
-      const nextTarget = isPlainObject(targetValue) ? targetValue : {};
-      result[key] = mergeDeep(
-        nextTarget,
-        sourceValue,
-        sourceName,
-        conflicts,
-        leafOrigins,
-        currentPath
-      );
-      continue;
+      result[key] = mergeObjectValue(sourceValue, targetValue, currentPath, ctx);
+    } else {
+      result[key] = mergeLeafValue(sourceValue, targetValue, currentPath, ctx);
     }
-
-    if (targetValue !== undefined && !deepEqual(targetValue, sourceValue)) {
-      const previous = leafOrigins.get(currentPath);
-      if (previous) {
-        conflicts.push({
-          path: currentPath,
-          sources: [previous, { source: sourceName, value: cloneValue(sourceValue) }],
-          resolvedValue: cloneValue(sourceValue),
-          resolutionStrategy: "override",
-        });
-      }
-    }
-
-    result[key] = assignLeaf(currentPath, sourceValue, sourceName, conflicts, leafOrigins);
   }
 
   return result;
+}
+
+function mergeObjectValue(
+  sourceValue: Record<string, unknown>,
+  targetValue: unknown,
+  currentPath: string,
+  ctx: MergeContext
+): unknown {
+  const { sourceName, conflicts, leafOrigins } = ctx;
+  const previous = leafOrigins.get(currentPath);
+  if (previous) {
+    leafOrigins.delete(currentPath);
+    if (!isPlainObject(targetValue) && !deepEqual(previous.value, sourceValue)) {
+      conflicts.push({
+        path: currentPath,
+        sources: [previous, { source: sourceName, value: cloneValue(sourceValue) }],
+        resolvedValue: cloneValue(sourceValue),
+        resolutionStrategy: "merge",
+      });
+    }
+  }
+  const nextTarget = isPlainObject(targetValue) ? targetValue : {};
+  return mergeDeep(nextTarget, sourceValue, sourceName, conflicts, leafOrigins, currentPath);
+}
+
+function mergeLeafValue(
+  sourceValue: unknown,
+  targetValue: unknown,
+  currentPath: string,
+  ctx: MergeContext
+): unknown {
+  const { sourceName, conflicts, leafOrigins } = ctx;
+  if (targetValue !== undefined && !deepEqual(targetValue, sourceValue)) {
+    const previous = leafOrigins.get(currentPath);
+    if (previous) {
+      conflicts.push({
+        path: currentPath,
+        sources: [previous, { source: sourceName, value: cloneValue(sourceValue) }],
+        resolvedValue: cloneValue(sourceValue),
+        resolutionStrategy: "override",
+      });
+    }
+  }
+  return assignLeaf(currentPath, sourceValue, sourceName, conflicts, leafOrigins);
 }
 
 function assignLeaf(
@@ -162,35 +177,26 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 function deepEqual(a: unknown, b: unknown): boolean {
-  if (a === b) {
-    return true;
-  }
-  if (a === null || b === null) {
-    return a === b;
-  }
-  if (Array.isArray(a) && Array.isArray(b)) {
-    if (a.length !== b.length) {
-      return false;
-    }
-    for (let i = 0; i < a.length; i++) {
-      if (!deepEqual(a[i], b[i])) {
-        return false;
-      }
-    }
-    return true;
-  }
-  if (isPlainObject(a) && isPlainObject(b)) {
-    const keysA = Object.keys(a);
-    const keysB = Object.keys(b);
-    if (keysA.length !== keysB.length) {
-      return false;
-    }
-    for (const key of keysA) {
-      if (!deepEqual((a)[key], (b)[key])) {
-        return false;
-      }
-    }
-    return true;
-  }
+  if (a === b) return true;
+  if (a === null || b === null) return a === b;
+  if (Array.isArray(a) && Array.isArray(b)) return deepEqualArrays(a, b);
+  if (isPlainObject(a) && isPlainObject(b)) return deepEqualObjects(a, b);
   return false;
+}
+
+function deepEqualArrays(a: unknown[], b: unknown[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (!deepEqual(a[i], b[i])) return false;
+  }
+  return true;
+}
+
+function deepEqualObjects(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
+  const keysA = Object.keys(a);
+  if (keysA.length !== Object.keys(b).length) return false;
+  for (const key of keysA) {
+    if (!deepEqual(a[key], b[key])) return false;
+  }
+  return true;
 }
