@@ -33,11 +33,11 @@ export const CORE_SERVICE_REGISTRY = {
   entityManager: {
     token: TOKENS.entityManager,
     factory: (container) =>
-      createEntityManager({
-        registryBroker: container.resolve<IRegistryBroker>(TOKENS.registryBroker),
-        renderEvents: container.resolve<RenderEventManager>(TOKENS.renderEventManager),
-        entityEvents: container.resolve<EntityEventManager<IEntity>>(TOKENS.entityEventManager),
-      }),
+        createEntityManager({
+          registryBroker: container.resolve<IRegistryBroker>(TOKENS.registryBroker),
+          renderEvents: container.resolve<RenderEventManager>(TOKENS.renderEventManager),
+          entityEvents: container.resolve<EntityEventManager<IEntity>>(TOKENS.entityEventManager),
+        }),
     lifecycle: "singleton",
     ownsInstance: true,
     dispose: (instance) => (instance as EntityManager).dispose(),
@@ -59,9 +59,9 @@ export const CORE_SERVICE_REGISTRY = {
   registryManager: {
     token: TOKENS.registryManager,
     factory: (container) =>
-      createRegistryManager({
-        registryBroker: container.resolve<IRegistryBroker>(TOKENS.registryBroker),
-      }),
+        createRegistryManager({
+          registryBroker: container.resolve<IRegistryBroker>(TOKENS.registryBroker),
+        }),
     lifecycle: "singleton",
     ownsInstance: true,
     dispose: (instance) => (instance as RegistryManager).dispose(),
@@ -75,11 +75,11 @@ export const CORE_SERVICE_REGISTRY = {
   renderManager: {
     token: TOKENS.renderManager,
     factory: (container) =>
-      createRenderManager({
-        renderEvents: container.resolve<RenderEventManager>(TOKENS.renderEventManager),
-        registryManager: container.resolve<RegistryManager>(TOKENS.registryManager),
-        entityManager: container.resolve<EntityManager>(TOKENS.entityManager),
-      }),
+        createRenderManager({
+          renderEvents: container.resolve<RenderEventManager>(TOKENS.renderEventManager),
+          registryManager: container.resolve<RegistryManager>(TOKENS.registryManager),
+          entityManager: container.resolve<EntityManager>(TOKENS.entityManager),
+        }),
     lifecycle: "singleton",
     ownsInstance: true,
     dispose: (instance) => (instance as RenderManager).dispose(),
@@ -87,19 +87,17 @@ export const CORE_SERVICE_REGISTRY = {
   workerPoolManager: {
     token: TOKENS.workerPoolManager,
     factory: (container) => {
-      const config: Partial<WorkerPoolConfig> = {
-        workerCount: 4,
-        defaultTaskTimeout: 30000,
-        maxQueueSize: 10000,
-      };
-      const eventBus = container.resolve<EventBus>(TOKENS.eventBus);
-      const manager = new WorkerPoolManager(config as WorkerPoolConfig, eventBus);
-      return manager;
-    },
+          const config: Partial<WorkerPoolConfig> = {
+            workerCount: 4,
+            defaultTaskTimeout: 30000,
+            maxQueueSize: 10000,
+          };
+          const eventBus = container.resolve<EventBus>(TOKENS.eventBus);
+          const manager = new WorkerPoolManager(config as WorkerPoolConfig, eventBus);
+          return manager;
+        },
     lifecycle: "singleton",
     ownsInstance: true,
-    dispose: (instance) => {
-      instance.dispose?.();
-    },
+    dispose: (instance) => { (instance as WorkerPoolManager).dispose?.(); },
   },
 } satisfies Record<string, CoreServiceRegistration<unknown>>;

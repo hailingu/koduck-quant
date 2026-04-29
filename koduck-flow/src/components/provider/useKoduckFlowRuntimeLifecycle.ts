@@ -255,7 +255,7 @@ export const useKoduckFlowRuntimeLifecycle = ({
   useEffect(() => {
     if (runtimeProp && runtimeProp !== runtime) {
       logger.warn(
-        "KoduckFlowProvider does not support changing the runtime prop after mount. The initial instance will be used."
+        "KoduckFlowProvider runtime prop is mount-only in uncontrolled mode. The initial instance will be used. Change lifecycleKey to remount or use the controlled controller API to switch runtimes."
       );
     }
   }, [runtimeProp, runtime]);
@@ -312,7 +312,9 @@ export const useKoduckFlowRuntimeLifecycle = ({
     const nextTenant = resolvedTenant?.tenantId ?? normalizedEnvironment?.tenantId;
 
     if (!initial && normalizedEnvironment) {
-      logger.warn("KoduckFlowProvider does not support adding an environment prop after mount.");
+      logger.warn(
+        "KoduckFlowProvider environment prop is mount-only in uncontrolled mode. Change lifecycleKey to recreate the runtime with a new environment, or use the controlled controller API for hot switching."
+      );
       initialEnvironmentRef.current = normalizedEnvironment;
       if (nextTenant) {
         initialTenantRef.current = nextTenant;
@@ -337,7 +339,7 @@ export const useKoduckFlowRuntimeLifecycle = ({
         initial.tenantId !== normalizedEnvironment.tenantId
       ) {
         logger.warn(
-          "KoduckFlowProvider does not support changing the environment prop after mount."
+          "KoduckFlowProvider environment prop is mount-only in uncontrolled mode. Change lifecycleKey to recreate the runtime with a new environment, or use the controlled controller API for hot switching."
         );
         initialEnvironmentRef.current = normalizedEnvironment;
         if (nextTenant) {
@@ -348,20 +350,20 @@ export const useKoduckFlowRuntimeLifecycle = ({
   }, [normalizedEnvironment, runtimeProp, resolvedTenant]);
 
   useEffect(() => {
-    runtimeEnvironmentRef.current = normalizedEnvironment;
-  }, [normalizedEnvironment]);
-
-  useEffect(() => {
     if (runtimeProp) return;
 
     if (!initialFactoryRef.current && factory) {
-      logger.warn("KoduckFlowProvider does not support adding a factory prop after mount.");
+      logger.warn(
+        "KoduckFlowProvider factory prop is mount-only in uncontrolled mode. Change lifecycleKey to recreate the runtime with a new factory."
+      );
       initialFactoryRef.current = factory;
       return;
     }
 
     if (initialFactoryRef.current && factory && factory !== initialFactoryRef.current) {
-      logger.warn("KoduckFlowProvider does not support changing the factory prop after mount.");
+      logger.warn(
+        "KoduckFlowProvider factory prop is mount-only in uncontrolled mode. Change lifecycleKey to recreate the runtime with a new factory."
+      );
       initialFactoryRef.current = factory;
     }
   }, [factory, runtimeProp]);

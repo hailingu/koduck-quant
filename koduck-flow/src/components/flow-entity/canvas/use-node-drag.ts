@@ -1,4 +1,9 @@
-import { useCallback, useRef, type MouseEvent as ReactMouseEvent } from "react";
+import {
+  useCallback,
+  useRef,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import type { IFlowNodeEntityData, Position } from "../types";
 
 interface UseNodeDragOptions {
@@ -21,7 +26,7 @@ interface NodeDragState {
 /**
  * Manage pointer-driven node selection and dragging.
  *
- * @returns Mouse down handler for the node container.
+ * @returns Pointer down handler for the node container.
  */
 export function useNodeDrag({
   node,
@@ -33,9 +38,17 @@ export function useNodeDrag({
   onNodeMove,
 }: UseNodeDragOptions) {
   const dragRef = useRef<NodeDragState | null>(null);
+  const lastPointerDownAtRef = useRef(0);
 
-  return useCallback(
-    (event: ReactMouseEvent<HTMLElement>) => {
+  const handlePressStart = useCallback(
+    (event: ReactPointerEvent<HTMLElement> | ReactMouseEvent<HTMLElement>) => {
+      const isPointerEvent = "pointerId" in event;
+      if (isPointerEvent) {
+        lastPointerDownAtRef.current = Date.now();
+      } else if (Date.now() - lastPointerDownAtRef.current < 500) {
+        return;
+      }
+
       if (event.button !== 0) {
         return;
       }
@@ -50,6 +63,9 @@ export function useNodeDrag({
       }
 
       event.preventDefault();
+      if (isPointerEvent) {
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+      }
       dragRef.current = {
         pointerStart: { x: event.clientX, y: event.clientY },
         nodeStart: {
@@ -60,7 +76,7 @@ export function useNodeDrag({
         dragging: true,
       };
 
-      const handleMouseMove = (moveEvent: MouseEvent) => {
+      const handlePointerMove = (moveEvent: PointerEvent) => {
         const drag = dragRef.current;
         if (!drag?.dragging) {
           return;
@@ -72,15 +88,19 @@ export function useNodeDrag({
         });
       };
 
-      const handleMouseUp = () => {
+      const handlePointerUp = () => {
         dragRef.current = null;
-        globalThis.removeEventListener("mousemove", handleMouseMove);
-        globalThis.removeEventListener("mouseup", handleMouseUp);
+        globalThis.removeEventListener("pointermove", handlePointerMove);
+        globalThis.removeEventListener("pointerup", handlePointerUp);
+        globalThis.removeEventListener("pointercancel", handlePointerUp);
       };
 
-      globalThis.addEventListener("mousemove", handleMouseMove);
-      globalThis.addEventListener("mouseup", handleMouseUp);
+      globalThis.addEventListener("pointermove", handlePointerMove);
+      globalThis.addEventListener("pointerup", handlePointerUp);
+      globalThis.addEventListener("pointercancel", handlePointerUp);
     },
     [dragNodes, interactionScale, node, onNodeMove, onNodeSelect, selectNodes, viewportScale]
   );
+
+  return handlePressStart;
 }

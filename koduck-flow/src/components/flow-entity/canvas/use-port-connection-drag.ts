@@ -30,7 +30,7 @@ interface UsePortConnectionDragOptions {
     targetNodeId: string,
     targetPortId: string
   ) => void;
-  screenEventToCanvasPosition: (event: MouseEvent) => Position | null;
+  screenEventToCanvasPosition: (event: PointerEvent) => Position | null;
 }
 
 /**
@@ -163,7 +163,7 @@ export function usePortConnectionDrag({
       return undefined;
     }
 
-    const handleMouseMove = (event: MouseEvent) => {
+    const handlePointerMove = (event: PointerEvent) => {
       const pointer = screenEventToCanvasPosition(event);
       if (!pointer) {
         return;
@@ -171,7 +171,7 @@ export function usePortConnectionDrag({
       setConnectionDraft((prev) => (prev ? { ...prev, pointer } : prev));
     };
 
-    const handleMouseUp = () => {
+    const handlePointerUp = () => {
       setConnectionDraft((prev) => {
         if (prev?.target) {
           completePortConnection(prev.source, prev.target);
@@ -180,11 +180,13 @@ export function usePortConnectionDrag({
       });
     };
 
-    globalThis.addEventListener("mousemove", handleMouseMove);
-    globalThis.addEventListener("mouseup", handleMouseUp);
+    globalThis.addEventListener("pointermove", handlePointerMove);
+    globalThis.addEventListener("pointerup", handlePointerUp);
+    globalThis.addEventListener("pointercancel", handlePointerUp);
     return () => {
-      globalThis.removeEventListener("mousemove", handleMouseMove);
-      globalThis.removeEventListener("mouseup", handleMouseUp);
+      globalThis.removeEventListener("pointermove", handlePointerMove);
+      globalThis.removeEventListener("pointerup", handlePointerUp);
+      globalThis.removeEventListener("pointercancel", handlePointerUp);
     };
   }, [completePortConnection, connectionDraft, screenEventToCanvasPosition]);
 

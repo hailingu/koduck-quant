@@ -410,7 +410,18 @@ export type FieldRenderer<T = unknown> = React.ComponentType<FieldProps<T>>;
 /**
  * Registry of field renderers keyed by field type or widget type.
  */
-export type FieldRendererRegistry = Record<string, FieldRenderer>;
+export type AnyFieldRenderer =
+  | FieldRenderer<unknown>
+  | FieldRenderer<string>
+  | FieldRenderer<number>
+  | FieldRenderer<boolean>
+  | FieldRenderer<string[]>
+  | FieldRenderer<string | string[]>;
+
+/**
+ * Registry of field renderers keyed by field type or widget type.
+ */
+export type FieldRendererRegistry = Record<string, AnyFieldRenderer>;
 
 /**
  * Configuration for a field renderer.
@@ -516,6 +527,6 @@ export type {
   FormFieldType,
   FormFieldValidation,
   FormLayout,
-  FormSchema as BaseFormSchema,
-  FormFieldSchema as BaseFormFieldSchema,
+  BaseFormSchema,
+  BaseFormFieldSchema,
 };

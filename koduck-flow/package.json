@@ -3,29 +3,38 @@
   "private": true,
   "version": "2.3.0",
   "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "import": "./src/index.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     },
     "./components": {
-      "types": "./src/components/index.ts",
-      "import": "./src/components/index.ts"
+      "types": "./dist/components/index.d.ts",
+      "import": "./dist/components.js"
     },
     "./components/flow-entity": {
-      "types": "./src/components/flow-entity/index.ts",
-      "import": "./src/components/flow-entity/index.ts"
+      "types": "./dist/components/flow-entity/index.d.ts",
+      "import": "./dist/components/flow-entity.js"
     },
     "./components/provider": {
-      "types": "./src/components/provider/index.ts",
-      "import": "./src/components/provider/index.ts"
+      "types": "./dist/components/provider/index.d.ts",
+      "import": "./dist/components/provider.js"
     },
-    "./src/common/render/manager": "./src/common/render/render-manager/index.ts",
-    "./src/common/render/manager/*": "./src/common/render/render-manager/*"
+    "./common/render/manager": {
+      "types": "./dist/common/render/render-manager/index.d.ts",
+      "import": "./dist/common/render/manager.js"
+    },
+    "./style.css": "./dist/koduck-flow.css"
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && tsc -p tsconfig.declarations.json",
     "lint": "eslint . --no-warn-ignored",
     "preview": "vite preview",
     "test": "vitest",
@@ -69,9 +78,11 @@
   },
   "dependencies": {
     "nanoid": "^5.1.5",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
     "zod": "^4.1.12"
+  },
+  "peerDependencies": {
+    "react": ">=18 <20",
+    "react-dom": ">=18 <20"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",
@@ -98,6 +109,8 @@
     "globals": "^16.3.0",
     "jsdom": "^26.1.0",
     "madge": "^8.0.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
     "storybook": "^8.3.5",
     "tsx": "^4.20.6",
     "typedoc": "^0.26.10",

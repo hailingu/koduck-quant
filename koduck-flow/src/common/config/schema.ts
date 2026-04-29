@@ -365,13 +365,14 @@ export const KoduckFlowConfigSchema = z
   .strict();
 
 /**
- * 验证配置
- * @param config
+ * Validates a configuration object against the {@link KoduckFlowConfig} schema.
+ * @param config - The configuration object to validate
+ * @returns A {@link ValidationResult} containing validation status, errors, warnings, and duration
  */
 export function validateConfig(config: unknown): ValidationResult {
-  const start = typeof performance !== "undefined" ? performance.now() : Date.now();
+  const start = typeof performance === "undefined" ? Date.now() : performance.now();
   const result = KoduckFlowConfigSchema.safeParse(config);
-  const end = typeof performance !== "undefined" ? performance.now() : Date.now();
+  const end = typeof performance === "undefined" ? Date.now() : performance.now();
   const durationMs = Number(end - start);
 
   if (result.success) {
@@ -438,7 +439,7 @@ function transformIssue(issue: SchemaIssue): ValidationIssue {
         detail.expected = options.map((opt) => JSON.stringify(opt)).join(" | ");
         detail.received = data.received;
         detail.hint = `请在 ${path} 中选择 ${detail.expected} 之一。`;
-      } else if (data.expected !== undefined) {
+      } else if (data.expected) {
         detail.expected = JSON.stringify(data.expected);
         detail.received = data.received;
         detail.hint = `请将 ${path} 的值设置为 ${detail.expected}。`;
@@ -504,7 +505,7 @@ function transformIssue(issue: SchemaIssue): ValidationIssue {
     }
   }
 
-  if (!detail.hint) {
+  if (detail.hint === "") {
     detail.hint = "请根据错误信息检查并修复配置。";
   }
 
@@ -538,7 +539,8 @@ function buildRangeExpectation(
 }
 
 /**
- * 生成 JSON Schema
+ * Generates a JSON Schema object representing the {@link KoduckFlowConfig} structure.
+ * @returns A draft-07 JSON Schema object for the full Koduck Flow configuration.
  */
 export function generateJsonSchema() {
   // 使用自定义方法生成 JSON Schema，因为 Zod 的 toJSON 在某些版本中不可用
@@ -673,89 +675,6 @@ export function generateJsonSchema() {
     required: ["environment", "event", "render", "entity", "performance", "plugin"],
     additionalProperties: false,
   };
-
-  // 在开发环境中自动生成文件
-  if (
-    typeof process !== "undefined" &&
-    typeof process.env !== "undefined" &&
-    process.env.NODE_ENV !== "production"
-  ) {
-    // 使用动态导入避免在浏览器环境中出错
-    import("fs")
-      .then((fs) => {
-        const schemaPath = "./config/schema/koduckflow.schema.json";
-        const tsPath = "./config/schema/koduckflow.schema.d.ts";
-
-        fs.writeFileSync(schemaPath, JSON.stringify(schema, null, 2));
-        console.log("✅ Generated koduckflow.schema.json");
-
-        const tsDeclaration = `/**
- * KoduckFlow Configuration TypeScript Declarations
- *
- * Generated from Zod schema - DO NOT EDIT MANUALLY
- */
-
-export interface KoduckFlowConfig {
-  environment: "development" | "staging" | "production";
-  event: {
-    batchSize: number;
-    batchInterval: number;
-    maxQueueSize: number;
-    enableDedup: boolean;
-    concurrencyLimit: number;
-    maxListeners: number;
-  };
-  render: {
-    frameRate: number;
-    cacheTTL: number;
-    maxCacheSize: number;
-    defaultRenderer: "react" | "canvas" | "webgpu";
-    enableDirtyRegion: boolean;
-    constants: {
-      SMALL: number;
-      MEDIUM: number;
-      LARGE: number;
-    };
-  };
-  entity: {
-    maxEntities: number;
-    gcInterval: number;
-    enableEntityPool: boolean;
-  };
-  performance: {
-    enableProfiling: boolean;
-    metricsInterval: number;
-    enableVerboseLogging: boolean;
-  };
-  tenant?: {
-    enabled: boolean;
-    defaultQuota: {
-      maxEntities: number;
-      maxFlows: number;
-      storageLimit: number;
-    };
-  };
-  plugin: {
-    sandboxTimeout: number;
-    capabilityCache: {
-      enabled: boolean;
-      defaultTtlMs: number;
-      maxSize: number;
-    };
-    execution: {
-      defaultTimeoutMs: number;
-      maxRetries: number;
-    };
-  };
-}
-`;
-        fs.writeFileSync(tsPath, tsDeclaration);
-        console.log("✅ Generated koduckflow.schema.d.ts");
-      })
-      .catch(() => {
-        // 忽略文件系统不可用的错误（浏览器环境）
-      });
-  }
 
   return schema;
 }

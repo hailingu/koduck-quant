@@ -20,6 +20,17 @@ export default tseslint.config([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      "react-refresh/only-export-components": "off",
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
+    },
   },
   {
     files: ["src/**/*.{ts,tsx}"],
@@ -91,6 +102,9 @@ export default tseslint.config([
       "jsdoc/require-jsdoc": "off",
       "jsdoc/require-param": "off",
       "jsdoc/require-returns": "off",
+      // 测试用例里经常需要构造局部 mock、故意保留夹具变量、以及用 any 模拟坏输入。
+      "@typescript-eslint/no-unused-vars": "off",
+      "@typescript-eslint/no-explicit-any": "off",
     },
   },
 ]);

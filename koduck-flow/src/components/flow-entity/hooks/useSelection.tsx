@@ -267,7 +267,7 @@ export const SelectionProvider: React.FC<SelectionProviderProps> = ({
     (id: string) => {
       if (disabled) return;
 
-      setState((prev) => {
+      setState(() => {
         const newSelectedIds = new Set([id]);
         notifyChange(newSelectedIds);
         return {

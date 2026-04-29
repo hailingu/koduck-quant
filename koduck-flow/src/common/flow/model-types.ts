@@ -110,6 +110,10 @@ export interface PortDefinition {
   visibility?: PortVisibility;
   /** Default value when no connection is present */
   defaultValue?: unknown;
+  /** Legacy absolute port position used by demo nodes */
+  position?: Position;
+  /** Maximum number of accepted connections */
+  maxConnections?: number;
   /** Description shown in tooltips */
   description?: string;
 }
@@ -160,6 +164,8 @@ export type FormFieldType =
   | "text"
   | "number"
   | "boolean"
+  | "object"
+  | "array"
   | "select"
   | "multiselect"
   | "textarea"
@@ -176,6 +182,24 @@ export type FormFieldType =
   | "email";
 
 /**
+ * Selectable option for form fields.
+ */
+export interface FormFieldOption {
+  value: string | number | boolean;
+  label: string;
+  disabled?: boolean;
+}
+
+/**
+ * Declarative field visibility rule used by demo schemas.
+ */
+export interface FormFieldVisibilityRule {
+  field: string;
+  operator: "equals" | "notEquals" | "in" | "notIn";
+  value: unknown;
+}
+
+/**
  * Validation rule for form fields.
  */
 export interface FormFieldValidation {
@@ -185,6 +209,8 @@ export interface FormFieldValidation {
   min?: number;
   /** Maximum value (for numbers) or length (for strings) */
   max?: number;
+  /** Maximum string length alias used by field renderers */
+  maxLength?: number;
   /** Regex pattern for string validation */
   pattern?: string;
   /** Custom error message */
@@ -205,10 +231,14 @@ export interface FormFieldSchema {
   placeholder?: string;
   /** Default value */
   default?: unknown;
+  /** Backwards-compatible alias for default */
+  defaultValue?: unknown;
   /** Field description / help text */
   description?: string;
   /** Options for select/multiselect fields */
-  options?: Array<{ value: string | number; label: string }>;
+  options?: FormFieldOption[];
+  /** JSON-schema style enum values */
+  enum?: Array<string | number | boolean>;
   /** Validation rules */
   validation?: FormFieldValidation;
   /** Whether field is disabled */
@@ -217,6 +247,8 @@ export interface FormFieldSchema {
   hidden?: boolean;
   /** Conditional visibility expression */
   visibleWhen?: string;
+  /** Structured conditional visibility rule */
+  visible?: FormFieldVisibilityRule;
   /** Group name for organizing fields */
   group?: string;
   /** Display order within group */
@@ -227,6 +259,8 @@ export interface FormFieldSchema {
  * Layout configuration for form rendering.
  */
 export interface FormLayout {
+  /** Form direction alias used by older schemas */
+  direction?: "horizontal" | "vertical";
   /** Number of columns in the form grid */
   columns?: 1 | 2 | 3 | 4;
   /** Field groups with titles */
@@ -252,6 +286,8 @@ export interface FormSchema {
   properties: Record<string, FormFieldSchema>;
   /** Layout configuration */
   layout?: FormLayout;
+  /** Required field names */
+  required?: string[];
   /** Schema version for migration */
   version?: string;
 }

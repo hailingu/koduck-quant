@@ -71,7 +71,10 @@ export interface UseNodeDragOptions {
  * Return value of the useNodeDrag hook
  */
 export interface UseNodeDragResult {
-  /** Handler to bind to the node's onMouseDown event */
+  /** Handler to bind to the node's onPointerDown event */
+  handlePointerDown: (event: React.PointerEvent) => void;
+
+  /** @deprecated Use handlePointerDown for unified mouse, pen, and touch input. */
   handleMouseDown: (event: React.MouseEvent) => void;
 
   /** Whether a drag operation is currently in progress */
@@ -103,7 +106,7 @@ export interface UseNodeDragResult {
  *
  * @example Basic usage
  * ```tsx
- * const { handleMouseDown, isDragging } = useNodeDrag(entity, {
+ * const { handlePointerDown, isDragging } = useNodeDrag(entity, {
  *   onMove: (entity, position) => {
  *     entity.setPosition(position);
  *   },
@@ -111,7 +114,7 @@ export interface UseNodeDragResult {
  *
  * return (
  *   <div
- *     onMouseDown={handleMouseDown}
+ *     onPointerDown={handlePointerDown}
  *     className={isDragging ? 'dragging' : ''}
  *   >
  *     Node content
@@ -121,7 +124,7 @@ export interface UseNodeDragResult {
  *
  * @example With drag start/end callbacks
  * ```tsx
- * const { handleMouseDown, isDragging } = useNodeDrag(entity, {
+ * const { handlePointerDown, isDragging } = useNodeDrag(entity, {
  *   onDragStart: (entity) => console.log('Drag started:', entity.id),
  *   onMove: (entity, pos) => entity.setPosition(pos),
  *   onDragEnd: (entity, pos) => savePosition(entity.id, pos),
@@ -141,10 +144,10 @@ export function useNodeDrag(
   const [hasExceededThreshold, setHasExceededThreshold] = useState(false);
 
   /**
-   * Handle mousedown on the node - initiates potential drag
+   * Handle pointerdown on the node - initiates potential drag
    */
-  const handleMouseDown = useCallback(
-    (event: React.MouseEvent) => {
+  const handlePointerDown = useCallback(
+    (event: React.PointerEvent | React.MouseEvent) => {
       // Only handle left mouse button
       if (event.button !== 0) return;
 
@@ -156,6 +159,9 @@ export function useNodeDrag(
 
       // Stop propagation to prevent canvas pan
       event.stopPropagation();
+      if ("pointerId" in event) {
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+      }
 
       // Get the entity's current position
       const entityPosition = entity.data?.position ?? { x: 0, y: 0 };
@@ -181,17 +187,17 @@ export function useNodeDrag(
   );
 
   /**
-   * Effect to attach window-level mouse listeners during drag
+   * Effect to attach window-level pointer listeners during drag
    */
   useEffect(() => {
     // Only attach listeners when dragging
     if (!dragState?.isDragging) return;
 
     /**
-     * Handle mouse move during drag
+     * Handle pointer move during drag
      * @param event
      */
-    const handleMouseMove = (event: MouseEvent) => {
+    const handlePointerMove = (event: PointerEvent) => {
       // Calculate pointer movement delta
       const deltaX = event.clientX - dragState.pointerStart.x;
       const deltaY = event.clientY - dragState.pointerStart.y;
@@ -229,10 +235,10 @@ export function useNodeDrag(
     };
 
     /**
-     * Handle mouse up - end drag operation
+     * Handle pointer up - end drag operation
      * @param event
      */
-    const handleMouseUp = (event: MouseEvent) => {
+    const handlePointerUp = (event: PointerEvent) => {
       // Calculate final position
       const deltaX = event.clientX - dragState.pointerStart.x;
       const deltaY = event.clientY - dragState.pointerStart.y;
@@ -253,13 +259,15 @@ export function useNodeDrag(
     };
 
     // Attach listeners to window for reliable tracking outside the element
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
 
     // Cleanup listeners on unmount or when drag ends
     return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
     };
   }, [dragState, hasExceededThreshold, dragThreshold, entity, onMove, onDragStart, onDragEnd]);
 
@@ -272,7 +280,8 @@ export function useNodeDrag(
     : { x: 0, y: 0 };
 
   return {
-    handleMouseDown,
+    handlePointerDown,
+    handleMouseDown: handlePointerDown,
     isDragging: dragState?.isDragging ?? false,
     dragState,
     offset,

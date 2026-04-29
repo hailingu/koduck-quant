@@ -30,7 +30,7 @@ import type {
 } from "./connection-validation";
 import { CanvasContent } from "./FlowCanvasContent";
 import type { GridPattern } from "./FlowGrid";
-import { FlowViewport, type ViewportState } from "./FlowViewport";
+import { FlowViewport, useViewport, type ViewportState } from "./FlowViewport";
 import type {
   FlowCanvasRenderEngine,
   FlowCanvasRenderModel,
@@ -121,6 +121,178 @@ function resolveInteraction(
     pan: interaction?.pan ?? modeDefaults?.pan ?? true,
     zoom: interaction?.zoom ?? modeDefaults?.zoom ?? true,
   };
+}
+
+interface FlowCanvasOverlayProps {
+  nodes: IFlowNodeEntityData[];
+  contentBounds: { minX: number; minY: number; maxX: number; maxY: number };
+  containerSize: { width: number; height: number };
+  minZoom: number;
+  maxZoom: number;
+  selectedNodeIds: Set<string>;
+}
+
+const zoomControlsStyle: CSSProperties = {
+  position: "absolute",
+  right: 12,
+  top: 12,
+  display: "flex",
+  flexDirection: "column",
+  gap: 4,
+  padding: 4,
+  border: "1px solid rgba(15, 23, 42, 0.12)",
+  borderRadius: 8,
+  background: "rgba(255, 255, 255, 0.92)",
+  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.12)",
+  zIndex: 20,
+};
+
+const zoomControlButtonStyle: CSSProperties = {
+  width: 32,
+  height: 28,
+  border: 0,
+  borderRadius: 6,
+  background: "transparent",
+  color: "#0f172a",
+  cursor: "pointer",
+  fontSize: 13,
+  fontWeight: 700,
+  lineHeight: "28px",
+};
+
+const minimapStyle: CSSProperties = {
+  position: "absolute",
+  right: 12,
+  bottom: 12,
+  width: 160,
+  height: 110,
+  border: "1px solid rgba(15, 23, 42, 0.16)",
+  borderRadius: 8,
+  background: "rgba(255, 255, 255, 0.92)",
+  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.12)",
+  overflow: "hidden",
+  zIndex: 20,
+};
+
+function FlowCanvasZoomControls({
+  minZoom,
+  maxZoom,
+}: Pick<FlowCanvasOverlayProps, "minZoom" | "maxZoom">) {
+  const { viewport, setZoom, reset } = useViewport();
+  const zoomPercent = Math.round(viewport.scale * 100);
+
+  const handleZoomOut = () => {
+    setZoom(Math.max(minZoom, viewport.scale / 1.2));
+  };
+
+  const handleZoomIn = () => {
+    setZoom(Math.min(maxZoom, viewport.scale * 1.2));
+  };
+
+  const handleReset = () => {
+    reset();
+  };
+
+  return (
+    <div aria-label="Canvas zoom controls" style={zoomControlsStyle}>
+      <button
+        aria-label="Zoom in"
+        disabled={viewport.scale >= maxZoom}
+        style={zoomControlButtonStyle}
+        type="button"
+        onClick={handleZoomIn}
+      >
+        +
+      </button>
+      <button
+        aria-label="Reset zoom"
+        style={{ ...zoomControlButtonStyle, fontSize: 11, fontWeight: 600 }}
+        type="button"
+        onClick={handleReset}
+      >
+        {zoomPercent}%
+      </button>
+      <button
+        aria-label="Zoom out"
+        disabled={viewport.scale <= minZoom}
+        style={zoomControlButtonStyle}
+        type="button"
+        onClick={handleZoomOut}
+      >
+        -
+      </button>
+    </div>
+  );
+}
+
+function FlowCanvasMinimap({
+  nodes,
+  contentBounds,
+  containerSize,
+  selectedNodeIds,
+}: Omit<FlowCanvasOverlayProps, "minZoom" | "maxZoom">) {
+  const { viewport } = useViewport();
+  const minimapWidth = 160;
+  const minimapHeight = 110;
+  const padding = 10;
+  const contentWidth = Math.max(1, contentBounds.maxX - contentBounds.minX);
+  const contentHeight = Math.max(1, contentBounds.maxY - contentBounds.minY);
+  const scale = Math.min(
+    (minimapWidth - padding * 2) / contentWidth,
+    (minimapHeight - padding * 2) / contentHeight
+  );
+
+  const viewportRect =
+    containerSize.width > 0 && containerSize.height > 0
+      ? {
+          x: padding + (-viewport.translateX / viewport.scale - contentBounds.minX) * scale,
+          y: padding + (-viewport.translateY / viewport.scale - contentBounds.minY) * scale,
+          width: (containerSize.width / viewport.scale) * scale,
+          height: (containerSize.height / viewport.scale) * scale,
+        }
+      : undefined;
+
+  return (
+    <div aria-label="Canvas minimap" style={minimapStyle}>
+      {nodes.map((node) => {
+        const x = node.position?.x ?? 0;
+        const y = node.position?.y ?? 0;
+        const width = node.size?.width ?? 200;
+        const height = node.size?.height ?? 100;
+        const isSelected = selectedNodeIds.has(node.id);
+
+        return (
+          <div
+            key={node.id}
+            style={{
+              position: "absolute",
+              left: padding + (x - contentBounds.minX) * scale,
+              top: padding + (y - contentBounds.minY) * scale,
+              width: Math.max(3, width * scale),
+              height: Math.max(3, height * scale),
+              borderRadius: 2,
+              background: isSelected ? "#2563eb" : "#94a3b8",
+              opacity: isSelected ? 0.9 : 0.7,
+            }}
+          />
+        );
+      })}
+      {viewportRect !== undefined && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            left: viewportRect.x,
+            top: viewportRect.y,
+            width: viewportRect.width,
+            height: viewportRect.height,
+            border: "1px solid #2563eb",
+            background: "rgba(37, 99, 235, 0.08)",
+          }}
+        />
+      )}
+    </div>
+  );
 }
 
 /**
@@ -264,6 +436,8 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
   width = "100%",
   height = "100%",
   showGrid = true,
+  showMinimap = false,
+  showZoomControls = false,
   gridPattern,
   minZoom = 0.1,
   maxZoom = 4,
@@ -443,10 +617,16 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
         >
           {children}
         </CanvasContent>
+        {showZoomControls && <FlowCanvasZoomControls minZoom={minZoom} maxZoom={maxZoom} />}
+        {showMinimap && (
+          <FlowCanvasMinimap
+            nodes={nodes}
+            contentBounds={contentBounds}
+            containerSize={containerSize}
+            selectedNodeIds={selectedNodeSet}
+          />
+        )}
       </FlowViewport>
-
-      {/* TODO: Add minimap component when showMinimap is true */}
-      {/* TODO: Add zoom controls when showZoomControls is true */}
     </div>
   );
 };

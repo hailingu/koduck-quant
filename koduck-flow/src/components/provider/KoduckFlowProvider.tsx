@@ -32,6 +32,14 @@ import {
  */
 type ManagedRuntimeProps = {
   runtime?: undefined;
+  /**
+   * Remount key for provider-managed runtime lifecycle.
+   *
+   * `environment`, `options`, `factory`, `reuse`, `lazy`, and `disposeOnUnmount`
+   * are read when the unmanaged runtime is mounted. Change this key to recreate
+   * the provider-owned runtime with new creation props.
+   */
+  lifecycleKey?: React.Key;
   environment?: EnvironmentLike;
   options?: RuntimeCreationOptions;
   factory?: KoduckFlowRuntimeFactory;
@@ -46,6 +54,14 @@ type ManagedRuntimeProps = {
  */
 type ExternalRuntimeProps = {
   runtime: KoduckFlowRuntime;
+  /**
+   * Remount key for uncontrolled provider lifecycle.
+   *
+   * The `runtime` prop is mount-only in uncontrolled mode. Change this key to
+   * swap to a different externally-created runtime, or use `controller` for
+   * hot-switching runtime instances.
+   */
+  lifecycleKey?: React.Key;
   environment?: EnvironmentLike;
   factory?: KoduckFlowRuntimeFactory;
   options?: RuntimeCreationOptions;
@@ -351,5 +367,11 @@ export const KoduckFlowProvider: React.FC<KoduckFlowProviderProps> = (props) => 
   if ("controller" in props && props.controller) {
     return <ControlledKoduckFlowProvider {...(props as ControlledKoduckFlowProviderProps)} />;
   }
-  return <UncontrolledKoduckFlowProvider {...(props as UncontrolledKoduckFlowProviderProps)} />;
+  const uncontrolledProps = props as UncontrolledKoduckFlowProviderProps;
+  return (
+    <UncontrolledKoduckFlowProvider
+      key={uncontrolledProps.lifecycleKey}
+      {...uncontrolledProps}
+    />
+  );
 };

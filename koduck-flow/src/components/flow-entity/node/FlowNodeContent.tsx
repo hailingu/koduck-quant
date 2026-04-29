@@ -189,7 +189,7 @@ export const FlowNodeContent: React.FC<FlowNodeContentProps> = React.memo(functi
         theme: nodeTheme,
         selected,
         readOnly: isReadOnly,
-        onFormChange,
+        ...(onFormChange === undefined ? {} : { onFormChange }),
       });
     }
 

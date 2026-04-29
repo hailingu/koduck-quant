@@ -1,6 +1,6 @@
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import React from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { getApiRuntimeInfo } from "../../src/common/api/runtime-context";
 import {
@@ -105,6 +105,49 @@ describe("KoduckFlowProvider multi-tenant wiring", () => {
     expect(apiInfo.tenantId).toBe("tenant-test");
     expect(apiInfo.tenant?.tenantId).toBe("tenant-test");
     expect(apiInfo.tenant?.quotas?.maxEntities).toBe(5);
+  });
+});
+
+describe("KoduckFlowProvider uncontrolled lifecycle", () => {
+  it("keeps runtime environment mount-only unless lifecycleKey changes", () => {
+    const { rerender } = render(
+      <KoduckFlowProvider environment="runtime-alpha">
+        <ContextProbe />
+      </KoduckFlowProvider>
+    );
+
+    expect(screen.getByTestId("context-source").textContent).toBe("global");
+    expect(screen.getByTestId("context-environment").textContent).toBe("runtime-alpha:none");
+
+    rerender(
+      <KoduckFlowProvider environment="runtime-beta">
+        <ContextProbe />
+      </KoduckFlowProvider>
+    );
+
+    expect(screen.getByTestId("context-source").textContent).toBe("global");
+    expect(screen.getByTestId("context-environment").textContent).toBe("runtime-alpha:none");
+  });
+
+  it("recreates provider-managed runtime when lifecycleKey changes", () => {
+    const onInit = vi.fn();
+    const { rerender } = render(
+      <KoduckFlowProvider environment="runtime-alpha" lifecycleKey="alpha" onInit={onInit}>
+        <ContextProbe />
+      </KoduckFlowProvider>
+    );
+
+    expect(screen.getByTestId("context-environment").textContent).toBe("runtime-alpha:none");
+    expect(onInit).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <KoduckFlowProvider environment="runtime-beta" lifecycleKey="beta" onInit={onInit}>
+        <ContextProbe />
+      </KoduckFlowProvider>
+    );
+
+    expect(screen.getByTestId("context-environment").textContent).toBe("runtime-beta:none");
+    expect(onInit).toHaveBeenCalledTimes(2);
   });
 });
 

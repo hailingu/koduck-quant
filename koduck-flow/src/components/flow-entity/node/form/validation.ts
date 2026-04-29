@@ -296,11 +296,11 @@ export function validateFieldValue(
 
   // Enum validation (value must be one of the allowed options)
   if (schema.options && schema.options.length > 0) {
-    const allowedValues = schema.options.map((opt) => opt.value);
+    const allowedValues = schema.options.map((opt: { value: string | number | boolean }) => opt.value);
     const valueToCheck = Array.isArray(value) ? value : [value];
 
     for (const v of valueToCheck) {
-      if (!allowedValues.includes(v as string | number)) {
+      if (!allowedValues.includes(v as string | number | boolean)) {
         addError(
           "enum",
           getErrorMessage("enum", schema, options, {
@@ -374,7 +374,8 @@ export function validate(
   const errorsByField: Record<string, ValidationError[]> = {};
   const firstErrorByField: Record<string, string> = {};
 
-  const properties = schema.properties ?? {};
+  const properties: Record<string, BaseFormFieldSchema | ExtendedFormFieldSchema> =
+    schema.properties ?? {};
 
   for (const [fieldName, fieldSchema] of Object.entries(properties)) {
     // Skip hidden fields

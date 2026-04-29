@@ -104,7 +104,10 @@ export interface UseNodeResizeOptions {
  * Return value of the useNodeResize hook
  */
 export interface UseNodeResizeResult {
-  /** Handler to bind to the resize handle's onMouseDown event */
+  /** Handler to bind to the resize handle's onPointerDown event */
+  handlePointerDown: (event: React.PointerEvent) => void;
+
+  /** @deprecated Use handlePointerDown for unified mouse, pen, and touch input. */
   handleMouseDown: (event: React.MouseEvent) => void;
 
   /** Whether a resize operation is currently in progress */
@@ -153,7 +156,7 @@ const DEFAULT_MIN_HEIGHT = 60;
  * });
  *
  * return (
- *   <div className="resize-handle" onMouseDown={handleMouseDown}>
+ *   <div className="resize-handle" onPointerDown={handlePointerDown}>
  *     ⌟
  *   </div>
  * );
@@ -194,10 +197,10 @@ export function useNodeResize(
   const [hasExceededThreshold, setHasExceededThreshold] = useState(false);
 
   /**
-   * Handle mousedown on the resize handle - initiates potential resize
+   * Handle pointerdown on the resize handle - initiates potential resize
    */
-  const handleMouseDown = useCallback(
-    (event: React.MouseEvent) => {
+  const handlePointerDown = useCallback(
+    (event: React.PointerEvent | React.MouseEvent) => {
       // Only handle left mouse button
       if (event.button !== 0) return;
 
@@ -209,6 +212,9 @@ export function useNodeResize(
 
       // Stop propagation to prevent drag or other handlers
       event.stopPropagation();
+      if ("pointerId" in event) {
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+      }
 
       // Get the entity's current size
       const entitySize = entity.data?.size ?? { width: 200, height: 100 };
@@ -234,7 +240,7 @@ export function useNodeResize(
   );
 
   /**
-   * Effect to attach window-level mouse listeners during resize
+   * Effect to attach window-level pointer listeners during resize
    */
   useEffect(() => {
     // Only attach listeners when resizing
@@ -251,10 +257,10 @@ export function useNodeResize(
     };
 
     /**
-     * Handle mouse move during resize
+     * Handle pointer move during resize
      * @param event
      */
-    const handleMouseMove = (event: MouseEvent) => {
+    const handlePointerMove = (event: PointerEvent) => {
       // Calculate pointer movement delta
       const deltaX = event.clientX - resizeState.pointerStart.x;
       const deltaY = event.clientY - resizeState.pointerStart.y;
@@ -298,10 +304,10 @@ export function useNodeResize(
     };
 
     /**
-     * Handle mouse up - end resize operation
+     * Handle pointer up - end resize operation
      * @param event
      */
-    const handleMouseUp = (event: MouseEvent) => {
+    const handlePointerUp = (event: PointerEvent) => {
       // Calculate final size
       const deltaX = event.clientX - resizeState.pointerStart.x;
       const deltaY = event.clientY - resizeState.pointerStart.y;
@@ -329,13 +335,15 @@ export function useNodeResize(
     };
 
     // Attach listeners to globalThis for reliable tracking outside the element
-    globalThis.addEventListener("mousemove", handleMouseMove);
-    globalThis.addEventListener("mouseup", handleMouseUp);
+    globalThis.addEventListener("pointermove", handlePointerMove);
+    globalThis.addEventListener("pointerup", handlePointerUp);
+    globalThis.addEventListener("pointercancel", handlePointerUp);
 
     // Cleanup listeners on unmount or when resize ends
     return () => {
-      globalThis.removeEventListener("mousemove", handleMouseMove);
-      globalThis.removeEventListener("mouseup", handleMouseUp);
+      globalThis.removeEventListener("pointermove", handlePointerMove);
+      globalThis.removeEventListener("pointerup", handlePointerUp);
+      globalThis.removeEventListener("pointercancel", handlePointerUp);
     };
   }, [
     resizeState,
@@ -361,7 +369,8 @@ export function useNodeResize(
     : { width: 0, height: 0 };
 
   return {
-    handleMouseDown,
+    handlePointerDown,
+    handleMouseDown: handlePointerDown,
     isResizing: resizeState?.isResizing ?? false,
     resizeState,
     sizeDelta,

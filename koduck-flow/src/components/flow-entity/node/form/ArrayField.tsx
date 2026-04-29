@@ -8,7 +8,7 @@
  */
 
 import React, { useCallback, useId, useMemo } from "react";
-import type { FieldProps, ExtendedFormFieldSchema, UIWidgetOptions } from "./types";
+import type { FieldProps, ExtendedFormFieldSchema } from "./types";
 
 // =============================================================================
 // Constants
@@ -91,15 +91,6 @@ function getDefaultItemValue(itemSchema?: ExtendedFormFieldSchema): unknown {
     default:
       return itemSchema.default ?? "";
   }
-}
-
-/**
- * Gets UI options with defaults.
- * @param schema - Field schema
- * @returns UI options
- */
-function getUIOptions(schema: ExtendedFormFieldSchema): UIWidgetOptions {
-  return schema["ui:options"] ?? {};
 }
 
 // =============================================================================
@@ -255,9 +246,6 @@ export function ArrayField<T = string>({
   const uniqueId = useId();
   const fieldId = `field-${name}-${uniqueId}`;
 
-  // Get UI options
-  const uiOptions = useMemo(() => getUIOptions(schema), [schema]);
-
   // Normalize value to array
   const items = useMemo(() => {
     if (Array.isArray(value)) return value;
@@ -360,23 +348,27 @@ export function ArrayField<T = string>({
             {emptyMessage}
           </div>
         ) : (
-          items.map((item, index) => (
-            <ItemRenderer
-              key={index}
-              value={item}
-              index={index}
-              onChange={(newValue) => handleItemChange(index, newValue)}
-              onRemove={() => handleRemove(index)}
-              onMoveUp={orderable && index > 0 ? () => handleMoveUp(index) : undefined}
-              onMoveDown={
-                orderable && index < items.length - 1 ? () => handleMoveDown(index) : undefined
-              }
-              readOnly={readOnly}
-              disabled={disabled}
-              error={error}
-              testId={`${testIdValue}-item-${index}`}
-            />
-          ))
+          items.map((item, index) => {
+            const itemProps: ArrayItemRenderProps<T> = {
+              value: item,
+              index,
+              onChange: (newValue) => handleItemChange(index, newValue),
+              onRemove: () => handleRemove(index),
+              readOnly,
+              disabled,
+              testId: `${testIdValue}-item-${index}`,
+            };
+            if (orderable && index > 0) {
+              itemProps.onMoveUp = () => handleMoveUp(index);
+            }
+            if (orderable && index < items.length - 1) {
+              itemProps.onMoveDown = () => handleMoveDown(index);
+            }
+            if (error !== undefined) {
+              itemProps.error = error;
+            }
+            return <ItemRenderer key={index} {...itemProps} />;
+          })
         )}
       </div>
 

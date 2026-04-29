@@ -66,7 +66,11 @@ function getConstraints(
   const min = options.min ?? schema.validation?.min;
   const max = options.max ?? schema.validation?.max;
   const step = options.step ?? DEFAULT_STEP;
-  return { min, max, step };
+  return {
+    ...(min === undefined ? {} : { min }),
+    ...(max === undefined ? {} : { max }),
+    step,
+  };
 }
 
 /**
@@ -226,8 +230,6 @@ export const NumberField: React.FC<NumberFieldProps> = ({
     value: value ?? 0,
     onChange: handleChange,
     onBlur: handleBlur,
-    min,
-    max,
     step,
     readOnly,
     disabled,
@@ -235,6 +237,8 @@ export const NumberField: React.FC<NumberFieldProps> = ({
     "aria-describedby": error ? `${inputId}-error` : undefined,
     "aria-required": isRequired || undefined,
     "data-testid": testId ?? `number-field-${name}`,
+    ...(min === undefined ? {} : { min }),
+    ...(max === undefined ? {} : { max }),
   };
 
   // Render slider

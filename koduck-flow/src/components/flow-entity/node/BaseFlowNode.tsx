@@ -99,44 +99,44 @@ export interface BaseFlowNodeProps {
   /**
    * Callback when the node is selected/clicked
    */
-  onSelect?: (entity: FlowNodeEntity) => void;
+  onSelect?: ((entity: FlowNodeEntity) => void) | undefined;
 
   /**
    * Callback when the node is moved
    */
-  onMove?: (entity: FlowNodeEntity, position: Position) => void;
+  onMove?: ((entity: FlowNodeEntity, position: Position) => void) | undefined;
 
   /**
    * Callback when the node is resized
    */
-  onResize?: (entity: FlowNodeEntity, size: Size) => void;
+  onResize?: ((entity: FlowNodeEntity, size: Size) => void) | undefined;
 
   /**
    * Callback when a port connection is initiated
    */
-  onPortConnect?: (entity: FlowNodeEntity, portId: string) => void;
+  onPortConnect?: ((entity: FlowNodeEntity, portId: string) => void) | undefined;
 
   /**
    * Callback when form values change
    */
-  onFormChange?: (entity: FlowNodeEntity, values: Record<string, unknown>) => void;
+  onFormChange?: ((entity: FlowNodeEntity, values: Record<string, unknown>) => void) | undefined;
 
   /**
    * Custom header renderer
    * If not provided, displays the node label
    */
-  headerRenderer?: (props: HeaderRendererProps) => ReactNode;
+  headerRenderer?: ((props: HeaderRendererProps) => ReactNode) | undefined;
 
   /**
    * Custom content renderer
    * If not provided, renders children
    */
-  contentRenderer?: (props: ContentRendererProps) => ReactNode;
+  contentRenderer?: ((props: ContentRendererProps) => ReactNode) | undefined;
 
   /**
    * Custom footer renderer
    */
-  footerRenderer?: (props: FooterRendererProps) => ReactNode;
+  footerRenderer?: ((props: FooterRendererProps) => ReactNode) | undefined;
 
   /**
    * Children to render in the content area
@@ -147,17 +147,17 @@ export interface BaseFlowNodeProps {
   /**
    * Additional CSS class name
    */
-  className?: string;
+  className?: string | undefined;
 
   /**
    * Additional inline styles
    */
-  style?: CSSProperties;
+  style?: CSSProperties | undefined;
 
   /**
    * Test ID for testing
    */
-  "data-testid"?: string;
+  "data-testid"?: string | undefined;
 }
 
 // =============================================================================
@@ -256,7 +256,7 @@ export const BaseFlowNode: React.FC<BaseFlowNodeProps> = React.memo(function Bas
   );
 
   // Use the useNodeDrag hook for drag interaction
-  const { handleMouseDown: handleDragMouseDown, isDragging } = useNodeDrag(entity, {
+  const { handlePointerDown: handleDragPointerDown, isDragging } = useNodeDrag(entity, {
     onMove: handleMoveWrapper,
     disabled: isDisabled || readOnly || isCanvasManaged,
   });
@@ -271,7 +271,7 @@ export const BaseFlowNode: React.FC<BaseFlowNodeProps> = React.memo(function Bas
 
   // Use the useNodeResize hooks for resize interaction on different edges
   // Right edge - horizontal resize only
-  const { handleMouseDown: handleRightEdgeMouseDown, isResizing: isResizingRight } = useNodeResize(
+  const { handlePointerDown: handleRightEdgePointerDown, isResizing: isResizingRight } = useNodeResize(
     entity,
     {
       onResize: handleResizeWrapper,
@@ -281,7 +281,7 @@ export const BaseFlowNode: React.FC<BaseFlowNodeProps> = React.memo(function Bas
   );
 
   // Bottom edge - vertical resize only
-  const { handleMouseDown: handleBottomEdgeMouseDown, isResizing: isResizingBottom } =
+  const { handlePointerDown: handleBottomEdgePointerDown, isResizing: isResizingBottom } =
     useNodeResize(entity, {
       onResize: handleResizeWrapper,
       disabled: isDisabled || readOnly,
@@ -289,7 +289,7 @@ export const BaseFlowNode: React.FC<BaseFlowNodeProps> = React.memo(function Bas
     });
 
   // Corner - both directions
-  const { handleMouseDown: handleCornerMouseDown, isResizing: isResizingCorner } = useNodeResize(
+  const { handlePointerDown: handleCornerPointerDown, isResizing: isResizingCorner } = useNodeResize(
     entity,
     {
       onResize: handleResizeWrapper,
@@ -464,7 +464,7 @@ export const BaseFlowNode: React.FC<BaseFlowNodeProps> = React.memo(function Bas
       style={containerStyle}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
-      {...(isCanvasManaged ? {} : { onMouseDown: handleDragMouseDown })}
+      {...(isCanvasManaged ? {} : { onPointerDown: handleDragPointerDown })}
       data-testid={testId ?? `flow-node-${entity.id}`}
       data-node-id={entity.id}
       data-node-type={entity.data?.nodeType}
@@ -528,7 +528,7 @@ export const BaseFlowNode: React.FC<BaseFlowNodeProps> = React.memo(function Bas
               appearance: "none",
               zIndex: 10,
             }}
-            onMouseDown={handleRightEdgeMouseDown}
+            onPointerDown={handleRightEdgePointerDown}
             data-testid={`flow-node-resize-right-${entity.id}`}
             aria-hidden="true"
           />
@@ -549,7 +549,7 @@ export const BaseFlowNode: React.FC<BaseFlowNodeProps> = React.memo(function Bas
               appearance: "none",
               zIndex: 10,
             }}
-            onMouseDown={handleBottomEdgeMouseDown}
+            onPointerDown={handleBottomEdgePointerDown}
             data-testid={`flow-node-resize-bottom-${entity.id}`}
             aria-hidden="true"
           />
@@ -558,7 +558,7 @@ export const BaseFlowNode: React.FC<BaseFlowNodeProps> = React.memo(function Bas
           <div
             className="flow-node-resize-handle"
             style={resizeHandleStyle}
-            onMouseDown={handleCornerMouseDown}
+            onPointerDown={handleCornerPointerDown}
             data-testid={`flow-node-resize-handle-${entity.id}`}
             aria-hidden="true"
           >

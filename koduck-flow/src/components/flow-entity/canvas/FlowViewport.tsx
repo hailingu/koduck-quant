@@ -508,7 +508,7 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
   );
 
   /**
-   * Update pan during mouse move
+   * Update pan during pointer move
    */
   const updatePan = useCallback(
     (clientX: number, clientY: number) => {
@@ -547,15 +547,16 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
   }, [panState.isPanning, onPanEnd]);
 
   /**
-   * Handle mouse down on viewport
+   * Handle pointer down on viewport
    */
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent) => {
       if (!enablePan) return;
 
       // Middle mouse button (button = 1)
       if (e.button === 1) {
         e.preventDefault();
+        e.currentTarget.setPointerCapture?.(e.pointerId);
         startPan(e.clientX, e.clientY);
         return;
       }
@@ -563,6 +564,7 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
       // Left mouse button with pan key pressed
       if (e.button === 0 && isPanKeyPressed) {
         e.preventDefault();
+        e.currentTarget.setPointerCapture?.(e.pointerId);
         startPan(e.clientX, e.clientY);
         return;
       }
@@ -571,10 +573,10 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
   );
 
   /**
-   * Handle mouse move on viewport
+   * Handle pointer move on viewport
    */
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent) => {
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent) => {
       if (panState.isPanning) {
         updatePan(e.clientX, e.clientY);
       }
@@ -583,16 +585,16 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
   );
 
   /**
-   * Handle mouse up on viewport
+   * Handle pointer up on viewport
    */
-  const handleMouseUp = useCallback(() => {
+  const handlePointerUp = useCallback(() => {
     endPan();
   }, [endPan]);
 
   /**
-   * Handle mouse leave on viewport
+   * Handle pointer cancel on viewport
    */
-  const handleMouseLeave = useCallback(() => {
+  const handlePointerCancel = useCallback(() => {
     endPan();
   }, [endPan]);
 
@@ -689,8 +691,8 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
       }
     };
 
-    // Handle global mouse up to catch releases outside viewport
-    const handleGlobalMouseUp = () => {
+    // Handle global pointer up to catch releases outside viewport
+    const handleGlobalPointerUp = () => {
       if (panState.isPanning) {
         endPan();
       }
@@ -698,12 +700,14 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
-    window.addEventListener("mouseup", handleGlobalMouseUp);
+    window.addEventListener("pointerup", handleGlobalPointerUp);
+    window.addEventListener("pointercancel", handleGlobalPointerUp);
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
-      window.removeEventListener("mouseup", handleGlobalMouseUp);
+      window.removeEventListener("pointerup", handleGlobalPointerUp);
+      window.removeEventListener("pointercancel", handleGlobalPointerUp);
     };
   }, [enablePan, panKey, panState.isPanning, endPan]);
 
@@ -779,10 +783,10 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
         data-testid="flow-viewport"
         data-panning={panState.isPanning}
         data-pan-ready={isPanKeyPressed}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeave}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
         style={{
           position: "relative",
           width: "100%",

@@ -93,7 +93,7 @@ const CanvasNodeContainer: React.FC<CanvasNodeContainerProps> = ({
     () => ({ managedByCanvas: true, selected }),
     [selected]
   );
-  const handleMouseDown = useNodeDrag({
+  const handlePressStart = useNodeDrag({
     node,
     selectNodes: interaction.selectNodes,
     dragNodes: interaction.dragNodes,
@@ -103,17 +103,51 @@ const CanvasNodeContainer: React.FC<CanvasNodeContainerProps> = ({
     ...(onNodeMove === undefined ? {} : { onNodeMove }),
   });
 
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if ((event.key === "Enter" || event.key === " ") && interaction.selectNodes) {
+        event.preventDefault();
+        onNodeSelect?.([node.id]);
+        return;
+      }
+
+      if (!interaction.dragNodes || !onNodeMove) {
+        return;
+      }
+
+      const direction: Record<string, Position> = {
+        ArrowUp: { x: 0, y: -1 },
+        ArrowDown: { x: 0, y: 1 },
+        ArrowLeft: { x: -1, y: 0 },
+        ArrowRight: { x: 1, y: 0 },
+      };
+      const delta = direction[event.key];
+      if (!delta) {
+        return;
+      }
+
+      event.preventDefault();
+      if (interaction.selectNodes) {
+        onNodeSelect?.([node.id]);
+      }
+
+      const step = event.shiftKey ? 50 : event.altKey ? 1 : 10;
+      onNodeMove(node.id, {
+        x: (node.position?.x ?? 0) + delta.x * step,
+        y: (node.position?.y ?? 0) + delta.y * step,
+      });
+    },
+    [interaction.dragNodes, interaction.selectNodes, node, onNodeMove, onNodeSelect]
+  );
+
   return (
     <div
       role="button"
       tabIndex={0}
       data-node-id={node.id}
       aria-label={node.label || "Node"}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-        }
-      }}
+      aria-pressed={selected}
+      onKeyDown={handleKeyDown}
       style={{
         position: "absolute",
         left: node.position?.x ?? 0,
@@ -129,7 +163,8 @@ const CanvasNodeContainer: React.FC<CanvasNodeContainerProps> = ({
         font: "inherit",
         color: "inherit",
       }}
-      onMouseDown={handleMouseDown}
+      onPointerDown={handlePressStart}
+      onMouseDown={handlePressStart}
     >
       <FlowNodeShellContext.Provider value={shellContextValue}>
         {renderNode({
@@ -212,7 +247,7 @@ export const CanvasContent: React.FC<FlowCanvasContentProps> = ({
   const portSize = portConfig?.portSize ?? 12;
   const portHitSize = Math.max(24, portSize + 14);
   const screenEventToCanvasPosition = useCallback(
-    (event: MouseEvent | ReactMouseEvent): Position | null => {
+    (event: PointerEvent | ReactMouseEvent): Position | null => {
       const viewportElement = contentRef.current?.closest<HTMLElement>('[data-testid="flow-viewport"]');
       const rect = viewportElement?.getBoundingClientRect();
       if (!rect) {
@@ -485,21 +520,22 @@ export const CanvasContent: React.FC<FlowCanvasContentProps> = ({
                       opacity: visible ? 1 : 0,
                       transition: "opacity 120ms ease",
                     }}
-                    onMouseEnter={() => {
+                    onPointerEnter={() => {
                       hoverPort(portKey, endpoint);
                     }}
-                    onMouseLeave={() => {
+                    onPointerLeave={() => {
                       leavePort(portKey, endpoint);
                     }}
-                    onMouseDown={(event) => {
+                    onPointerDown={(event) => {
                       if (event.button !== 0) {
                         return;
                       }
                       event.preventDefault();
                       event.stopPropagation();
+                      event.currentTarget.setPointerCapture?.(event.pointerId);
                       beginConnection(endpoint);
                     }}
-                    onMouseUp={(event) => {
+                    onPointerUp={(event) => {
                       event.preventDefault();
                       event.stopPropagation();
                       completeConnectionOnPort(endpoint);

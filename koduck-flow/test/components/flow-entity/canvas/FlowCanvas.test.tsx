@@ -195,6 +195,33 @@ describe("FlowCanvas", () => {
       const content = screen.getByTestId("flow-viewport-content");
       expect(content).toHaveStyle({ transform: "translate(100px, 50px) scale(2)" });
     });
+
+    it("renders working zoom controls when showZoomControls is true", () => {
+      render(
+        <FlowEntityProvider>
+          <FlowCanvas showZoomControls={true} />
+        </FlowEntityProvider>
+      );
+
+      expect(screen.getByLabelText("Canvas zoom controls")).toBeInTheDocument();
+
+      fireEvent.click(screen.getByLabelText("Zoom in"));
+      expect(screen.getByTestId("flow-viewport-content")).toHaveStyle({
+        transform: "translate(0px, 0px) scale(1.2)",
+      });
+    });
+
+    it("renders minimap when showMinimap is true", () => {
+      const nodes = [createMockNode("node-1", 100, 100)];
+
+      render(
+        <FlowEntityProvider>
+          <FlowCanvas nodes={nodes} selectedNodeIds={["node-1"]} showMinimap={true} />
+        </FlowEntityProvider>
+      );
+
+      expect(screen.getByLabelText("Canvas minimap")).toBeInTheDocument();
+    });
   });
 
   // ===========================================================================
@@ -327,9 +354,47 @@ describe("FlowCanvas", () => {
       fireEvent.click(baseNode);
       expect(onBaseNodeSelect).not.toHaveBeenCalled();
 
-      fireEvent.mouseDown(baseNode, { button: 0 });
+      fireEvent.mouseDown(screen.getByRole("button", { name: "Node node-1" }), { button: 0 });
       expect(onNodeSelect).toHaveBeenCalledWith(["node-1"]);
       expect(onBaseNodeSelect).not.toHaveBeenCalled();
+    });
+
+    it("selects canvas-managed nodes from the keyboard", () => {
+      const nodes = [createMockNode("node-1", 150, 200)];
+      const onNodeSelect = vi.fn();
+
+      render(
+        <FlowCanvasWithProvider
+          nodes={nodes}
+          onNodeSelect={onNodeSelect}
+          renderNode={({ node }) => <div>{node.label}</div>}
+        />
+      );
+
+      fireEvent.keyDown(screen.getByRole("button", { name: "Node node-1" }), {
+        key: "Enter",
+      });
+
+      expect(onNodeSelect).toHaveBeenCalledWith(["node-1"]);
+    });
+
+    it("moves canvas-managed nodes from the keyboard", () => {
+      const nodes = [createMockNode("node-1", 150, 200)];
+      const onNodeMove = vi.fn();
+
+      render(
+        <FlowCanvasWithProvider
+          nodes={nodes}
+          onNodeMove={onNodeMove}
+          renderNode={({ node }) => <div>{node.label}</div>}
+        />
+      );
+
+      fireEvent.keyDown(screen.getByRole("button", { name: "Node node-1" }), {
+        key: "ArrowRight",
+      });
+
+      expect(onNodeMove).toHaveBeenCalledWith("node-1", { x: 160, y: 200 });
     });
   });
 

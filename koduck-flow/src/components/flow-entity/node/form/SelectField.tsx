@@ -301,7 +301,7 @@ export const SelectField: React.FC<SelectFieldProps> = ({
             {groupOpts.map((opt) => (
               <option
                 key={String(opt.value)}
-                value={opt.value}
+                value={String(opt.value)}
                 disabled={opt.disabled}
                 className={SELECT_FIELD_OPTION_CLASS}
               >
@@ -315,7 +315,7 @@ export const SelectField: React.FC<SelectFieldProps> = ({
           ...groupOpts.map((opt) => (
             <option
               key={String(opt.value)}
-              value={opt.value}
+              value={String(opt.value)}
               disabled={opt.disabled}
               className={SELECT_FIELD_OPTION_CLASS}
             >

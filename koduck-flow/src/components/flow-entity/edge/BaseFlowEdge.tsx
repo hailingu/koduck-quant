@@ -8,9 +8,9 @@
 
 import React, { useCallback, useMemo, type CSSProperties, type ReactNode } from "react";
 import { useFlowEntityContext } from "../context";
-import type { Position, PathType, PathConfig, FlowEdgeTheme, EdgeAnimationState } from "../types";
+import type { Position, PathType, PathConfig, FlowEdgeTheme } from "../types";
 import type { FlowEdgeEntity } from "../../../common/flow/flow-edge-entity";
-import { EdgePath, calculatePath } from "./EdgePath";
+import { EdgePath, calculatePath, type EdgePathProps } from "./EdgePath";
 import { EdgeAnimation, getEdgeAnimationClassName } from "./EdgeAnimation";
 
 // =============================================================================
@@ -254,23 +254,28 @@ export const BaseFlowEdge: React.FC<BaseFlowEdgeProps> = React.memo(function Bas
       });
     }
 
-    // Default path rendering using EdgePath component
-    return (
-      <EdgePath
-        source={sourcePosition}
-        target={targetPosition}
-        pathType={effectivePathType}
-        pathConfig={effectivePathConfig}
-        strokeColor={strokeColor}
-        strokeWidth={strokeWidth}
-        strokeDasharray={strokeDasharray}
-        selected={selected}
-        selectedColor={selectedColor}
-        opacity={opacity}
-        showArrow={showArrow}
-        markerEnd={showArrow ? DEFAULT_ARROW_MARKER_ID : undefined}
-      />
-    );
+    const edgePathProps: EdgePathProps = {
+      source: sourcePosition,
+      target: targetPosition,
+      pathType: effectivePathType,
+      strokeColor,
+      strokeWidth,
+      selected,
+      selectedColor,
+      opacity,
+      showArrow,
+    };
+    if (effectivePathConfig !== undefined) {
+      edgePathProps.pathConfig = effectivePathConfig;
+    }
+    if (strokeDasharray !== undefined) {
+      edgePathProps.strokeDasharray = strokeDasharray;
+    }
+    if (showArrow) {
+      edgePathProps.markerEnd = DEFAULT_ARROW_MARKER_ID;
+    }
+
+    return <EdgePath {...edgePathProps} />;
   };
 
   // Calculate label position (midpoint of the edge)
@@ -317,11 +322,11 @@ export const BaseFlowEdge: React.FC<BaseFlowEdgeProps> = React.memo(function Bas
         <EdgeAnimation
           path={pathD}
           state={animationState}
-          config={animationConfig}
           strokeColor={strokeColor}
           strokeWidth={strokeWidth}
           animationsEnabled={animationEnabled}
           data-testid={`flow-edge-animation-${entity.id}`}
+          {...(animationConfig === undefined ? {} : { config: animationConfig })}
         />
       )}
 

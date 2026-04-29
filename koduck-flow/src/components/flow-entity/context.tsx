@@ -49,6 +49,13 @@ export const DEFAULT_NODE_THEME: FlowNodeTheme = {
   },
 };
 
+const DEFAULT_PORT_COLORS = {
+  default: "#9ca3af",
+  connected: "#3b82f6",
+  highlighted: "#10b981",
+  error: "#ef4444",
+};
+
 /**
  * Default theme for flow edges
  */
@@ -236,7 +243,7 @@ export function FlowEntityProvider({
       ...DEFAULT_NODE_THEME,
       ...theme?.node,
       portColors: {
-        ...DEFAULT_NODE_THEME.portColors,
+        ...DEFAULT_PORT_COLORS,
         ...theme?.node?.portColors,
       },
       executionStateColors: {
@@ -254,14 +261,17 @@ export function FlowEntityProvider({
       },
     };
 
-    return {
+    const nextTheme: FlowTheme = {
       node: nodeTheme,
       edge: edgeTheme,
-      canvasBackground: theme?.canvasBackground ?? DEFAULT_FLOW_THEME.canvasBackground,
-      gridColor: theme?.gridColor ?? DEFAULT_FLOW_THEME.gridColor,
-      selectionColor: theme?.selectionColor ?? DEFAULT_FLOW_THEME.selectionColor,
-      minimap: theme?.minimap,
+      canvasBackground: theme?.canvasBackground ?? "#f9fafb",
+      gridColor: theme?.gridColor ?? "#e5e7eb",
+      selectionColor: theme?.selectionColor ?? "rgba(59, 130, 246, 0.2)",
     };
+    if (theme?.minimap) {
+      nextTheme.minimap = theme.minimap;
+    }
+    return nextTheme;
   }, [theme]);
 
   // Merge other configs with defaults
@@ -291,15 +301,20 @@ export function FlowEntityProvider({
 
   // Build context value
   const contextValue = useMemo<FlowEntityContextValue>(
-    () => ({
-      theme: mergedTheme,
-      portConfig: mergedPortConfig,
-      executionVisuals: mergedExecutionVisuals,
-      edgeAnimation: mergedEdgeAnimation,
-      runtime,
-      readOnly,
-      debug,
-    }),
+    () => {
+      const value: FlowEntityContextValue = {
+        theme: mergedTheme,
+        portConfig: mergedPortConfig,
+        executionVisuals: mergedExecutionVisuals,
+        edgeAnimation: mergedEdgeAnimation,
+        readOnly,
+        debug,
+      };
+      if (runtime !== undefined) {
+        value.runtime = runtime;
+      }
+      return value;
+    },
     [
       mergedTheme,
       mergedPortConfig,

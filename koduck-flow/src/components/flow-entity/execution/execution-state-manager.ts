@@ -351,13 +351,23 @@ export class ExecutionStateManager implements IDisposable {
    * @returns Complete execution info including state, progress, timing
    */
   getEntityInfo(entityId: string): EntityExecutionInfo {
-    return {
+    const info: EntityExecutionInfo = {
       state: this.getState(entityId),
-      progress: this.getProgress(entityId),
       updatedAt: this._timestamps.get(entityId) ?? 0,
-      errorMessage: this._errors.get(entityId),
-      durationMs: this._durations.get(entityId),
     };
+    const progress = this.getProgress(entityId);
+    const errorMessage = this._errors.get(entityId);
+    const durationMs = this._durations.get(entityId);
+    if (progress !== undefined) {
+      info.progress = progress;
+    }
+    if (errorMessage !== undefined) {
+      info.errorMessage = errorMessage;
+    }
+    if (durationMs !== undefined) {
+      info.durationMs = durationMs;
+    }
+    return info;
   }
 
   /**
@@ -512,8 +522,8 @@ export class ExecutionStateManager implements IDisposable {
    */
   handleEntityFinish(event: EntityFinishEvent): void {
     this.setState(event.entityId, event.status, {
-      errorMessage: event.error?.message,
       durationMs: event.durationMs,
+      ...(event.error?.message === undefined ? {} : { errorMessage: event.error.message }),
     });
   }
 

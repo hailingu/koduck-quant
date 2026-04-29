@@ -106,7 +106,7 @@ services:
     token: workerPoolManager
     lifecycle: singleton
     ownsInstance: true
-    dispose: "(instance) => { instance.dispose?.(); }"
+    dispose: "(instance) => { (instance as WorkerPoolManager).dispose?.(); }"
     factory: |
       (container) => {
         const config: Partial<WorkerPoolConfig> = {

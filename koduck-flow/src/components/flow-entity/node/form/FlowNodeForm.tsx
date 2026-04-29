@@ -24,7 +24,6 @@ import type {
   FormValidationResult,
 } from "./types";
 import {
-  getOrderedFieldNames,
   getVisibleFieldNames,
   validateForm,
   setNestedValueImmutable,
@@ -36,7 +35,7 @@ import { FieldWrapper } from "./FieldWrapper";
 import { StringField } from "./StringField";
 import { NumberField } from "./NumberField";
 import { BooleanField } from "./BooleanField";
-import { SelectField, MultiSelectField, CheckboxesField, RadiosField } from "./SelectField";
+import { SelectField, MultiSelectField } from "./SelectField";
 import { ArrayField } from "./ArrayField";
 
 // =============================================================================
@@ -126,8 +125,6 @@ const PlaceholderField: React.FC<FieldProps> = ({
   disabled,
   testId,
 }) => {
-  const widgetType = getWidgetType(schema);
-
   // Handle different field types with basic inputs
   switch (schema.type) {
     case "text":
@@ -191,7 +188,7 @@ const PlaceholderField: React.FC<FieldProps> = ({
         >
           <option value="">{schema.placeholder ?? "Select..."}</option>
           {schema.options?.map((option) => (
-            <option key={String(option.value)} value={option.value}>
+            <option key={String(option.value)} value={String(option.value)}>
               {option.label}
             </option>
           ))}
@@ -213,7 +210,7 @@ const PlaceholderField: React.FC<FieldProps> = ({
           className="flow-node-form-field__multiselect-input"
         >
           {schema.options?.map((option) => (
-            <option key={String(option.value)} value={option.value}>
+            <option key={String(option.value)} value={String(option.value)}>
               {option.label}
             </option>
           ))}
@@ -474,7 +471,7 @@ export const FlowNodeForm: React.FC<FlowNodeFormProps> = ({
 
   // Handle field blur
   const handleFieldBlur = useCallback(
-    (name: string) => {
+    () => {
       // Validate on blur if enabled
       if (validateOnBlur && onValidate) {
         const result = validateForm(schema, data);
@@ -496,7 +493,9 @@ export const FlowNodeForm: React.FC<FlowNodeFormProps> = ({
       // Get the renderer for this field type
       const widgetType = getWidgetType(fieldSchema);
       const FieldComponent =
-        fieldRenderers[widgetType] || fieldRenderers[fieldSchema.type] || PlaceholderField;
+        (fieldRenderers[widgetType] || fieldRenderers[fieldSchema.type] || PlaceholderField) as
+          | FieldRenderer
+          | typeof PlaceholderField;
 
       // Compute field props
       const fieldReadOnly = isFieldReadOnly(fieldSchema, readOnly);
@@ -510,25 +509,27 @@ export const FlowNodeForm: React.FC<FlowNodeFormProps> = ({
         name,
         value: fieldValue,
         onChange: (value: unknown) => handleFieldChange(name, value),
-        onBlur: () => handleFieldBlur(name),
+        onBlur: handleFieldBlur,
         readOnly: fieldReadOnly,
         disabled: fieldDisabled,
-        error: fieldError,
         testId: `field-input-${name}`,
         path: name,
         formContext,
       };
+      if (fieldError !== undefined) {
+        fieldProps.error = fieldError;
+      }
 
       return (
         <FieldWrapper
           key={name}
           schema={fieldSchema}
           name={name}
-          error={fieldError}
           compact={compact}
           labelPosition={labelPosition}
           hideLabel={!showLabels}
           testId={`field-wrapper-${name}`}
+          {...(fieldError === undefined ? {} : { error: fieldError })}
         >
           <FieldComponent {...fieldProps} />
         </FieldWrapper>

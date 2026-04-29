@@ -25,11 +25,6 @@ const DEFAULT_CONFIG: Required<Omit<EdgeAnimationConfig, "animation">> = {
 };
 
 /**
- * Default stroke-dasharray for flowing animation
- */
-const DEFAULT_DASH_ARRAY = "8 4";
-
-/**
  * Animation duration multiplier base (in seconds)
  */
 const BASE_ANIMATION_DURATION = 1;

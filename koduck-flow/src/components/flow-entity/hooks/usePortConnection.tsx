@@ -7,8 +7,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { FlowNodeEntity } from "../../../common/flow/flow-node-entity";
-import type { PortDefinition, PortDirection, PortDataType, Position } from "../types";
+import type { PortDefinition, PortDataType, Position } from "../types";
 
 // =============================================================================
 // Types
@@ -732,7 +731,7 @@ import React, { createContext, useContext, type ReactNode } from "react";
 /**
  * Context value for port connection state
  */
-export interface PortConnectionContextValue extends UsePortConnectionResult {}
+export type PortConnectionContextValue = UsePortConnectionResult;
 
 /**
  * Port connection context
