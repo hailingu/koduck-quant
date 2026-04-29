@@ -18,7 +18,6 @@ const loggerMock = vi.hoisted(() => {
 
   return logger;
 });
-const getRuntimeForEnvironmentMock = vi.hoisted(() => vi.fn());
 
 vi.mock("react-dom/client", () => ({
   createRoot: createRootMock,
@@ -28,24 +27,12 @@ vi.mock("../../src/common/logger", () => ({
   logger: loggerMock,
 }));
 
-vi.mock("../../src/common/global-runtime", () => ({
-  DEFAULT_KODUCKFLOW_ENVIRONMENT: "test-default",
-  getRuntimeForEnvironment: getRuntimeForEnvironmentMock,
-}));
-
 vi.mock("../../src/App.tsx", () => ({
   default: () => null,
 }));
 
 describe("main bootstrap", () => {
   let renderSpy: ReturnType<typeof vi.fn>;
-  let registryManager: {
-    constructor: { name: string };
-    toString: () => string;
-    getRegistryNames: ReturnType<typeof vi.fn>;
-    hasRegistry: ReturnType<typeof vi.fn>;
-    getRegistry: ReturnType<typeof vi.fn>;
-  };
 
   beforeEach(() => {
     vi.resetModules();
@@ -65,18 +52,6 @@ describe("main bootstrap", () => {
     loggerMock.child.mockReset();
     loggerMock.child.mockReturnValue(loggerMock);
 
-    getRuntimeForEnvironmentMock.mockReset();
-
-    registryManager = {
-      constructor: { name: "MockRegistryManager" },
-      toString: () => "[MockRegistryManager]",
-      getRegistryNames: vi.fn(() => ["uml-class-canvas", "uml-interface-canvas"]),
-      hasRegistry: vi.fn(() => true),
-      getRegistry: vi.fn(() => ({})),
-    };
-
-    getRuntimeForEnvironmentMock.mockReturnValue({ RegistryManager: registryManager });
-
     document.body.innerHTML = "";
   });
 
@@ -87,12 +62,9 @@ describe("main bootstrap", () => {
 
     await import("../../src/main.tsx");
 
-    expect(getRuntimeForEnvironmentMock).toHaveBeenCalledWith("test-default");
-    expect(registryManager.getRegistryNames).toHaveBeenCalled();
-    expect(registryManager.hasRegistry).toHaveBeenCalled();
     expect(createRootMock).toHaveBeenCalledWith(root);
     expect(renderSpy).toHaveBeenCalledTimes(1);
-    expect(loggerMock.info).toHaveBeenCalledWith("🚀 App startup - checking UML registry status");
+    expect(loggerMock.info).not.toHaveBeenCalled();
     expect(loggerMock.error).not.toHaveBeenCalledWith(
       "Root container '#root' was not found. Skipping render bootstrap."
     );

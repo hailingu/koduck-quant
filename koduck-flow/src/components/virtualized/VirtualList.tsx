@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   buildVirtualListMetrics,
   calculateVirtualRange,
@@ -61,36 +61,54 @@ export function VirtualList<T>(props: VirtualListProps<T>) {
     containerHeight === 0 || metrics.totalHeight === 0 ? [] : items.slice(startIndex, endIndex + 1);
 
   const externalOnScroll = containerProps?.onScroll;
+  const lastNotifiedRangeRef = useRef<{ start: number; end: number } | null>(null);
+
+  const notifyVisibleRange = useCallback(
+    (range: { start: number; end: number }) => {
+      if (!onScroll) {
+        return;
+      }
+
+      const previous = lastNotifiedRangeRef.current;
+      if (previous?.start === range.start && previous.end === range.end) {
+        return;
+      }
+
+      lastNotifiedRangeRef.current = range;
+      onScroll(range);
+    },
+    [onScroll]
+  );
 
   const handleScroll = useCallback(
     (e: React.UIEvent<HTMLDivElement>) => {
       const newScrollTop = e.currentTarget.scrollTop;
       setScrollTop(newScrollTop);
 
-      if (onScroll) {
-        const range = {
-          start: startIndex,
-          end: endIndex,
-        };
-        onScroll(range);
-      }
+      const nextRange = calculateVirtualRange(metrics, {
+        scrollTop: newScrollTop,
+        containerHeight,
+        bufferSize,
+        itemCount: items.length,
+      });
+      notifyVisibleRange({
+        start: nextRange.startIndex,
+        end: nextRange.endIndex,
+      });
 
       if (externalOnScroll) {
         externalOnScroll(e);
       }
     },
-    [startIndex, endIndex, onScroll, externalOnScroll]
+    [bufferSize, containerHeight, externalOnScroll, items.length, metrics, notifyVisibleRange]
   );
 
   useEffect(() => {
-    if (onScroll) {
-      const range = {
-        start: startIndex,
-        end: endIndex,
-      };
-      onScroll(range);
-    }
-  }, [startIndex, endIndex, onScroll]);
+    notifyVisibleRange({
+      start: startIndex,
+      end: endIndex,
+    });
+  }, [startIndex, endIndex, notifyVisibleRange]);
 
   const baseStyle = {
     height: containerHeight,

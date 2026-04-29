@@ -27,16 +27,16 @@ describe("public component exports", () => {
   it("declares stable package export entry points", () => {
     expect(packageJson.exports).toMatchObject({
       ".": {
-        types: "./src/index.ts",
-        import: "./src/index.ts",
+        types: "./dist/index.d.ts",
+        import: "./dist/index.js",
       },
       "./components": {
-        types: "./src/components/index.ts",
-        import: "./src/components/index.ts",
+        types: "./dist/components/index.d.ts",
+        import: "./dist/components.js",
       },
       "./components/flow-entity": {
-        types: "./src/components/flow-entity/index.ts",
-        import: "./src/components/flow-entity/index.ts",
+        types: "./dist/components/flow-entity/index.d.ts",
+        import: "./dist/components/flow-entity.js",
       },
     });
   });

@@ -255,6 +255,7 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
 
   // Viewport state
   const [viewportState, setViewportState] = useState<ViewportState>(initialViewport);
+  const isControlled = controlledViewport !== undefined;
   const effectiveViewport = useMemo<ViewportState>(
     () => ({
       ...viewportState,
@@ -262,6 +263,8 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
     }),
     [controlledViewport, viewportState]
   );
+  const effectiveViewportRef = useRef(effectiveViewport);
+  effectiveViewportRef.current = effectiveViewport;
 
   // Pan interaction state
   const [panState, setPanState] = useState<PanState>({
@@ -292,19 +295,31 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
     [constraints.minScale, constraints.maxScale]
   );
 
-  /**
-   * Set viewport state with optional callback notification
-   */
-  const setViewport = useCallback(
+  const commitViewport = useCallback(
     (newState: ViewportState) => {
       const clampedState = {
         ...newState,
         scale: clampScale(newState.scale),
       };
-      setViewportState(clampedState);
+      if (!isControlled) {
+        setViewportState(clampedState);
+      }
       onViewportChange?.(clampedState);
     },
-    [clampScale, onViewportChange]
+    [clampScale, isControlled, onViewportChange]
+  );
+
+  /**
+   * Set viewport state with optional callback notification.
+   *
+   * In controlled mode, this emits the requested state and leaves rendering to
+   * the parent-owned `viewport` prop.
+   */
+  const setViewport = useCallback(
+    (newState: ViewportState) => {
+      commitViewport(newState);
+    },
+    [commitViewport]
   );
 
   /**
@@ -312,17 +327,14 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
    */
   const pan = useCallback(
     (deltaX: number, deltaY: number) => {
-      setViewportState((prev) => {
-        const newState = {
-          ...prev,
-          translateX: prev.translateX + deltaX,
-          translateY: prev.translateY + deltaY,
-        };
-        onViewportChange?.(newState);
-        return newState;
+      const current = effectiveViewportRef.current;
+      commitViewport({
+        ...current,
+        translateX: current.translateX + deltaX,
+        translateY: current.translateY + deltaY,
       });
     },
-    [onViewportChange]
+    [commitViewport]
   );
 
   /**
@@ -330,41 +342,38 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
    */
   const zoom = useCallback(
     (factor: number, focalPoint?: { x: number; y: number }) => {
-      setViewportState((prev) => {
-        const newScale = clampScale(prev.scale * factor);
-        const actualFactor = newScale / prev.scale;
+      const current = effectiveViewportRef.current;
+      const newScale = clampScale(current.scale * factor);
+      const actualFactor = newScale / current.scale;
 
-        let newTranslateX: number;
-        let newTranslateY: number;
+      let newTranslateX: number;
+      let newTranslateY: number;
 
-        // If focal point provided, zoom towards it
-        if (focalPoint) {
-          // Convert focal point to canvas coordinates
-          const canvasX = (focalPoint.x - prev.translateX) / prev.scale;
-          const canvasY = (focalPoint.y - prev.translateY) / prev.scale;
+      // If focal point provided, zoom towards it
+      if (focalPoint) {
+        // Convert focal point to canvas coordinates
+        const canvasX = (focalPoint.x - current.translateX) / current.scale;
+        const canvasY = (focalPoint.y - current.translateY) / current.scale;
 
-          // Calculate new translation to keep focal point stationary
-          newTranslateX = focalPoint.x - canvasX * newScale;
-          newTranslateY = focalPoint.y - canvasY * newScale;
-        } else {
-          // Zoom towards center
-          const centerX = containerRef.current.width / 2;
-          const centerY = containerRef.current.height / 2;
+        // Calculate new translation to keep focal point stationary
+        newTranslateX = focalPoint.x - canvasX * newScale;
+        newTranslateY = focalPoint.y - canvasY * newScale;
+      } else {
+        // Zoom towards center
+        const centerX = containerRef.current.width / 2;
+        const centerY = containerRef.current.height / 2;
 
-          newTranslateX = centerX - (centerX - prev.translateX) * actualFactor;
-          newTranslateY = centerY - (centerY - prev.translateY) * actualFactor;
-        }
+        newTranslateX = centerX - (centerX - current.translateX) * actualFactor;
+        newTranslateY = centerY - (centerY - current.translateY) * actualFactor;
+      }
 
-        const newState = {
-          translateX: newTranslateX,
-          translateY: newTranslateY,
-          scale: newScale,
-        };
-        onViewportChange?.(newState);
-        return newState;
+      commitViewport({
+        translateX: newTranslateX,
+        translateY: newTranslateY,
+        scale: newScale,
       });
     },
-    [clampScale, onViewportChange]
+    [clampScale, commitViewport]
   );
 
   /**
@@ -372,37 +381,33 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
    */
   const setZoom = useCallback(
     (scale: number, focalPoint?: { x: number; y: number }) => {
-      setViewportState((prev) => {
-        const newScale = clampScale(scale);
-        let newTranslateX = prev.translateX;
-        let newTranslateY = prev.translateY;
+      const current = effectiveViewportRef.current;
+      const newScale = clampScale(scale);
+      let newTranslateX = current.translateX;
+      let newTranslateY = current.translateY;
 
-        if (focalPoint) {
-          const canvasX = (focalPoint.x - prev.translateX) / prev.scale;
-          const canvasY = (focalPoint.y - prev.translateY) / prev.scale;
-          newTranslateX = focalPoint.x - canvasX * newScale;
-          newTranslateY = focalPoint.y - canvasY * newScale;
-        }
+      if (focalPoint) {
+        const canvasX = (focalPoint.x - current.translateX) / current.scale;
+        const canvasY = (focalPoint.y - current.translateY) / current.scale;
+        newTranslateX = focalPoint.x - canvasX * newScale;
+        newTranslateY = focalPoint.y - canvasY * newScale;
+      }
 
-        const newState = {
-          translateX: newTranslateX,
-          translateY: newTranslateY,
-          scale: newScale,
-        };
-        onViewportChange?.(newState);
-        return newState;
+      commitViewport({
+        translateX: newTranslateX,
+        translateY: newTranslateY,
+        scale: newScale,
       });
     },
-    [clampScale, onViewportChange]
+    [clampScale, commitViewport]
   );
 
   /**
    * Reset viewport to initial/default state
    */
   const reset = useCallback(() => {
-    setViewportState(initialViewport);
-    onViewportChange?.(initialViewport);
-  }, [initialViewport, onViewportChange]);
+    commitViewport(initialViewport);
+  }, [commitViewport, initialViewport]);
 
   /**
    * Fit content bounds to viewport
@@ -437,10 +442,9 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
         translateY: newTranslateY,
         scale: newScale,
       };
-      setViewportState(newState);
-      onViewportChange?.(newState);
+      commitViewport(newState);
     },
-    [clampScale, onViewportChange]
+    [clampScale, commitViewport]
   );
 
   /**
@@ -449,17 +453,14 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
   const centerOn = useCallback(
     (x: number, y: number) => {
       const { width, height } = containerRef.current;
-      setViewportState((prev) => {
-        const newState = {
-          ...prev,
-          translateX: width / 2 - x * prev.scale,
-          translateY: height / 2 - y * prev.scale,
-        };
-        onViewportChange?.(newState);
-        return newState;
+      const current = effectiveViewportRef.current;
+      commitViewport({
+        ...current,
+        translateX: width / 2 - x * current.scale,
+        translateY: height / 2 - y * current.scale,
       });
     },
-    [onViewportChange]
+    [commitViewport]
   );
 
   /**
@@ -524,17 +525,13 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
       const newTranslateX = panState.startTranslateX + deltaX;
       const newTranslateY = panState.startTranslateY + deltaY;
 
-      setViewportState((prev) => {
-        const newState = {
-          ...prev,
-          translateX: newTranslateX,
-          translateY: newTranslateY,
-        };
-        onViewportChange?.(newState);
-        return newState;
+      commitViewport({
+        ...effectiveViewportRef.current,
+        translateX: newTranslateX,
+        translateY: newTranslateY,
       });
     },
-    [panState, onViewportChange]
+    [commitViewport, panState]
   );
 
   /**

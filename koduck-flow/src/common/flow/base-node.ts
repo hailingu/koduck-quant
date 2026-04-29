@@ -154,7 +154,7 @@ export class BaseNode implements INode<BaseNode>, ISerializable {
     }
 
     if (child._parent) {
-      child.child.remove();
+      child._parent.removeChild(child);
     }
 
     const oldChild = this._children[index];
@@ -208,7 +208,7 @@ export class BaseNode implements INode<BaseNode>, ISerializable {
     }
 
     if (child._parent) {
-      child.child.remove();
+      child._parent.removeChild(child);
     }
 
     child._parent = this;
@@ -254,7 +254,7 @@ export class BaseNode implements INode<BaseNode>, ISerializable {
   dispose(): void {
     // Clean up parent-child relationship
     if (this._parent) {
-      this.this.remove();
+      this._parent.removeChild(this);
     }
 
     // Dispose all child nodes recursively

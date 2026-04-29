@@ -254,7 +254,8 @@ describe("HttpRequestNode Component", () => {
       </TestWrapper>
     );
 
-    expect(screen.getByRole("button", { name: /flow node/i })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: /flow node/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /flow node handle/i })).toBeInTheDocument();
   });
 
   it("should display the node label in header", () => {
@@ -304,8 +305,8 @@ describe("HttpRequestNode Component", () => {
       </TestWrapper>
     );
 
-    const node = screen.getByRole("button", { name: /flow node/i });
-    fireEvent.click(node);
+    const handle = screen.getByRole("button", { name: /flow node handle/i });
+    fireEvent.click(handle);
 
     expect(onSelect).toHaveBeenCalledWith(entity);
   });
@@ -319,7 +320,7 @@ describe("HttpRequestNode Component", () => {
       </TestWrapper>
     );
 
-    const node = screen.getByRole("button", { name: /flow node/i });
+    const node = screen.getByRole("group", { name: /flow node/i });
     expect(node).toHaveAttribute("data-selected", "true");
   });
 });

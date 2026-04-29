@@ -220,7 +220,7 @@ export class PortConnectionTool implements Tool {
 
     const created = flow
       ? (flow.createEdgeEntity("uml-line-canvas", lineArgs) as UMLLineEntity | null)
-      : (this.entityManager.createEntity("uml-line-canvas", lineArgs));
+      : (this.entityManager.createEntity("uml-line-canvas", lineArgs) as UMLLineEntity | null);
 
     const line = created;
 

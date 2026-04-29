@@ -74,7 +74,99 @@ interface CanvasNodeContainerProps {
   interactionScale: number;
   onNodeSelect?: (nodeIds: string[]) => void;
   onNodeMove?: (nodeId: string, position: Position) => void;
-  renderNode: (props: NodeRenderProps) => ReactNode;
+  renderNode?: (props: NodeRenderProps) => ReactNode;
+}
+
+interface DefaultCanvasNodeProps {
+  node: IFlowNodeEntityData;
+  selected: boolean;
+  interaction: FlowCanvasInteraction;
+  onHandlePointerDown: React.PointerEventHandler<HTMLElement>;
+  onHandleKeyDown: React.KeyboardEventHandler<HTMLElement>;
+}
+
+const defaultNodeStyle: React.CSSProperties = {
+  width: "100%",
+  height: "100%",
+  display: "flex",
+  flexDirection: "column",
+  overflow: "hidden",
+  borderRadius: 8,
+  border: "1px solid #cbd5e1",
+  background: "#ffffff",
+  boxShadow: "0 8px 20px rgba(15, 23, 42, 0.08)",
+  color: "#0f172a",
+};
+
+const defaultNodeHeaderStyle: React.CSSProperties = {
+  minHeight: 36,
+  display: "flex",
+  alignItems: "center",
+  padding: "8px 12px",
+  borderBottom: "1px solid #e2e8f0",
+  background: "#f8fafc",
+  fontSize: 13,
+  fontWeight: 600,
+  userSelect: "none",
+};
+
+const defaultNodeContentStyle: React.CSSProperties = {
+  flex: 1,
+  minHeight: 0,
+  padding: "10px 12px",
+  fontSize: 12,
+  color: "#64748b",
+};
+
+function DefaultCanvasNode({
+  node,
+  selected,
+  interaction,
+  onHandlePointerDown,
+  onHandleKeyDown,
+}: DefaultCanvasNodeProps) {
+  const label = node.label || node.nodeType || node.id;
+
+  return (
+    <div
+      data-testid={`flow-node-${node.id}`}
+      data-node-id={node.id}
+      data-node-type={node.nodeType}
+      data-execution-state={node.executionState}
+      data-selected={selected}
+      style={{
+        ...defaultNodeStyle,
+        borderColor: selected ? "#2563eb" : defaultNodeStyle.borderColor,
+        boxShadow: selected
+          ? "0 0 0 2px rgba(37, 99, 235, 0.18), 0 8px 20px rgba(15, 23, 42, 0.08)"
+          : defaultNodeStyle.boxShadow,
+      }}
+      role="group"
+      aria-label={`Flow node: ${label}`}
+      aria-selected={selected}
+    >
+      <div
+        data-testid={`flow-node-header-${node.id}`}
+        style={{
+          ...defaultNodeHeaderStyle,
+          cursor: interaction.dragNodes ? "grab" : "default",
+        }}
+        role="button"
+        tabIndex={0}
+        aria-label={`Flow node handle: ${label}`}
+        aria-pressed={selected}
+        onPointerDown={onHandlePointerDown}
+        onKeyDown={onHandleKeyDown}
+      >
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {label}
+        </span>
+      </div>
+      <div style={defaultNodeContentStyle}>
+        {node.nodeType ?? "default"}
+      </div>
+    </div>
+  );
 }
 
 const CanvasNodeContainer: React.FC<CanvasNodeContainerProps> = ({
@@ -89,10 +181,6 @@ const CanvasNodeContainer: React.FC<CanvasNodeContainerProps> = ({
   const viewport = useViewportOptional();
   const nodeWidth = node.size?.width ?? 200;
   const nodeHeight = node.size?.height ?? 100;
-  const shellContextValue = useMemo(
-    () => ({ managedByCanvas: true, selected }),
-    [selected]
-  );
   const handlePressStart = useNodeDrag({
     node,
     selectNodes: interaction.selectNodes,
@@ -104,7 +192,7 @@ const CanvasNodeContainer: React.FC<CanvasNodeContainerProps> = ({
   });
 
   const handleKeyDown = useCallback(
-    (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    (event: React.KeyboardEvent<HTMLElement>) => {
       if ((event.key === "Enter" || event.key === " ") && interaction.selectNodes) {
         event.preventDefault();
         onNodeSelect?.([node.id]);
@@ -144,22 +232,28 @@ const CanvasNodeContainer: React.FC<CanvasNodeContainerProps> = ({
     },
     [interaction.dragNodes, interaction.selectNodes, node, onNodeMove, onNodeSelect]
   );
+  const shellContextValue = useMemo(
+    () => ({
+      managedByCanvas: true,
+      selected,
+      onHandlePointerDown: handlePressStart,
+      onHandleKeyDown: handleKeyDown,
+    }),
+    [handleKeyDown, handlePressStart, selected]
+  );
 
   return (
-    <button
-      type="button"
+    <div
+      role="group"
       data-node-id={node.id}
       aria-label={node.label || "Node"}
-      aria-pressed={selected}
-      onKeyDown={handleKeyDown}
+      aria-selected={selected}
       style={{
         position: "absolute",
         left: node.position?.x ?? 0,
         top: node.position?.y ?? 0,
         width: nodeWidth,
         height: nodeHeight,
-        cursor: interaction.dragNodes ? "grab" : "default",
-        userSelect: interaction.dragNodes ? "none" : undefined,
         background: "transparent",
         border: 0,
         padding: 0,
@@ -167,16 +261,24 @@ const CanvasNodeContainer: React.FC<CanvasNodeContainerProps> = ({
         font: "inherit",
         color: "inherit",
       }}
-      onPointerDown={handlePressStart}
-      onMouseDown={handlePressStart}
     >
       <FlowNodeShellContext.Provider value={shellContextValue}>
-        {renderNode({
-          node,
-          selected,
-        })}
+        {renderNode ? (
+          renderNode({
+            node,
+            selected,
+          })
+        ) : (
+          <DefaultCanvasNode
+            node={node}
+            selected={selected}
+            interaction={interaction}
+            onHandlePointerDown={handlePressStart}
+            onHandleKeyDown={handleKeyDown}
+          />
+        )}
       </FlowNodeShellContext.Provider>
-    </button>
+    </div>
   );
 };
 
@@ -374,39 +476,89 @@ export const CanvasContent: React.FC<FlowCanvasContentProps> = ({
           <g data-testid="flow-canvas-edges-group">
             {edgeRenderItems.map((item) => {
               const { edge, sourcePosition, targetPosition, route, selected } = item;
-              if (renderEdge) {
-                return (
-                  <g
-                    key={edge.id}
-                    data-edge-id={edge.id}
-                    style={{
-                      pointerEvents: "auto",
-                      cursor: interaction.selectEdges ? "pointer" : "default",
-                    }}
-                    onClick={(event) => {
+              const defaultPath = route
+                ? buildRoundedOrthogonalPath(compactRoutePoints(route.points), 14)
+                : buildRoundedOrthogonalPath(
+                    compactRoutePoints([sourcePosition, targetPosition]),
+                    14
+                  );
+
+              return (
+                <g
+                  key={edge.id}
+                  data-edge-id={edge.id}
+                  data-testid={`flow-edge-${edge.id}`}
+                  data-selected={selected}
+                  style={{
+                    pointerEvents: "auto",
+                    cursor: interaction.selectEdges ? "pointer" : "default",
+                  }}
+                  role="button"
+                  tabIndex={interaction.selectEdges ? 0 : -1}
+                  aria-label={`Flow edge from ${edge.sourceNodeId} to ${edge.targetNodeId}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (interaction.selectEdges) {
+                      onEdgeSelect?.([edge.id]);
+                    }
+                  }}
+                  onDoubleClick={(event) => {
+                    event.stopPropagation();
+                    if (interaction.deleteEdges) {
+                      onEdgeDelete?.(edge.id);
+                    }
+                  }}
+                  onKeyDown={(event) => {
+                    if (!interaction.selectEdges) {
+                      return;
+                    }
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
                       event.stopPropagation();
-                      if (interaction.selectEdges) {
-                        onEdgeSelect?.([edge.id]);
-                      }
-                    }}
-                    onDoubleClick={(event) => {
+                      onEdgeSelect?.([edge.id]);
+                    }
+                    if (
+                      (event.key === "Backspace" || event.key === "Delete") &&
+                      interaction.deleteEdges
+                    ) {
+                      event.preventDefault();
                       event.stopPropagation();
-                      if (interaction.deleteEdges) {
-                        onEdgeDelete?.(edge.id);
-                      }
-                    }}
-                  >
-                    {renderEdge({
+                      onEdgeDelete?.(edge.id);
+                    }
+                  }}
+                >
+                  {renderEdge ? (
+                    renderEdge({
                       edge,
                       sourcePosition,
                       targetPosition,
                       route,
                       selected,
-                    })}
-                  </g>
-                );
-              }
-              return null;
+                    })
+                  ) : (
+                    <>
+                      <path
+                        d={defaultPath}
+                        fill="none"
+                        stroke="transparent"
+                        strokeWidth={16}
+                        data-testid={`flow-edge-hit-area-${edge.id}`}
+                      />
+                      <path
+                        d={defaultPath}
+                        fill="none"
+                        stroke={selected ? "#2563eb" : edge.theme?.strokeColor ?? "#64748b"}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={selected ? 3 : edge.theme?.strokeWidth ?? 2}
+                        strokeDasharray={edge.theme?.strokeDasharray}
+                        markerEnd="url(#flow-edge-arrow)"
+                        data-testid={`flow-edge-path-${edge.id}`}
+                      />
+                    </>
+                  )}
+                </g>
+              );
             })}
           </g>
           {connectionDraft ? (
@@ -448,21 +600,18 @@ export const CanvasContent: React.FC<FlowCanvasContentProps> = ({
           }}
         >
           {renderModel.nodes.map(({ node, selected }) => {
-            if (renderNode) {
-              return (
-                <CanvasNodeContainer
-                  key={node.id}
-                  node={node}
-                  selected={selected}
-                  interaction={interaction}
-                  interactionScale={interactionScale}
-                  renderNode={renderNode}
-                  {...(onNodeSelect === undefined ? {} : { onNodeSelect })}
-                  {...(onNodeMove === undefined ? {} : { onNodeMove })}
-                />
-              );
-            }
-            return null;
+            return (
+              <CanvasNodeContainer
+                key={node.id}
+                node={node}
+                selected={selected}
+                interaction={interaction}
+                interactionScale={interactionScale}
+                {...(renderNode === undefined ? {} : { renderNode })}
+                {...(onNodeSelect === undefined ? {} : { onNodeSelect })}
+                {...(onNodeMove === undefined ? {} : { onNodeMove })}
+              />
+            );
           })}
           {onEdgeCreate
             ? renderModel.ports.map(({ key, node, port, position, connected }) => {

@@ -253,7 +253,7 @@ describe("BaseFlowNode", () => {
       const onSelect = vi.fn();
 
       renderWithProvider({ entity, onSelect });
-      fireEvent.click(screen.getByTestId(`flow-node-${entity.id}`));
+      fireEvent.click(screen.getByTestId(`flow-node-header-${entity.id}`));
 
       expect(onSelect).toHaveBeenCalledWith(entity);
     });
@@ -263,7 +263,7 @@ describe("BaseFlowNode", () => {
       const onSelect = vi.fn();
 
       renderWithProvider({ entity, onSelect });
-      fireEvent.click(screen.getByTestId(`flow-node-${entity.id}`));
+      fireEvent.click(screen.getByTestId(`flow-node-header-${entity.id}`));
 
       expect(onSelect).not.toHaveBeenCalled();
     });
@@ -280,7 +280,7 @@ describe("BaseFlowNode", () => {
         </div>
       );
 
-      fireEvent.click(screen.getByTestId(`flow-node-${entity.id}`));
+      fireEvent.click(screen.getByTestId(`flow-node-header-${entity.id}`));
       expect(parentClick).not.toHaveBeenCalled();
     });
   });
@@ -323,18 +323,28 @@ describe("BaseFlowNode", () => {
       const entity = createTestEntity({ disabled: true });
       renderWithProvider({ entity });
 
-      const node = screen.getByTestId(`flow-node-${entity.id}`);
-      expect(node).toHaveStyle({ cursor: "not-allowed" });
+      const header = screen.getByTestId(`flow-node-header-${entity.id}`);
+      expect(header).toHaveStyle({ cursor: "not-allowed" });
     });
   });
 
   describe("accessibility", () => {
-    it("has role button", () => {
+    it("uses a non-interactive node container", () => {
       const entity = createTestEntity();
       renderWithProvider({ entity });
 
       const node = screen.getByTestId(`flow-node-${entity.id}`);
-      expect(node).toHaveAttribute("role", "button");
+      expect(node.tagName.toLowerCase()).toBe("div");
+      expect(node).toHaveAttribute("role", "group");
+    });
+
+    it("uses the header as the accessible interaction handle", () => {
+      const entity = createTestEntity();
+      renderWithProvider({ entity });
+
+      const header = screen.getByTestId(`flow-node-header-${entity.id}`);
+      expect(header).toHaveAttribute("role", "button");
+      expect(header).toHaveAttribute("aria-label", "Flow node handle: Test Node");
     });
 
     it("has correct aria-label", () => {
@@ -365,16 +375,16 @@ describe("BaseFlowNode", () => {
       const entity = createTestEntity();
       renderWithProvider({ entity });
 
-      const node = screen.getByTestId(`flow-node-${entity.id}`);
-      expect(node).toHaveAttribute("tabIndex", "0");
+      const header = screen.getByTestId(`flow-node-header-${entity.id}`);
+      expect(header).toHaveAttribute("tabIndex", "0");
     });
 
     it("has tabIndex -1 when disabled", () => {
       const entity = createTestEntity({ disabled: true });
       renderWithProvider({ entity });
 
-      const node = screen.getByTestId(`flow-node-${entity.id}`);
-      expect(node).toHaveAttribute("tabIndex", "-1");
+      const header = screen.getByTestId(`flow-node-header-${entity.id}`);
+      expect(header).toHaveAttribute("tabIndex", "-1");
     });
   });
 

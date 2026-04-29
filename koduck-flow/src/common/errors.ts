@@ -201,7 +201,7 @@ export class FlowError extends Error {
 
   /**
    * Gets complete error details
-   * @returns {@link ErrorDetails} object containing all error fields
+   * @returns Error details containing all error fields
    */
   getDetails(): ErrorDetails {
     return {

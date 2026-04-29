@@ -256,6 +256,19 @@ describe("FlowCanvas", () => {
       expect(screen.getByText("Node node-1")).toBeInTheDocument();
     });
 
+    it("renders default nodes when renderNode is omitted", () => {
+      const nodes = [createMockNode("node-1", 100, 100)];
+
+      render(
+        <FlowEntityProvider>
+          <FlowCanvas nodes={nodes} />
+        </FlowEntityProvider>
+      );
+
+      expect(screen.getByTestId("flow-node-node-1")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Flow node handle: Node node-1" })).toBeInTheDocument();
+    });
+
     it("renders multiple nodes", () => {
       const nodes = [
         createMockNode("node-1", 100, 100),
@@ -354,7 +367,9 @@ describe("FlowCanvas", () => {
       fireEvent.click(baseNode);
       expect(onBaseNodeSelect).not.toHaveBeenCalled();
 
-      fireEvent.mouseDown(screen.getByRole("button", { name: "Node node-1" }), { button: 0 });
+      fireEvent.pointerDown(screen.getByRole("button", { name: "Flow node handle: Node node-1" }), {
+        button: 0,
+      });
       expect(onNodeSelect).toHaveBeenCalledWith(["node-1"]);
       expect(onBaseNodeSelect).not.toHaveBeenCalled();
     });
@@ -367,11 +382,11 @@ describe("FlowCanvas", () => {
         <FlowCanvasWithProvider
           nodes={nodes}
           onNodeSelect={onNodeSelect}
-          renderNode={({ node }) => <div>{node.label}</div>}
+          renderNode={({ node }) => <BaseFlowNode entity={new FlowNodeEntity(node)} />}
         />
       );
 
-      fireEvent.keyDown(screen.getByRole("button", { name: "Node node-1" }), {
+      fireEvent.keyDown(screen.getByRole("button", { name: "Flow node handle: Node node-1" }), {
         key: "Enter",
       });
 
@@ -386,11 +401,11 @@ describe("FlowCanvas", () => {
         <FlowCanvasWithProvider
           nodes={nodes}
           onNodeMove={onNodeMove}
-          renderNode={({ node }) => <div>{node.label}</div>}
+          renderNode={({ node }) => <BaseFlowNode entity={new FlowNodeEntity(node)} />}
         />
       );
 
-      fireEvent.keyDown(screen.getByRole("button", { name: "Node node-1" }), {
+      fireEvent.keyDown(screen.getByRole("button", { name: "Flow node handle: Node node-1" }), {
         key: "ArrowRight",
       });
 
@@ -438,6 +453,20 @@ describe("FlowCanvas", () => {
       );
 
       expect(screen.getByTestId("edge-edge-1")).toBeInTheDocument();
+    });
+
+    it("renders default edges when renderEdge is omitted", () => {
+      const nodes = [createMockNode("node-1", 100, 100), createMockNode("node-2", 400, 100)];
+      const edges = [createMockEdge("edge-1", "node-1", "node-2")];
+
+      render(
+        <FlowEntityProvider>
+          <FlowCanvas nodes={nodes} edges={edges} />
+        </FlowEntityProvider>
+      );
+
+      expect(screen.getByTestId("flow-edge-edge-1")).toBeInTheDocument();
+      expect(screen.getByTestId("flow-edge-path-edge-1")).toBeInTheDocument();
     });
 
     it("passes selected state to renderEdge", () => {

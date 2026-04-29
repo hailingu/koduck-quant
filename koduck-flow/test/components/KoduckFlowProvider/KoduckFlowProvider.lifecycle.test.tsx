@@ -705,18 +705,17 @@ describe("KoduckFlowProvider (controlled)", () => {
     expect(clearApiRuntimeMock).toHaveBeenCalledWith(token);
   });
 
-  it("throws when controller snapshot does not provide a runtime", () => {
+  it("renders fallback when controller snapshot does not provide a runtime", () => {
     const controller = new KoduckFlowRuntimeController();
 
-    expect(() =>
-      render(
-        <KoduckFlowProvider controller={controller}>
-          <ContextProbe />
-        </KoduckFlowProvider>
-      )
-    ).toThrowError(
-      /KoduckFlowProvider \(controlled\) requires the controller to supply an active runtime instance/
+    render(
+      <KoduckFlowProvider controller={controller} fallback={<span data-testid="fallback" />}>
+        <ContextProbe />
+      </KoduckFlowProvider>
     );
+
+    expect(screen.getByTestId("fallback")).toBeInTheDocument();
+    expect(screen.queryByTestId("context-source")).not.toBeInTheDocument();
   });
 });
 

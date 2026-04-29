@@ -101,6 +101,7 @@ type UncontrolledKoduckFlowProviderProps = KoduckFlowProviderBaseProps &
 type ControlledKoduckFlowProviderProps = KoduckFlowProviderBaseProps & {
   controller: KoduckFlowRuntimeController;
   environment?: EnvironmentLike;
+  fallback?: React.ReactNode;
 };
 
 /**
@@ -270,7 +271,7 @@ const UncontrolledKoduckFlowProvider: React.FC<UncontrolledKoduckFlowProviderPro
 };
 
 const ControlledKoduckFlowProvider: React.FC<ControlledKoduckFlowProviderProps> = (props) => {
-  const { controller, children, onInit, onTenantInit, debugOptions, tenant, environment } = props;
+  const { controller, fallback } = props;
 
   const subscribe = useMemo(() => controller.subscribe.bind(controller), [controller]);
   const snapshot = useSyncExternalStore(subscribe, controller.getSnapshot, controller.getSnapshot);
@@ -278,11 +279,27 @@ const ControlledKoduckFlowProvider: React.FC<ControlledKoduckFlowProviderProps> 
   const runtime = snapshot.runtime;
 
   if (!runtime) {
-    throw new Error(
-      "KoduckFlowProvider (controlled) requires the controller to supply an active runtime instance."
-    );
+    return <>{fallback ?? null}</>;
   }
 
+  return <ControlledKoduckFlowRuntimeProvider {...props} runtime={runtime} snapshot={snapshot} />;
+};
+
+type ControlledKoduckFlowRuntimeProviderProps = ControlledKoduckFlowProviderProps & {
+  runtime: KoduckFlowRuntime;
+  snapshot: ReturnType<KoduckFlowRuntimeController["getSnapshot"]>;
+};
+
+const ControlledKoduckFlowRuntimeProvider: React.FC<ControlledKoduckFlowRuntimeProviderProps> = ({
+  runtime,
+  snapshot,
+  children,
+  onInit,
+  onTenantInit,
+  debugOptions,
+  tenant,
+  environment,
+}) => {
   const normalizedEnvironmentFromProps = useMemo<RuntimeEnvironmentKey | undefined>(() => {
     return resolveProviderEnvironment(environment, tenant, "controlled");
   }, [environment, tenant]);

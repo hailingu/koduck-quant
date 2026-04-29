@@ -1,7 +1,6 @@
 import {
   useCallback,
   useRef,
-  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import type { IFlowNodeEntityData, Position } from "../types";
@@ -38,17 +37,9 @@ export function useNodeDrag({
   onNodeMove,
 }: UseNodeDragOptions) {
   const dragRef = useRef<NodeDragState | null>(null);
-  const lastPointerDownAtRef = useRef(0);
 
   const handlePressStart = useCallback(
-    (event: ReactPointerEvent<HTMLElement> | ReactMouseEvent<HTMLElement>) => {
-      const isPointerEvent = "pointerId" in event;
-      if (isPointerEvent) {
-        lastPointerDownAtRef.current = Date.now();
-      } else if (Date.now() - lastPointerDownAtRef.current < 500) {
-        return;
-      }
-
+    (event: ReactPointerEvent<HTMLElement>) => {
       if (event.button !== 0) {
         return;
       }
@@ -63,9 +54,7 @@ export function useNodeDrag({
       }
 
       event.preventDefault();
-      if (isPointerEvent) {
-        event.currentTarget.setPointerCapture?.(event.pointerId);
-      }
+      event.currentTarget.setPointerCapture?.(event.pointerId);
       dragRef.current = {
         pointerStart: { x: event.clientX, y: event.clientY },
         nodeStart: {

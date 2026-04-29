@@ -7,7 +7,14 @@
  * @see docs/design/flow-entity-step-plan-en.md Task 1.9, Task 3.3
  */
 
-import React, { useMemo, type CSSProperties, type ReactNode } from "react";
+import React, {
+  useMemo,
+  type AriaRole,
+  type CSSProperties,
+  type KeyboardEventHandler,
+  type PointerEventHandler,
+  type ReactNode,
+} from "react";
 import { useFlowEntityContext } from "../context";
 import type { FlowNodeTheme } from "../types";
 import type { FlowNodeEntity } from "../../../common/flow/flow-node-entity";
@@ -80,6 +87,46 @@ export interface FlowNodeHeaderProps {
   style?: CSSProperties;
 
   /**
+   * Optional role for a dedicated interaction handle.
+   */
+  role?: AriaRole;
+
+  /**
+   * Optional tab index for keyboard-accessible interaction handles.
+   */
+  tabIndex?: number;
+
+  /**
+   * Accessible label for the interaction handle.
+   */
+  "aria-label"?: string;
+
+  /**
+   * Pressed/selected state when the header acts as a selection handle.
+   */
+  "aria-pressed"?: boolean;
+
+  /**
+   * Disabled state when the header acts as a selection handle.
+   */
+  "aria-disabled"?: boolean;
+
+  /**
+   * Pointer-down handler for drag/select interactions.
+   */
+  onPointerDown?: PointerEventHandler<HTMLDivElement>;
+
+  /**
+   * Keyboard handler for select/move interactions.
+   */
+  onKeyDown?: KeyboardEventHandler<HTMLDivElement>;
+
+  /**
+   * Click handler for select interactions.
+   */
+  onClick?: React.MouseEventHandler<HTMLDivElement>;
+
+  /**
    * Test ID for testing
    */
   "data-testid"?: string;
@@ -125,6 +172,14 @@ export const FlowNodeHeader: React.FC<FlowNodeHeaderProps> = React.memo(function
   renderer,
   className,
   style,
+  role,
+  tabIndex,
+  "aria-label": ariaLabel,
+  "aria-pressed": ariaPressed,
+  "aria-disabled": ariaDisabled,
+  onPointerDown,
+  onKeyDown,
+  onClick,
   "data-testid": testId,
 }) {
   // Get theme from context
@@ -203,6 +258,14 @@ export const FlowNodeHeader: React.FC<FlowNodeHeaderProps> = React.memo(function
       className={`flow-node-header ${className ?? ""}`.trim()}
       style={headerStyle}
       data-testid={testId ?? `flow-node-header-${entity.id}`}
+      {...(role === undefined ? {} : { role })}
+      {...(tabIndex === undefined ? {} : { tabIndex })}
+      {...(ariaLabel === undefined ? {} : { "aria-label": ariaLabel })}
+      {...(ariaPressed === undefined ? {} : { "aria-pressed": ariaPressed })}
+      {...(ariaDisabled === undefined ? {} : { "aria-disabled": ariaDisabled })}
+      {...(onPointerDown === undefined ? {} : { onPointerDown })}
+      {...(onKeyDown === undefined ? {} : { onKeyDown })}
+      {...(onClick === undefined ? {} : { onClick })}
     >
       {renderContent()}
     </div>

@@ -470,6 +470,8 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  const [fitViewportSeed, setFitViewportSeed] = useState<ViewportState | null>(null);
+  const [viewportSeedKey, setViewportSeedKey] = useState(0);
 
   const selectedNodeSet = useMemo(() => new Set(selectedNodeIds), [selectedNodeIds]);
   const selectedEdgeSet = useMemo(() => new Set(selectedEdgeIds), [selectedEdgeIds]);
@@ -540,7 +542,31 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
       (containerSize.height - contentHeight * scale) / 2 - contentBounds.minY * scale;
 
     return { translateX, translateY, scale };
-  }, [containerSize.height, containerSize.width, contentBounds, fitPadding, fitView, maxZoom, minZoom]);
+  }, [
+    containerSize.height,
+    containerSize.width,
+    contentBounds,
+    fitPadding,
+    fitView,
+    maxZoom,
+    minZoom,
+  ]);
+
+  useEffect(() => {
+    if (!fitView) {
+      setFitViewportSeed(null);
+      return;
+    }
+
+    if (fitViewport === undefined || fitViewportSeed !== null) {
+      return;
+    }
+
+    setFitViewportSeed(fitViewport);
+    setViewportSeedKey((current) => current + 1);
+  }, [fitView, fitViewport, fitViewportSeed]);
+
+  const viewportInitialState = fitViewportSeed ?? initialViewport;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -582,13 +608,13 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
   return (
     <div ref={containerRef} className={className} data-testid="flow-canvas" style={containerStyle}>
       <FlowViewport
-        initialState={initialViewport}
+        key={viewportSeedKey}
+        initialState={viewportInitialState}
         constraints={viewportConstraints}
         containerWidth={containerSize.width}
         containerHeight={containerSize.height}
         enablePan={resolvedInteraction.pan}
         enableZoom={resolvedInteraction.zoom}
-        {...(fitViewport !== undefined ? { viewport: fitViewport } : {})}
         {...(onViewportChange !== undefined ? { onViewportChange } : {})}
       >
         <CanvasContent

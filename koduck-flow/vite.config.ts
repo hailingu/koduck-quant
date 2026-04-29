@@ -1,6 +1,6 @@
 import { fileURLToPath, URL } from "node:url";
 
-import { defineConfig } from "vitest/config";
+import { defineConfig, type PluginOption } from "vite";
 import react from "@vitejs/plugin-react";
 
 const libraryEntries = {
@@ -19,7 +19,7 @@ const libraryEntries = {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: react() as unknown as PluginOption[],
   build: {
     copyPublicDir: false,
     lib: {

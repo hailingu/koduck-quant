@@ -356,12 +356,7 @@ export const BaseFlowNode: React.FC<BaseFlowNodeProps> = React.memo(function Bas
       flexDirection: "column",
       overflow: "hidden",
       opacity: isDisabled ? 0.5 : 1,
-      cursor: (() => {
-        if (isDisabled) return "not-allowed";
-        if (isDragging) return "grabbing";
-        return "grab";
-      })(),
-      userSelect: "none",
+      cursor: "default",
       padding: 0,
       font: "inherit",
       color: "inherit",
@@ -369,7 +364,7 @@ export const BaseFlowNode: React.FC<BaseFlowNodeProps> = React.memo(function Bas
       appearance: "none",
       ...style,
     }),
-    [position, width, height, isCanvasManaged, nodeTheme, borderColor, isDisabled, isDragging, style]
+    [position, width, height, isCanvasManaged, nodeTheme, borderColor, isDisabled, style]
   );
 
   // Resize handle styles
@@ -444,6 +439,26 @@ export const BaseFlowNode: React.FC<BaseFlowNodeProps> = React.memo(function Bas
     handleSelect();
   };
 
+  const handleHeaderPointerDown = isCanvasManaged
+    ? shellContext?.onHandlePointerDown
+    : handleDragPointerDown;
+  const handleHeaderKeyDown = isCanvasManaged
+    ? shellContext?.onHandleKeyDown
+    : handleKeyDown;
+  const handleHeaderClick = isCanvasManaged ? undefined : handleClick;
+
+  const headerInteractionStyle = useMemo<CSSProperties>(
+    () => ({
+      cursor: (() => {
+        if (isDisabled) return "not-allowed";
+        if (isDragging) return "grabbing";
+        return "grab";
+      })(),
+      userSelect: "none",
+    }),
+    [isDisabled, isDragging]
+  );
+
   // Form change handler wrapper for FlowNodeContent
   const handleFormChangeWrapper = (values: Record<string, unknown>) => {
     handleFormChange(values);
@@ -455,16 +470,13 @@ export const BaseFlowNode: React.FC<BaseFlowNodeProps> = React.memo(function Bas
   };
 
   return (
-    <button
-      type="button"
+    <div
+      role="group"
       className={
         `${className ?? ""}${isDragging ? " flow-node--dragging" : ""}${isResizing ? " flow-node--resizing" : ""}`.trim() ||
         undefined
       }
       style={containerStyle}
-      onClick={handleClick}
-      onKeyDown={handleKeyDown}
-      {...(isCanvasManaged ? {} : { onPointerDown: handleDragPointerDown })}
       data-testid={testId ?? `flow-node-${entity.id}`}
       data-node-id={entity.id}
       data-node-type={entity.data?.nodeType}
@@ -473,9 +485,8 @@ export const BaseFlowNode: React.FC<BaseFlowNodeProps> = React.memo(function Bas
       data-disabled={isDisabled}
       data-dragging={isDragging}
       data-resizing={isResizing}
-      tabIndex={isDisabled ? -1 : 0}
       aria-label={`Flow node: ${label}`}
-      aria-pressed={effectiveIsSelected}
+      aria-selected={effectiveIsSelected}
       aria-disabled={isDisabled}
     >
       {/* Header Region - using FlowNodeHeader sub-component */}
@@ -483,6 +494,17 @@ export const BaseFlowNode: React.FC<BaseFlowNodeProps> = React.memo(function Bas
         entity={entity}
         selected={effectiveIsSelected}
         height={DEFAULT_HEADER_HEIGHT}
+        role="button"
+        tabIndex={isDisabled ? -1 : 0}
+        aria-label={`Flow node handle: ${label}`}
+        aria-pressed={effectiveIsSelected}
+        aria-disabled={isDisabled}
+        style={headerInteractionStyle}
+        {...(handleHeaderPointerDown === undefined
+          ? {}
+          : { onPointerDown: handleHeaderPointerDown })}
+        {...(handleHeaderKeyDown === undefined ? {} : { onKeyDown: handleHeaderKeyDown })}
+        {...(handleHeaderClick === undefined ? {} : { onClick: handleHeaderClick })}
         {...(headerRenderer === undefined ? {} : { renderer: headerRenderer })}
       />
 
@@ -565,7 +587,7 @@ export const BaseFlowNode: React.FC<BaseFlowNodeProps> = React.memo(function Bas
           </div>
         </>
       )}
-    </button>
+    </div>
   );
 });
 

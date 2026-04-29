@@ -1,4 +1,5 @@
 import { createContext, useContext } from "react";
+import type { KeyboardEventHandler, PointerEventHandler } from "react";
 
 /**
  * Metadata exposed by a parent flow-node shell.
@@ -8,6 +9,10 @@ export interface FlowNodeShellContextValue {
   managedByCanvas: boolean;
   /** Canvas-provided selected state for this node. */
   selected?: boolean;
+  /** Pointer handler for a dedicated node interaction handle. */
+  onHandlePointerDown?: PointerEventHandler<HTMLElement>;
+  /** Keyboard handler for a dedicated node interaction handle. */
+  onHandleKeyDown?: KeyboardEventHandler<HTMLElement>;
 }
 
 /**

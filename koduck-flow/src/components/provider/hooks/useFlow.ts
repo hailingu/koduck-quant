@@ -15,14 +15,6 @@ import type {
 import type { IEntity } from "../../../common/entity";
 import type { IRenderContext } from "../../../common/render";
 import { logger } from "../../../common/logger";
-import {
-  UMLClassEntity,
-  UMLInterfaceEntity,
-  UMLUseCaseEntity,
-  UMLActorEntity,
-  UMLLineEntity,
-  getUMLEntityRegistryInfo,
-} from "../../demo/FlowDemo/uml-entities-new-decorator";
 import { useKoduckFlowManagers } from "./useKoduckFlowRuntime";
 
 /**
@@ -258,47 +250,6 @@ export function useFlow(options: UseFlowOptions = {}): UseFlowResult {
 
       renderManager.init({
         autoRenderOnAdd: true,
-      });
-
-      try {
-        const entityTypes = [
-          UMLClassEntity,
-          UMLInterfaceEntity,
-          UMLUseCaseEntity,
-          UMLActorEntity,
-          UMLLineEntity,
-        ];
-        logger.info(
-          "📦 UML实体类已加载，装饰器自动注册中...",
-          entityTypes.map((c) => c.name)
-        );
-
-        const registryInfo = getUMLEntityRegistryInfo();
-        const successfulRegistrations = registryInfo.filter((info) => info.registered);
-
-        logger.info(
-          "✅ 装饰器自动注册成功:",
-          successfulRegistrations.length,
-          "/",
-          registryInfo.length
-        );
-        logger.debug("📋 注册详情:", registryInfo);
-      } catch (registryError) {
-        logger.error("❌ 装饰器自动注册失败:", registryError);
-      }
-
-      // 🔧 Use registryManager from context for checking (consistent with decorator registration)
-      const globalRegistryManager = registryManager;
-      [
-        "uml-class-canvas",
-        "uml-interface-canvas",
-        "uml-usecase-canvas",
-        "uml-actor-canvas",
-        "uml-line-canvas",
-      ].forEach((type) => {
-        if (!globalRegistryManager.getRegistry(type)) {
-          logger.warn(`Registry for ${type} not found. Make sure it's registered elsewhere.`);
-        }
       });
 
       const newFlow = new Flow<FlowNode, IEdge, FlowEntity, FlowEdgeEntity>(entityManager);

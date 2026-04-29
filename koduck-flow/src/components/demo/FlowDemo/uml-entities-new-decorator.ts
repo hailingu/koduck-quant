@@ -783,6 +783,13 @@ type LineEndpointConfig = {
   state?: "active" | "inactive" | "disabled";
 };
 
+type BoundsProvider = {
+  getBounds?: () => { x: number; y: number; width: number; height: number };
+  data?: {
+    position?: { x?: number; y?: number };
+  };
+};
+
 class LineEndpoint implements IEndpoint {
   nodeId: string;
   port: string;
@@ -1084,7 +1091,8 @@ export class UMLLineEntity extends UMLEdgeEntity<LineEdge> {
       this.logMissingEndpoint(endpoint, "port-not-found");
     }
 
-    const bounds = entity.getBounds?.();
+    const boundsEntity = entity as BoundsProvider;
+    const bounds = boundsEntity.getBounds?.();
     if (bounds) {
       return {
         x: bounds.x + bounds.width / 2,
@@ -1092,8 +1100,8 @@ export class UMLLineEntity extends UMLEdgeEntity<LineEdge> {
       };
     }
 
-    const fallbackX = entity.data?.position?.x ?? 0;
-    const fallbackY = entity.data?.position?.y ?? 0;
+    const fallbackX = boundsEntity.data?.position?.x ?? 0;
+    const fallbackY = boundsEntity.data?.position?.y ?? 0;
     return { x: fallbackX, y: fallbackY };
   }
 
@@ -1178,7 +1186,7 @@ export class UMLLineEntity extends UMLEdgeEntity<LineEdge> {
       edgeConfig.state = edgeState;
     }
 
-    return new LineEdgeedgeConfig;
+    return new LineEdge(edgeConfig);
   }
 
   override async render(context?: unknown): Promise<void> {
@@ -1318,28 +1326,28 @@ export class UMLLineEntity extends UMLEdgeEntity<LineEdge> {
 
     const resolvedSourcePort =
       sourceEndpoint?.port ??
-      (this.data && this.data.sourcePort ?? undefined);
+      (this.data ? this.data.sourcePort : undefined);
     if (resolvedSourcePort !== undefined) {
       result.sourcePort = resolvedSourcePort;
     }
 
     const resolvedTargetPort =
       targetEndpoint?.port ??
-      (this.data && this.data.targetPort ?? undefined);
+      (this.data ? this.data.targetPort : undefined);
     if (resolvedTargetPort !== undefined) {
       result.targetPort = resolvedTargetPort;
     }
 
     const resolvedSourcePortIndex =
       sourceEndpoint?.portIndex ??
-      (this.data && this.data.sourcePortIndex ?? undefined);
+      (this.data ? this.data.sourcePortIndex : undefined);
     if (resolvedSourcePortIndex !== undefined) {
       result.sourcePortIndex = resolvedSourcePortIndex;
     }
 
     const resolvedTargetPortIndex =
       targetEndpoint?.portIndex ??
-      (this.data && this.data.targetPortIndex ?? undefined);
+      (this.data ? this.data.targetPortIndex : undefined);
     if (resolvedTargetPortIndex !== undefined) {
       result.targetPortIndex = resolvedTargetPortIndex;
     }
