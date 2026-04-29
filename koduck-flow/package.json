@@ -57,6 +57,7 @@
     "build:bundle": "vite build --outDir dist-ci-bundle --manifest",
     "bundle:check": "pnpm run build:bundle && node ./scripts/check-bundle-size.mjs --dist=dist-ci-bundle",
     "bundle:baseline": "pnpm run build:bundle && node ./scripts/check-bundle-size.mjs --dist=dist-ci-bundle --update-baseline",
+    "compat:react": "node ./scripts/check-react-compat.mjs",
     "build:di": "node ./scripts/build-di.mjs",
     "validate:deps": "node ./scripts/validate-dependency-graph.mjs",
     "chaos": "tsx scripts/chaos-runner.ts",
@@ -74,15 +75,15 @@
     "create:runtime": "tsx scripts/create-scaffold.ts runtime",
     "monitor:performance": "tsx scripts/performance-monitor.ts",
     "monitor:stability": "tsx scripts/stability-summary.ts",
-    "ci": "pnpm run lint && pnpm run test:run"
+    "ci": "pnpm run lint && pnpm run compat:react && pnpm run test:run"
   },
   "dependencies": {
     "nanoid": "^5.1.5",
     "zod": "^4.1.12"
   },
   "peerDependencies": {
-    "react": ">=18 <20",
-    "react-dom": ">=18 <20"
+    "react": ">=19 <20",
+    "react-dom": ">=19 <20"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",

@@ -17,9 +17,14 @@
      -------------------------------------------------------------------------- */
   --flow-node-bg: #ffffff;
   --flow-node-border: #e5e7eb;
+  --flow-node-text: #0f172a;
   --flow-node-border-width: 1px;
   --flow-node-border-radius: 8px;
   --flow-node-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --flow-node-selected-border: #3b82f6;
+  --flow-node-selected-shadow:
+    var(--flow-node-shadow),
+    0 0 0 2px rgba(59, 130, 246, 0.2);
   --flow-node-min-width: 160px;
   --flow-node-min-height: 80px;
 
@@ -66,6 +71,16 @@
   --flow-edge-label-font-size: 12px;
 
   /* --------------------------------------------------------------------------
+     Canvas Overlays
+     -------------------------------------------------------------------------- */
+  --flow-overlay-bg: rgba(255, 255, 255, 0.92);
+  --flow-overlay-border: rgba(15, 23, 42, 0.12);
+  --flow-overlay-border-strong: rgba(15, 23, 42, 0.16);
+  --flow-overlay-radius: 8px;
+  --flow-overlay-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  --flow-control-text: #0f172a;
+
+  /* --------------------------------------------------------------------------
      Execution State Colors
      -------------------------------------------------------------------------- */
   --flow-state-idle: #e5e7eb;
@@ -95,6 +110,7 @@
     /* Node */
     --flow-node-bg: #1f2937;
     --flow-node-border: #374151;
+    --flow-node-text: #e5e7eb;
     --flow-node-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 
     /* Header */
@@ -110,6 +126,13 @@
     --flow-edge-hover-color: #9ca3af;
     --flow-edge-label-bg: #1f2937;
     --flow-edge-label-text: #e5e7eb;
+
+    /* Canvas overlays */
+    --flow-overlay-bg: rgba(17, 24, 39, 0.92);
+    --flow-overlay-border: rgba(148, 163, 184, 0.2);
+    --flow-overlay-border-strong: rgba(148, 163, 184, 0.28);
+    --flow-overlay-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    --flow-control-text: #e5e7eb;
   }
 }
 

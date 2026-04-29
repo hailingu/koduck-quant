@@ -140,10 +140,10 @@ const zoomControlsStyle: CSSProperties = {
   flexDirection: "column",
   gap: 4,
   padding: 4,
-  border: "1px solid rgba(15, 23, 42, 0.12)",
-  borderRadius: 8,
-  background: "rgba(255, 255, 255, 0.92)",
-  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.12)",
+  border: "1px solid var(--flow-overlay-border, rgba(15, 23, 42, 0.12))",
+  borderRadius: "var(--flow-overlay-radius, 8px)",
+  background: "var(--flow-overlay-bg, rgba(255, 255, 255, 0.92))",
+  boxShadow: "var(--flow-overlay-shadow, 0 8px 24px rgba(15, 23, 42, 0.12))",
   zIndex: 20,
 };
 
@@ -153,7 +153,7 @@ const zoomControlButtonStyle: CSSProperties = {
   border: 0,
   borderRadius: 6,
   background: "transparent",
-  color: "#0f172a",
+  color: "var(--flow-control-text, #0f172a)",
   cursor: "pointer",
   fontSize: 13,
   fontWeight: 700,
@@ -166,10 +166,10 @@ const minimapStyle: CSSProperties = {
   bottom: 12,
   width: 160,
   height: 110,
-  border: "1px solid rgba(15, 23, 42, 0.16)",
-  borderRadius: 8,
-  background: "rgba(255, 255, 255, 0.92)",
-  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.12)",
+  border: "1px solid var(--flow-overlay-border-strong, rgba(15, 23, 42, 0.16))",
+  borderRadius: "var(--flow-overlay-radius, 8px)",
+  background: "var(--flow-overlay-bg, rgba(255, 255, 255, 0.92))",
+  boxShadow: "var(--flow-overlay-shadow, 0 8px 24px rgba(15, 23, 42, 0.12))",
   overflow: "hidden",
   zIndex: 20,
 };
@@ -347,6 +347,16 @@ export interface FlowCanvasProps {
   /** Automatically fit graph content into the canvas viewport */
   fitView?: boolean;
 
+  /**
+   * Controls how often `fitView` recalculates.
+   *
+   * - `auto`: recompute when nodes, container size, or fit padding change.
+   * - `initial`: compute only once after the first measurable layout.
+   *
+   * @default "auto"
+   */
+  fitViewStrategy?: "auto" | "initial";
+
   /** Padding used when fitting graph content */
   fitPadding?: number;
 
@@ -444,6 +454,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
   defaultZoom = 1,
   defaultViewport,
   fitView = false,
+  fitViewStrategy = "auto",
   fitPadding = 32,
   portConfig,
   pathConfig,
@@ -472,6 +483,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [fitViewportSeed, setFitViewportSeed] = useState<ViewportState | null>(null);
   const [viewportSeedKey, setViewportSeedKey] = useState(0);
+  const lastFitViewportKeyRef = useRef<string | null>(null);
 
   const selectedNodeSet = useMemo(() => new Set(selectedNodeIds), [selectedNodeIds]);
   const selectedEdgeSet = useMemo(() => new Set(selectedEdgeIds), [selectedEdgeIds]);
@@ -551,20 +563,38 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
     maxZoom,
     minZoom,
   ]);
+  const fitViewportKey = fitViewport
+    ? [
+        fitViewStrategy,
+        fitViewport.translateX.toFixed(3),
+        fitViewport.translateY.toFixed(3),
+        fitViewport.scale.toFixed(5),
+      ].join(":")
+    : null;
 
   useEffect(() => {
     if (!fitView) {
       setFitViewportSeed(null);
+      lastFitViewportKeyRef.current = null;
       return;
     }
 
-    if (fitViewport === undefined || fitViewportSeed !== null) {
+    if (fitViewport === undefined || fitViewportKey === null) {
       return;
     }
 
+    if (fitViewStrategy === "initial" && fitViewportSeed !== null) {
+      return;
+    }
+
+    if (lastFitViewportKeyRef.current === fitViewportKey) {
+      return;
+    }
+
+    lastFitViewportKeyRef.current = fitViewportKey;
     setFitViewportSeed(fitViewport);
     setViewportSeedKey((current) => current + 1);
-  }, [fitView, fitViewport, fitViewportSeed]);
+  }, [fitView, fitViewStrategy, fitViewport, fitViewportKey, fitViewportSeed]);
 
   const viewportInitialState = fitViewportSeed ?? initialViewport;
 
@@ -615,6 +645,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
         containerHeight={containerSize.height}
         enablePan={resolvedInteraction.pan}
         enableZoom={resolvedInteraction.zoom}
+        wheelZoomActivation="modifier"
         {...(onViewportChange !== undefined ? { onViewportChange } : {})}
       >
         <CanvasContent

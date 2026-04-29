@@ -121,6 +121,15 @@ export interface FlowViewportProps {
   containerHeight?: number;
   /** Enable zooming with mouse wheel (default: true) */
   enableZoom?: boolean;
+  /**
+   * Controls when wheel events zoom the viewport.
+   *
+   * - `modifier`: only zoom when Ctrl/Cmd is pressed, preserving page scroll by default.
+   * - `always`: every wheel event over the viewport zooms.
+   *
+   * @default "always"
+   */
+  wheelZoomActivation?: "always" | "modifier";
   /** Zoom step multiplier for wheel events (default: 0.1) */
   zoomStep?: number;
   /** Callback when zooming starts */
@@ -135,6 +144,25 @@ export interface FlowViewportProps {
   onPanStart?: () => void;
   /** Callback when panning ends */
   onPanEnd?: () => void;
+}
+
+function isEditableEventTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  if (target.isContentEditable) {
+    return true;
+  }
+
+  const editableAncestor = target.closest("[contenteditable=''], [contenteditable='true']");
+  if (editableAncestor) {
+    return true;
+  }
+
+  return target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement;
 }
 
 // =============================================================================
@@ -226,6 +254,7 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
   containerWidth = 0,
   containerHeight = 0,
   enableZoom = true,
+  wheelZoomActivation = "always",
   zoomStep = 0.1,
   onZoomStart,
   onZoomEnd,
@@ -615,6 +644,8 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
   const handleWheel = useCallback(
     (e: WheelEvent) => {
       if (!enableZoom) return;
+      if (isEditableEventTarget(e.target)) return;
+      if (wheelZoomActivation === "modifier" && !e.ctrlKey && !e.metaKey) return;
 
       // Prevent default scroll behavior
       e.preventDefault();
@@ -655,7 +686,7 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
       // Zoom around cursor position
       zoom(factor, { x: cursorX, y: cursorY });
     },
-    [enableZoom, zoomStep, zoom, onZoomStart, onZoomEnd]
+    [enableZoom, wheelZoomActivation, zoomStep, zoom, onZoomStart, onZoomEnd]
   );
 
   useEffect(() => {
@@ -676,6 +707,9 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
     if (!enablePan) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isEditableEventTarget(e.target)) {
+        return;
+      }
       if (e.key === panKey && !e.repeat) {
         setIsPanKeyPressed(true);
       }

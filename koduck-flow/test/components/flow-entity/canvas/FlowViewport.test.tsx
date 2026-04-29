@@ -791,6 +791,23 @@ describe("FlowViewport", () => {
       expect(viewport).toHaveAttribute("data-pan-ready", "false");
     });
 
+    it("ignores pan key presses inside editable controls", () => {
+      render(
+        <FlowViewport>
+          <input aria-label="node label" />
+        </FlowViewport>
+      );
+
+      const viewport = screen.getByTestId("flow-viewport");
+      const input = screen.getByLabelText("node label");
+
+      act(() => {
+        fireEvent.keyDown(input, { key: " " });
+      });
+
+      expect(viewport).toHaveAttribute("data-pan-ready", "false");
+    });
+
     it("disables user select during panning", () => {
       render(
         <FlowViewport>
@@ -941,6 +958,56 @@ describe("FlowViewport", () => {
 
       act(() => {
         fireEvent.wheel(viewport, {
+          deltaY: -100,
+          clientX: 200,
+          clientY: 150,
+        });
+      });
+
+      expect(onViewportChange).not.toHaveBeenCalled();
+    });
+
+    it("preserves native scroll until a modifier is pressed when configured", () => {
+      const onViewportChange = vi.fn();
+      render(
+        <FlowViewport wheelZoomActivation="modifier" onViewportChange={onViewportChange}>
+          <div>Content</div>
+        </FlowViewport>
+      );
+
+      const viewport = screen.getByTestId("flow-viewport");
+
+      act(() => {
+        fireEvent.wheel(viewport, {
+          deltaY: -100,
+          clientX: 200,
+          clientY: 150,
+        });
+      });
+      expect(onViewportChange).not.toHaveBeenCalled();
+
+      act(() => {
+        fireEvent.wheel(viewport, {
+          deltaY: -100,
+          clientX: 200,
+          clientY: 150,
+          ctrlKey: true,
+        });
+      });
+
+      expect(onViewportChange).toHaveBeenCalled();
+    });
+
+    it("does not zoom when the wheel event starts from an editable control", () => {
+      const onViewportChange = vi.fn();
+      render(
+        <FlowViewport onViewportChange={onViewportChange}>
+          <input aria-label="node value" />
+        </FlowViewport>
+      );
+
+      act(() => {
+        fireEvent.wheel(screen.getByLabelText("node value"), {
           deltaY: -100,
           clientX: 200,
           clientY: 150,

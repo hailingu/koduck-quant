@@ -91,31 +91,32 @@ const defaultNodeStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   overflow: "hidden",
-  borderRadius: 8,
-  border: "1px solid #cbd5e1",
-  background: "#ffffff",
-  boxShadow: "0 8px 20px rgba(15, 23, 42, 0.08)",
-  color: "#0f172a",
+  borderRadius: "var(--flow-node-border-radius, 8px)",
+  border: "var(--flow-node-border-width, 1px) solid var(--flow-node-border, #cbd5e1)",
+  background: "var(--flow-node-bg, #ffffff)",
+  boxShadow: "var(--flow-node-shadow, 0 8px 20px rgba(15, 23, 42, 0.08))",
+  color: "var(--flow-node-text, #0f172a)",
 };
 
 const defaultNodeHeaderStyle: React.CSSProperties = {
   minHeight: 36,
   display: "flex",
   alignItems: "center",
-  padding: "8px 12px",
-  borderBottom: "1px solid #e2e8f0",
-  background: "#f8fafc",
-  fontSize: 13,
-  fontWeight: 600,
+  padding: "var(--flow-node-header-padding, 8px 12px)",
+  borderBottom: "var(--flow-node-border-width, 1px) solid var(--flow-node-border, #e2e8f0)",
+  background: "var(--flow-node-header-bg, #f8fafc)",
+  color: "var(--flow-node-header-text, inherit)",
+  fontSize: "var(--flow-node-header-font-size, 13px)",
+  fontWeight: "var(--flow-node-header-font-weight, 600)",
   userSelect: "none",
 };
 
 const defaultNodeContentStyle: React.CSSProperties = {
   flex: 1,
   minHeight: 0,
-  padding: "10px 12px",
-  fontSize: 12,
-  color: "#64748b",
+  padding: "var(--flow-node-content-padding, 10px 12px)",
+  fontSize: "var(--flow-node-content-font-size, 12px)",
+  color: "var(--flow-node-content-text, #64748b)",
 };
 
 function DefaultCanvasNode({
@@ -136,9 +137,11 @@ function DefaultCanvasNode({
       data-selected={selected}
       style={{
         ...defaultNodeStyle,
-        borderColor: selected ? "#2563eb" : defaultNodeStyle.borderColor,
+        borderColor: selected
+          ? "var(--flow-node-selected-border, #2563eb)"
+          : defaultNodeStyle.borderColor,
         boxShadow: selected
-          ? "0 0 0 2px rgba(37, 99, 235, 0.18), 0 8px 20px rgba(15, 23, 42, 0.08)"
+          ? "var(--flow-node-selected-shadow, 0 0 0 2px rgba(37, 99, 235, 0.18), 0 8px 20px rgba(15, 23, 42, 0.08))"
           : defaultNodeStyle.boxShadow,
       }}
       role="group"
@@ -547,7 +550,11 @@ export const CanvasContent: React.FC<FlowCanvasContentProps> = ({
                       <path
                         d={defaultPath}
                         fill="none"
-                        stroke={selected ? "#2563eb" : edge.theme?.strokeColor ?? "#64748b"}
+                        stroke={
+                          selected
+                            ? "var(--flow-edge-selected-color, #2563eb)"
+                            : edge.theme?.strokeColor ?? "var(--flow-edge-color, #64748b)"
+                        }
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={selected ? 3 : edge.theme?.strokeWidth ?? 2}

@@ -49,6 +49,10 @@
   align-items: start;
 }
 
+.app-grid--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .app-primary,
 .app-harness {
   background: #ffffff;

@@ -2,18 +2,29 @@ import "./App.css";
 import { FlowDemo } from "./components/demo/FlowDemo";
 import { E2ERuntimeHarness } from "./components/testing/E2ERuntimeHarness";
 
+function shouldShowE2EHarness() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  return params.has("e2e") || window.navigator.webdriver === true;
+}
+
 function App() {
+  const showE2EHarness = shouldShowE2EHarness();
+
   return (
     <main className="app-shell">
       <header className="app-hero">
         <h1>Koduck Flow Playground</h1>
         <p>
-          Explore the interactive flow renderer and, alongside it, a deterministic harness that
-          powers our automated end-to-end scenarios.
+          Explore the interactive flow renderer with nodes, connections, viewport controls, and
+          runtime-driven behavior.
         </p>
       </header>
 
-      <section className="app-grid">
+      <section className={showE2EHarness ? "app-grid" : "app-grid app-grid--single"}>
         <div className="app-primary">
           <div className="section-heading">
             <h2>Interactive Flow Demo</h2>
@@ -22,16 +33,17 @@ function App() {
           <FlowDemo />
         </div>
 
-        <aside className="app-harness" aria-label="E2E Runtime Harness">
-          <div className="section-heading">
-            <h2>E2E Runtime Harness</h2>
-            <p>
-              Provides predictable selectors and workflows for Playwright suites while remaining
-              usable by humans.
-            </p>
-          </div>
-          <E2ERuntimeHarness />
-        </aside>
+        {showE2EHarness ? (
+          <aside className="app-harness" aria-label="E2E Runtime Harness">
+            <div className="section-heading">
+              <h2>E2E Runtime Harness</h2>
+              <p>
+                Provides deterministic selectors and workflows for automated end-to-end scenarios.
+              </p>
+            </div>
+            <E2ERuntimeHarness />
+          </aside>
+        ) : null}
       </section>
     </main>
   );
