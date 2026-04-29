@@ -4,43 +4,28 @@
  * Manages runtime lifecycle and makes it available to all child components via context.
  */
 
-import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import React, { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 
 import {
   KoduckFlowRuntime,
   KoduckFlowRuntimeController,
   KoduckFlowRuntimeFactory,
-  createKoduckFlowRuntime,
-  resolveTenantContext,
   type KoduckFlowTenantConfig,
   type ResolvedTenantContext,
   type RuntimeCreationOptions,
   type RuntimeEnvironmentKey,
 } from "../../common/runtime";
-import { DEFAULT_KODUCKFLOW_ENVIRONMENT, getRuntimeForKey } from "../../common/global-runtime";
 import { clearApiRuntime, setApiRuntime, type ApiRuntimeToken } from "../../common/api";
-import { logger } from "../../common/logger";
 import type { KoduckFlowContextValue, KoduckFlowRuntimeSource } from "./context/KoduckFlowContext";
 import { KoduckFlowContext } from "./context/KoduckFlowContext";
 import type { DebugOptions, DebugPanelPosition } from "../../common/runtime/debug-options";
 import { DebugPanel } from "../debug/DebugPanel";
-
-/**
- * Environment configuration compatible with RuntimeEnvironmentKey
- */
-type EnvironmentLike = RuntimeEnvironmentKey | string | undefined;
-
-/**
- * Converts environment-like value to normalized RuntimeEnvironmentKey
- * @param {EnvironmentLike} value - Value to normalize
- * @returns {RuntimeEnvironmentKey | undefined} Normalized environment key
- */
-const toEnvironmentKey = (value: EnvironmentLike): RuntimeEnvironmentKey | undefined => {
-  if (!value) return undefined;
-  return typeof value === "string" ? { environment: value } : value;
-};
-
-const defaultRuntimeFactory = new KoduckFlowRuntimeFactory();
+import {
+  type EnvironmentLike,
+  resolveProviderEnvironment,
+  resolveProviderTenantContext,
+  useKoduckFlowRuntimeLifecycle,
+} from "./useKoduckFlowRuntimeLifecycle";
 
 /**
  * Props for provider-managed runtime creation
@@ -231,313 +216,26 @@ const UncontrolledKoduckFlowProvider: React.FC<UncontrolledKoduckFlowProviderPro
     tenant,
   } = props;
 
-  const normalizedEnvironment = useMemo<RuntimeEnvironmentKey | undefined>(() => {
-    const base = toEnvironmentKey(environment);
-    if (!tenant) {
-      return base;
-    }
-
-    const tenantId = tenant.tenantId?.trim();
-    if (!tenantId) {
-      logger.warn(
-        "KoduckFlowProvider received tenant configuration without tenantId; tenant context will be ignored."
-      );
-      return base;
-    }
-
-    if (base) {
-      if (base.tenantId && base.tenantId !== tenantId) {
-        logger.warn(
-          "KoduckFlowProvider tenantId mismatch between environment prop and tenant config. Using tenant configuration value.",
-          {
-            environmentTenant: base.tenantId,
-            tenantId,
-          }
-        );
-      }
-      return {
-        ...base,
-        tenantId,
-      } satisfies RuntimeEnvironmentKey;
-    }
-
-    const fallbackEnvironment = tenant.environment ?? DEFAULT_KODUCKFLOW_ENVIRONMENT;
-    logger.debug("KoduckFlowProvider inferred environment for tenant", {
-      tenantId,
-      environment: fallbackEnvironment,
-    });
-    return {
-      environment: fallbackEnvironment,
-      tenantId,
-    } satisfies RuntimeEnvironmentKey;
-  }, [environment, tenant]);
-
-  const resolvedTenant = useMemo<ResolvedTenantContext | undefined>(() => {
-    if (!tenant) {
-      return undefined;
-    }
-    const environmentKey = normalizedEnvironment ?? {
-      environment: tenant.environment ?? DEFAULT_KODUCKFLOW_ENVIRONMENT,
-      tenantId: tenant.tenantId,
-    };
-    try {
-      return resolveTenantContext(tenant, environmentKey);
-    } catch (error) {
-      logger.error("KoduckFlowProvider failed to resolve tenant context", {
-        error,
-        tenantId: tenant.tenantId,
-        environmentKey,
-      });
-      return undefined;
-    }
-  }, [tenant, normalizedEnvironment]);
-
-  const runtimeOptions = useMemo<RuntimeCreationOptions | undefined>(() => {
-    if (!resolvedTenant) {
-      return options;
-    }
-    const tenantMetadata = {
-      tenantId: resolvedTenant.tenantId,
-      tenantDisplayName: resolvedTenant.displayName,
-      tenantEnvironment: resolvedTenant.environment,
-      tenantNormalizedKey: resolvedTenant.normalizedEnvironmentKey,
-      tenantQuotas: resolvedTenant.quotas,
-      tenantRollout: resolvedTenant.rollout,
-      tenantMetadata: resolvedTenant.metadata,
-    };
-
-    if (!options) {
-      return {
-        metadata: tenantMetadata,
-      } satisfies RuntimeCreationOptions;
-    }
-
-    return {
-      ...options,
-      metadata: {
-        ...options.metadata,
-        ...tenantMetadata,
-      },
-    } satisfies RuntimeCreationOptions;
-  }, [options, resolvedTenant]);
-
-  const runtimeSourceRef = useRef<KoduckFlowRuntimeSource>(
-    runtimeProp ? "prop" : normalizedEnvironment ? "factory" : "local"
-  );
-  const normalizedFactory = factory ?? defaultRuntimeFactory;
-  const reuseRuntime = reuse ?? true;
-  const isLazyRuntime = lazy ?? false;
-  const runtimeEnvironmentRef = useRef<RuntimeEnvironmentKey | undefined>(normalizedEnvironment);
-  const createdViaFactoryRef = useRef(false);
-  const usedGlobalRuntimeRef = useRef(false);
-  const tenantInitKeyRef = useRef<string | undefined>(resolvedTenant?.normalizedEnvironmentKey);
-  const initialTenantRef = useRef<string | undefined>(resolvedTenant?.tenantId);
-
-  const wasRuntimePropProvided = useRef(Boolean(runtimeProp));
-  const [runtime] = useState<KoduckFlowRuntime>(() => {
-    let instance: KoduckFlowRuntime;
-
-    if (runtimeProp) {
-      runtimeEnvironmentRef.current = normalizedEnvironment;
-      createdViaFactoryRef.current = false;
-      runtimeSourceRef.current = "prop";
-      instance = runtimeProp;
-    } else {
-      const envKey = normalizedEnvironment;
-      if (envKey) {
-        if (!factory) {
-          instance = getRuntimeForKey(envKey, runtimeOptions);
-          runtimeEnvironmentRef.current = envKey;
-          createdViaFactoryRef.current = false;
-          runtimeSourceRef.current = "global";
-          usedGlobalRuntimeRef.current = true;
-          logger.debug("KoduckFlowProvider reusing global runtime instance", {
-            environment: envKey.environment,
-            tenantId: envKey.tenantId,
-          });
-        } else {
-          if (!reuseRuntime && normalizedFactory.hasRuntime(envKey)) {
-            normalizedFactory.disposeRuntime(envKey);
-          }
-          instance = normalizedFactory.getOrCreateRuntime(envKey, runtimeOptions);
-          runtimeEnvironmentRef.current = envKey;
-          createdViaFactoryRef.current = true;
-          runtimeSourceRef.current = "factory";
-          logger.debug("KoduckFlowProvider acquired runtime from factory", {
-            environment: envKey,
-            reuse: reuseRuntime,
-            lazy: isLazyRuntime,
-            source: runtimeSourceRef.current,
-          });
-        }
-      } else {
-        instance = createKoduckFlowRuntime(runtimeOptions);
-        runtimeEnvironmentRef.current = undefined;
-        createdViaFactoryRef.current = false;
-        runtimeSourceRef.current = "local";
-        logger.debug("KoduckFlowProvider created new runtime instance", {
-          lazy: isLazyRuntime,
-          source: runtimeSourceRef.current,
-        });
-        if (isLazyRuntime) {
-          logger.debug("KoduckFlowProvider lazily prepared local runtime instance");
-        }
-      }
-    }
-
-    instance.setTenantContext(resolvedTenant ?? null);
-    return instance;
+  const lifecycle = useKoduckFlowRuntimeLifecycle({
+    ...(runtimeProp ? { runtime: runtimeProp } : {}),
+    ...(environment !== undefined ? { environment } : {}),
+    ...(options ? { options } : {}),
+    ...(factory ? { factory } : {}),
+    ...(reuse !== undefined ? { reuse } : {}),
+    ...(disposeOnUnmount !== undefined ? { disposeOnUnmount } : {}),
+    ...(lazy !== undefined ? { lazy } : {}),
+    ...(onInit ? { onInit } : {}),
+    ...(onDispose ? { onDispose } : {}),
+    ...(onTenantInit ? { onTenantInit } : {}),
+    ...(tenant ? { tenant } : {}),
   });
 
-  useEffect(() => {
-    if (runtimeProp && runtimeProp !== runtime) {
-      logger.warn(
-        "KoduckFlowProvider does not support changing the runtime prop after mount. The initial instance will be used."
-      );
-    }
-  }, [runtimeProp, runtime]);
-
-  const didCallInit = useRef(false);
-  const initialEnvironmentRef = useRef(normalizedEnvironment);
-  const initialFactoryRef = useRef(factory);
-  useEffect(() => {
-    const shouldDispose =
-      (disposeOnUnmount ?? (!wasRuntimePropProvided.current && !reuseRuntime)) &&
-      !usedGlobalRuntimeRef.current;
-    if (didCallInit.current) {
-      return;
-    }
-    didCallInit.current = true;
-    onInit?.(runtime);
-
-    return () => {
-      // 🔧 在 React Strict Mode 下，允许重新初始化
-      didCallInit.current = false;
-
-      if (shouldDispose) {
-        const envKey = runtimeEnvironmentRef.current;
-        if (createdViaFactoryRef.current && envKey) {
-          normalizedFactory.disposeRuntime(envKey);
-          logger.debug("KoduckFlowProvider disposed factory-managed runtime instance", {
-            ...envKey,
-            lazy: isLazyRuntime,
-            source: runtimeSourceRef.current,
-          });
-        } else {
-          runtime.dispose();
-          logger.debug("KoduckFlowProvider disposed managed runtime instance", {
-            lazy: isLazyRuntime,
-            source: runtimeSourceRef.current,
-          });
-        }
-        onDispose?.(runtime);
-      }
-    };
-  }, [
-    disposeOnUnmount,
-    normalizedFactory,
-    onDispose,
-    onInit,
-    reuseRuntime,
-    runtime,
-    isLazyRuntime,
-  ]);
-
-  useEffect(() => {
-    if (runtimeProp) return;
-
-    const initial = initialEnvironmentRef.current;
-    const nextTenant = resolvedTenant?.tenantId ?? normalizedEnvironment?.tenantId;
-
-    if (!initial && normalizedEnvironment) {
-      logger.warn("KoduckFlowProvider does not support adding an environment prop after mount.");
-      initialEnvironmentRef.current = normalizedEnvironment;
-      if (nextTenant) {
-        initialTenantRef.current = nextTenant;
-      }
-      return;
-    }
-
-    if (initial && normalizedEnvironment) {
-      const initialTenant = initialTenantRef.current;
-      if (nextTenant && initialTenant !== nextTenant) {
-        initialEnvironmentRef.current = normalizedEnvironment;
-        initialTenantRef.current = nextTenant;
-        logger.info("KoduckFlowProvider switched tenant context", {
-          previousTenantId: initialTenant,
-          tenantId: nextTenant,
-        });
-        return;
-      }
-
-      if (
-        initial.environment !== normalizedEnvironment.environment ||
-        initial.tenantId !== normalizedEnvironment.tenantId
-      ) {
-        logger.warn("KoduckFlowProvider does not support changing the environment prop after mount.");
-        initialEnvironmentRef.current = normalizedEnvironment;
-        if (nextTenant) {
-          initialTenantRef.current = nextTenant;
-        }
-      }
-    }
-  }, [normalizedEnvironment, runtimeProp, resolvedTenant]);
-
-  useEffect(() => {
-    runtimeEnvironmentRef.current = normalizedEnvironment;
-  }, [normalizedEnvironment]);
-
-  useEffect(() => {
-    if (runtimeProp) return;
-
-    if (!initialFactoryRef.current && factory) {
-      logger.warn("KoduckFlowProvider does not support adding a factory prop after mount.");
-      initialFactoryRef.current = factory;
-      return;
-    }
-
-    if (initialFactoryRef.current && factory && factory !== initialFactoryRef.current) {
-      logger.warn("KoduckFlowProvider does not support changing the factory prop after mount.");
-      initialFactoryRef.current = factory;
-    }
-  }, [factory, runtimeProp]);
-
-  useEffect(() => {
-    if (initialTenantRef.current === undefined && resolvedTenant?.tenantId) {
-      initialTenantRef.current = resolvedTenant.tenantId;
-    }
-  }, [resolvedTenant]);
-
-  useEffect(() => {
-    runtime.setTenantContext(resolvedTenant ?? null);
-  }, [runtime, resolvedTenant]);
-
-  useEffect(() => {
-    if (!resolvedTenant || !onTenantInit) {
-      return;
-    }
-    const key = resolvedTenant.normalizedEnvironmentKey;
-    if (tenantInitKeyRef.current === key) {
-      return;
-    }
-    tenantInitKeyRef.current = key;
-    onTenantInit(runtime, resolvedTenant);
-  }, [resolvedTenant, onTenantInit, runtime]);
-
-  useEffect(() => {
-    if (!resolvedTenant) {
-      tenantInitKeyRef.current = undefined;
-    }
-  }, [resolvedTenant]);
-
-  const runtimeEnvironment = runtimeEnvironmentRef.current;
-  const runtimeSource = runtimeSourceRef.current;
   const shared = useProviderSharedState({
-    runtime,
-    factory: normalizedFactory,
-    source: runtimeSource,
-    ...(runtimeEnvironment !== undefined ? { environment: runtimeEnvironment } : {}),
-    ...(resolvedTenant ? { tenant: resolvedTenant } : {}),
+    runtime: lifecycle.runtime,
+    factory: lifecycle.factory,
+    source: lifecycle.source,
+    ...(lifecycle.environment !== undefined ? { environment: lifecycle.environment } : {}),
+    ...(lifecycle.tenant ? { tenant: lifecycle.tenant } : {}),
     ...(debugOptions ? { debugOptions } : {}),
   });
 
@@ -570,65 +268,11 @@ const ControlledKoduckFlowProvider: React.FC<ControlledKoduckFlowProviderProps> 
   }
 
   const normalizedEnvironmentFromProps = useMemo<RuntimeEnvironmentKey | undefined>(() => {
-    const base = toEnvironmentKey(environment);
-    if (!tenant) {
-      return base;
-    }
-
-    const tenantId = tenant.tenantId?.trim();
-    if (!tenantId) {
-      logger.warn(
-        "KoduckFlowProvider (controlled) received tenant configuration without tenantId; tenant context will be ignored."
-      );
-      return base;
-    }
-
-    if (base) {
-      if (base.tenantId && base.tenantId !== tenantId) {
-        logger.warn(
-          "KoduckFlowProvider (controlled) tenantId mismatch between environment prop and tenant config. Using tenant configuration value.",
-          {
-            environmentTenant: base.tenantId,
-            tenantId,
-          }
-        );
-      }
-      return {
-        ...base,
-        tenantId,
-      } satisfies RuntimeEnvironmentKey;
-    }
-
-    const fallbackEnvironment = tenant.environment ?? DEFAULT_KODUCKFLOW_ENVIRONMENT;
-    logger.debug("KoduckFlowProvider (controlled) inferred environment for tenant", {
-      tenantId,
-      environment: fallbackEnvironment,
-    });
-    return {
-      environment: fallbackEnvironment,
-      tenantId,
-    } satisfies RuntimeEnvironmentKey;
+    return resolveProviderEnvironment(environment, tenant, "controlled");
   }, [environment, tenant]);
 
   const resolvedTenantFromProps = useMemo<ResolvedTenantContext | undefined>(() => {
-    if (!tenant) {
-      return undefined;
-    }
-    const environmentKey = normalizedEnvironmentFromProps ?? {
-      environment: tenant.environment ?? DEFAULT_KODUCKFLOW_ENVIRONMENT,
-      tenantId: tenant.tenantId,
-    };
-
-    try {
-      return resolveTenantContext(tenant, environmentKey);
-    } catch (error) {
-      logger.error("KoduckFlowProvider (controlled) failed to resolve tenant context", {
-        error,
-        tenantId: tenant.tenantId,
-        environmentKey,
-      });
-      return undefined;
-    }
+    return resolveProviderTenantContext(tenant, normalizedEnvironmentFromProps, "controlled");
   }, [tenant, normalizedEnvironmentFromProps]);
 
   const controllerTenant = snapshot.tenant;

@@ -42,6 +42,7 @@ export {
 export * from "./common/runtime";
 export { KoduckFlowProvider, type KoduckFlowProviderProps } from "./components/provider/KoduckFlowProvider";
 export { DebugPanel, type DebugPanelProps } from "./components/debug/DebugPanel";
+export * from "./components/flow-entity";
 export {
   useKoduckFlowContext,
   useKoduckFlowRuntime,

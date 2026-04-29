@@ -9,3 +9,4 @@ export { FlowDemo } from "./demo/FlowDemo";
 export { KoduckFlowProvider, type KoduckFlowProviderProps } from "./provider/KoduckFlowProvider";
 export { DebugPanel, type DebugPanelProps } from "./debug/DebugPanel";
 export { VirtualList, type VirtualListProps } from "./virtualized/VirtualList";
+export * from "./flow-entity";

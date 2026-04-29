@@ -64,10 +64,21 @@ describe("useFlowNode", () => {
       expect(result.current.size).toEqual({ width: 250, height: 150 });
     });
 
+    it("reflects external entity size changes on rerender", () => {
+      const { result, rerender } = renderHook(() => useFlowNode(entity));
+
+      expect(result.current.size).toEqual({ width: 250, height: 150 });
+
+      entity.setSize({ width: 320, height: 180 });
+      rerender();
+
+      expect(result.current.size).toEqual({ width: 320, height: 180 });
+    });
+
     it("provides default size when not specified", () => {
-      const entityWithoutSize = createMockEntity({ size: undefined as any });
-      // Override data to have no size
-      (entityWithoutSize as any)._data.size = undefined;
+      const entityWithoutSize = createMockEntity();
+      const mutableData = entityWithoutSize.data as { size?: Size };
+      delete mutableData.size;
 
       const { result } = renderHook(() => useFlowNode(entityWithoutSize));
 
@@ -250,6 +261,19 @@ describe("useFlowNode", () => {
       expect(setSizeSpy).toHaveBeenCalledWith(newSize);
     });
 
+    it("renders resized size from the entity snapshot", () => {
+      const { result } = renderHook(() => useFlowNode(entity));
+
+      const newSize: Size = { width: 400, height: 300 };
+
+      act(() => {
+        result.current.handleResize(newSize);
+      });
+
+      expect(entity.getSize()).toEqual(newSize);
+      expect(result.current.size).toEqual(newSize);
+    });
+
     it("does not call onResize when disabled", () => {
       const onResize = vi.fn();
       const disabledEntity = createMockEntity({ disabled: true });
@@ -375,9 +399,12 @@ describe("useFlowNode", () => {
   describe("edge cases", () => {
     it("handles entity with missing data gracefully", () => {
       const entityWithNoData = createMockEntity();
-      // Simulate partial data
-      (entityWithNoData as any)._data.position = undefined;
-      (entityWithNoData as any)._data.label = undefined;
+      const mutableData = entityWithNoData.data as {
+        position?: Position;
+        label?: string;
+      };
+      delete mutableData.position;
+      delete mutableData.label;
 
       const { result } = renderHook(() => useFlowNode(entityWithNoData));
 

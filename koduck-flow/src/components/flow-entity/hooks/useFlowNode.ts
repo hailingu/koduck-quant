@@ -6,7 +6,7 @@
  * @see docs/design/flow-entity-step-plan-en.md Task 2.1
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useReducer, useState } from "react";
 import type { FlowNodeEntity } from "../../../common/flow/flow-node-entity";
 import type { Position, Size } from "../types";
 
@@ -180,9 +180,8 @@ export function useFlowNode(
   // Local selection state (used when useLocalSelection is true)
   const [localSelected, setLocalSelected] = useState(selected);
 
-  // Local size state for triggering re-renders during resize
-  const initialSize = entity.data?.size ?? { width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT };
-  const [localSize, setLocalSize] = useState<Size>(initialSize);
+  // Entity is the single source of truth for size; this only invalidates render after local writes.
+  const [, invalidateEntitySnapshot] = useReducer((revision: number) => revision + 1, 0);
 
   // Determine effective selection state
   const isSelected = useLocalSelection ? localSelected : selected;
@@ -193,8 +192,11 @@ export function useFlowNode(
   // Memoized position from entity data
   const position = useMemo<Position>(() => data?.position ?? { x: 0, y: 0 }, [data?.position]);
 
-  // Use local size state (updated during resize) for rendering
-  const size = localSize;
+  // Memoized size from entity data
+  const size = useMemo<Size>(
+    () => data?.size ?? { width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT },
+    [data?.size]
+  );
 
   // Other entity properties
   const isDisabled = data?.disabled ?? false;
@@ -250,11 +252,9 @@ export function useFlowNode(
     (newSize: Size) => {
       if (isDisabled) return;
 
-      // Update local state to trigger re-render
-      setLocalSize(newSize);
-
-      // Update entity data
+      // Update entity data, then invalidate the snapshot so local resize writes render immediately.
       entity.setSize(newSize);
+      invalidateEntitySnapshot();
 
       // Call external callback
       onResize?.(entity, newSize);

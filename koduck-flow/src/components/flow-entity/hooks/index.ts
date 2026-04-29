@@ -86,5 +86,5 @@ export {
   useIsDarkTheme,
   useThemeConfig,
   type UseFlowThemeOptions,
-  type UseFlowThemeResult,
+  type UseFlowThemeReturn,
 } from "./useFlowTheme";
