@@ -14,6 +14,13 @@ interface HttpState {
   configProvider: IConfigRuntimeOverride;
 }
 
+/**
+ * Starts an HTTP endpoint that accepts runtime config override payloads.
+ *
+ * @param state - Mutable server state shared across calls
+ * @param port - Port to listen on (default 8080; 0 or negative disables port tracking)
+ * @param options - Optional authentication, path, and metadata resolver hooks
+ */
 export function setupHTTPOverridesImpl(
   state: HttpState,
   port: number = 8080,
@@ -83,8 +90,8 @@ async function startHttpOverrideServer(
       const mergedMetadata =
         resolvedMetadataSource || payload.metadata
           ? {
-              ...(resolvedMetadataSource ?? {}),
-              ...(payload.metadata ?? {}),
+              ...(resolvedMetadataSource ?? undefined),
+              ...(payload.metadata ?? undefined),
             }
           : undefined;
 
@@ -131,7 +138,7 @@ async function startHttpOverrideServer(
 
   server.listen(port, () => {
     const address = server.address();
-    const actualPort = typeof address === "object" && address !== null ? address.port : port;
+    const actualPort = address?.port ?? port;
     state.httpPort = actualPort;
     logger.info(
       `HTTP configuration overrides endpoint listening on port ${actualPort} at ${state.httpPath}`
@@ -141,6 +148,11 @@ async function startHttpOverrideServer(
   state.httpServer = server;
 }
 
+/**
+ * Closes the active HTTP override server and clears server state.
+ *
+ * @param state - Mutable server state to reset after shutdown
+ */
 export function shutdownHTTPOverridesImpl(state: HttpState): void {
   if (!state.httpServer) {
     return;

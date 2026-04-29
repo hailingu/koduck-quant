@@ -252,6 +252,15 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
   },
 ];
 
+/**
+ * Applies a single environment variable to a config object by parsing its raw
+ * string value according to the definition's type and writing it at the
+ * definition's target path.
+ *
+ * @param config - Mutable partial config object to update
+ * @param definition - Env var definition describing type, path, and constraints
+ * @param rawValue - Raw string value from the environment
+ */
 export function applyEnvVar(
   config: Partial<KoduckFlowConfig>,
   definition: EnvVarDefinition,
@@ -266,7 +275,7 @@ function parseValue(definition: EnvVarDefinition, rawValue: string): string | nu
   if (spec.type === "number") {
     const parsed = Number.parseInt(rawValue, 10);
     if (Number.isNaN(parsed)) {
-      throw new Error(`Environment variable ${definition.name} expects a numeric value`);
+      throw new TypeError(`Environment variable ${definition.name} expects a numeric value`);
     }
     return parsed;
   }
@@ -306,7 +315,7 @@ function setDeepValue(target: Record<string, unknown>, path: string[], value: un
     cursor = cursor[key] as Record<string, unknown>;
   }
 
-  cursor[path[path.length - 1]] = value;
+  cursor[path.at(-1)!] = value;
 }
 
 export type EnvVarCategory = EnvVarDefinition["category"];
