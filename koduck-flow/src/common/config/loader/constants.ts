@@ -6,6 +6,6 @@ export const RUNTIME_AUDIT_MAX_ENTRIES = 100;
 export const isBrowserEnv =
   globalThis.window !== undefined &&
   globalThis.document !== undefined &&
-  !(process !== undefined && process.versions?.node);
+  !process?.versions?.node;
 
-export const hasProcessEnv = process !== undefined && process.env !== undefined;
+export const hasProcessEnv = process?.env !== undefined;
