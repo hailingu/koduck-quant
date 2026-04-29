@@ -69,13 +69,13 @@ type ScopedInstanceRecord = {
  */
 export class DefaultDependencyContainer implements IDependencyContainer {
   /** Registry mapping tokens to service descriptors */
-  private registry = new Map<string | symbol, ServiceDescriptor>();
+  private readonly registry = new Map<string | symbol, ServiceDescriptor>();
   /** Storage for scoped instances in this container */
-  private scopeInstances = new Map<string | symbol, ScopedInstanceRecord>();
+  private readonly scopeInstances = new Map<string | symbol, ScopedInstanceRecord>();
   /** Parent container for scope resolution hierarchy */
   private parent: DefaultDependencyContainer | undefined;
   /** Child containers created from this scope */
-  private children = new Set<DefaultDependencyContainer>();
+  private readonly children = new Set<DefaultDependencyContainer>();
   /** Whether this container has been disposed */
   private disposed = false;
   /** Stack of tokens currently being resolved (for circular dependency detection) */

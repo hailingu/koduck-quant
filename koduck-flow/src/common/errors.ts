@@ -144,11 +144,10 @@ export const ErrorCode = {
   CONFIG_PARSE_ERROR: 118003,
 } as const;
 
-// 明确指定 ErrorCode 为数值类型
 /**
- *
+ * 所有已定义错误码的联合类型
  */
-export type ErrorCode = number & (typeof ErrorCode)[keyof typeof ErrorCode];
+export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 
 /**
  * 错误详情接口
@@ -183,8 +182,8 @@ export class FlowError extends Error {
   public readonly timestamp: number;
 
   /**
-   *
-   * @param details
+   * 创建一个新的 FlowError 实例
+   * @param details 错误详情对象（不含自动生成的 timestamp 和 stack 字段）
    */
   constructor(details: Omit<ErrorDetails, "timestamp" | "stack">) {
     super(details.message);
@@ -202,6 +201,7 @@ export class FlowError extends Error {
 
   /**
    * 获取完整的错误详情
+   * @returns 包含所有错误字段的 {@link ErrorDetails} 对象
    */
   getDetails(): ErrorDetails {
     return {
@@ -218,6 +218,7 @@ export class FlowError extends Error {
 
   /**
    * 转换为JSON格式
+   * @returns 包含错误所有可序列化字段的普通对象
    */
   toJSON(): Record<string, unknown> {
     return {
@@ -234,6 +235,7 @@ export class FlowError extends Error {
 
   /**
    * 格式化错误信息用于日志
+   * @returns 格式化后的错误字符串，包含类别、错误码、严重级别、消息及可选上下文
    */
   format(): string {
     const contextStr = this.context ? ` | Context: ${JSON.stringify(this.context)}` : "";
@@ -244,21 +246,20 @@ export class FlowError extends Error {
 /**
  * 错误处理器接口
  */
-export interface ErrorHandler {
-  (error: FlowError): void;
-}
+export type ErrorHandler = (error: FlowError) => void;
 
 /**
  * 错误管理器
  */
 export class ErrorManager {
-  private static handlers: Map<ErrorCategory, ErrorHandler[]> = new Map();
-  private static globalHandlers: ErrorHandler[] = [];
+  private static readonly handlers: Map<ErrorCategory, ErrorHandler[]> = new Map();
+  private static readonly globalHandlers: ErrorHandler[] = [];
 
   /**
    * 注册错误处理器
-   * @param category
-   * @param handler
+   * @param category 要监听的错误类别
+   * @param handler 错误处理回调函数
+   * @returns 取消注册的函数，调用后移除该处理器
    */
   static registerHandler(category: ErrorCategory, handler: ErrorHandler): () => void {
     if (!this.handlers.has(category)) {
@@ -280,7 +281,8 @@ export class ErrorManager {
 
   /**
    * 注册全局错误处理器
-   * @param handler
+   * @param handler 错误处理回调函数，对所有类别的错误均生效
+   * @returns 取消注册的函数，调用后移除该处理器
    */
   static registerGlobalHandler(handler: ErrorHandler): () => void {
     this.globalHandlers.push(handler);
@@ -296,7 +298,7 @@ export class ErrorManager {
 
   /**
    * 处理错误
-   * @param error
+   * @param error 要处理的 FlowError 实例
    */
   static handleError(error: FlowError): void {
     // 执行分类处理器
@@ -305,7 +307,7 @@ export class ErrorManager {
       try {
         handler(error);
       } catch (handlerError) {
-        logger.error("Error in error handler:", handlerError as unknown);
+        logger.error("Error in error handler:", handlerError);
       }
     });
 
@@ -314,7 +316,7 @@ export class ErrorManager {
       try {
         handler(error);
       } catch (handlerError) {
-        logger.error("Error in global error handler:", handlerError as unknown);
+        logger.error("Error in global error handler:", handlerError);
       }
     });
 
@@ -324,7 +326,7 @@ export class ErrorManager {
 
   /**
    * 默认控制台处理器
-   * @param error
+   * @param error 要输出到控制台的 FlowError 实例
    */
   private static defaultConsoleHandler(error: FlowError): void {
     const formattedMessage = error.format();
@@ -370,13 +372,14 @@ export class ErrorManager {
 
 /**
  * 创建错误的便捷函数
- * @param code
- * @param message
- * @param options
- * @param options.category
- * @param options.severity
- * @param options.context
- * @param options.cause
+ * @param code 错误码
+ * @param message 错误消息
+ * @param options 可选配置
+ * @param options.category 错误类别（默认根据错误码自动推断）
+ * @param options.severity 错误严重级别（默认为 ERROR）
+ * @param options.context 附加上下文信息
+ * @param options.cause 原始错误
+ * @returns 构造好的 {@link FlowError} 实例
  */
 export function createError(
   code: ErrorCode,
@@ -404,7 +407,8 @@ export function createError(
 /**
  * 根据错误码推断错误类别
  * 使用6位整数取模分段方式判断类别，支持50类错误分类
- * @param code
+ * @param code 要推断类别的错误码
+ * @returns 对应的 {@link ErrorCategory}，未知范围的码值返回 SYSTEM
  */
 function inferCategoryFromCode(code: ErrorCode): ErrorCategory {
   // 10万以下的整数作为保留
@@ -434,13 +438,14 @@ function inferCategoryFromCode(code: ErrorCode): ErrorCategory {
 }
 /**
  * 抛出错误的便捷函数
- * @param code
- * @param message
- * @param options
- * @param options.category
- * @param options.severity
- * @param options.context
- * @param options.cause
+ * @param code 错误码
+ * @param message 错误消息
+ * @param options 可选配置
+ * @param options.category 错误类别（默认根据错误码自动推断）
+ * @param options.severity 错误严重级别（默认为 ERROR）
+ * @param options.context 附加上下文信息
+ * @param options.cause 原始错误
+ * @returns never — 始终抛出异常
  */
 export function throwError(
   code: ErrorCode,
@@ -459,13 +464,14 @@ export function throwError(
 
 /**
  * 记录错误但不抛出
- * @param code
- * @param message
- * @param options
- * @param options.category
- * @param options.severity
- * @param options.context
- * @param options.cause
+ * @param code 错误码
+ * @param message 错误消息
+ * @param options 可选配置
+ * @param options.category 错误类别（默认根据错误码自动推断）
+ * @param options.severity 错误严重级别（默认为 ERROR）
+ * @param options.context 附加上下文信息
+ * @param options.cause 原始错误
+ * @returns 已记录的 {@link FlowError} 实例
  */
 export const logError = (
   code: ErrorCode,

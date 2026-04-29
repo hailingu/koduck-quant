@@ -72,6 +72,13 @@ function mergeMetadata(
   };
 }
 
+/**
+ * Get or create a runtime for the given environment key.
+ *
+ * @param key - The runtime environment key (environment + optional tenantId)
+ * @param options - Optional creation options passed to the factory
+ * @returns The existing or newly created {@link KoduckFlowRuntime} instance
+ */
 export function getRuntimeForKey(
   key: RuntimeEnvironmentKey,
   options?: RuntimeCreationOptions
@@ -82,6 +89,13 @@ export function getRuntimeForKey(
   return runtimeFactory.getOrCreateRuntime(key, mergeMetadata(key, options));
 }
 
+/**
+ * Get or create a runtime for the given environment name.
+ *
+ * @param environment - The environment identifier string
+ * @param options - Optional creation options passed to the factory
+ * @returns The existing or newly created {@link KoduckFlowRuntime} instance
+ */
 export function getRuntimeForEnvironment(
   environment: string,
   options?: RuntimeCreationOptions
@@ -89,10 +103,20 @@ export function getRuntimeForEnvironment(
   return getRuntimeForKey({ environment }, options);
 }
 
+/**
+ * Dispose and release the runtime associated with the given environment name.
+ *
+ * @param environment - The environment identifier string
+ */
 export function disposeRuntimeForEnvironment(environment: string): void {
   runtimeFactory.disposeRuntime({ environment });
 }
 
+/**
+ * Dispose and release the runtime associated with the given environment key.
+ *
+ * @param key - The runtime environment key to dispose
+ */
 export function disposeRuntimeForKey(key: RuntimeEnvironmentKey): void {
   runtimeFactory.disposeRuntime(key);
 }

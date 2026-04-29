@@ -104,7 +104,7 @@ const CanvasNodeContainer: React.FC<CanvasNodeContainerProps> = ({
   });
 
   const handleKeyDown = useCallback(
-    (event: React.KeyboardEvent<HTMLDivElement>) => {
+    (event: React.KeyboardEvent<HTMLButtonElement>) => {
       if ((event.key === "Enter" || event.key === " ") && interaction.selectNodes) {
         event.preventDefault();
         onNodeSelect?.([node.id]);
@@ -131,7 +131,12 @@ const CanvasNodeContainer: React.FC<CanvasNodeContainerProps> = ({
         onNodeSelect?.([node.id]);
       }
 
-      const step = event.shiftKey ? 50 : event.altKey ? 1 : 10;
+      let step = 10;
+      if (event.shiftKey) {
+        step = 50;
+      } else if (event.altKey) {
+        step = 1;
+      }
       onNodeMove(node.id, {
         x: (node.position?.x ?? 0) + delta.x * step,
         y: (node.position?.y ?? 0) + delta.y * step,
@@ -141,9 +146,8 @@ const CanvasNodeContainer: React.FC<CanvasNodeContainerProps> = ({
   );
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
+    <button
+      type="button"
       data-node-id={node.id}
       aria-label={node.label || "Node"}
       aria-pressed={selected}
@@ -172,7 +176,7 @@ const CanvasNodeContainer: React.FC<CanvasNodeContainerProps> = ({
           selected,
         })}
       </FlowNodeShellContext.Provider>
-    </div>
+    </button>
   );
 };
 
@@ -206,41 +210,50 @@ export const CanvasContent: React.FC<FlowCanvasContentProps> = ({
   const viewport = useViewportOptional();
   const contentRef = useRef<HTMLDivElement>(null);
 
-  const handleClick = useCallback(
-    (event: ReactMouseEvent<HTMLDivElement>) => {
-      if (event.target !== event.currentTarget) return;
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
 
-      const rect = contentRef.current?.getBoundingClientRect();
-      if (!rect) return;
-
+    const onClick = (event: MouseEvent) => {
+      if (event.target !== el) return;
+      const rect = el.getBoundingClientRect();
       const screenX = event.clientX - rect.left;
       const screenY = event.clientY - rect.top;
       const canvasPosition = viewport
         ? viewport.screenToCanvas(screenX, screenY)
         : { x: screenX, y: screenY };
+      onCanvasClick?.(canvasPosition, event as unknown as ReactMouseEvent);
+    };
 
-      onCanvasClick?.(canvasPosition, event);
-    },
-    [viewport, onCanvasClick]
-  );
-
-  const handleDoubleClick = useCallback(
-    (event: ReactMouseEvent<HTMLDivElement>) => {
-      if (event.target !== event.currentTarget) return;
-
-      const rect = contentRef.current?.getBoundingClientRect();
-      if (!rect) return;
-
+    const onDblClick = (event: MouseEvent) => {
+      if (event.target !== el) return;
+      const rect = el.getBoundingClientRect();
       const screenX = event.clientX - rect.left;
       const screenY = event.clientY - rect.top;
       const canvasPosition = viewport
         ? viewport.screenToCanvas(screenX, screenY)
         : { x: screenX, y: screenY };
+      onCanvasDoubleClick?.(canvasPosition, event as unknown as ReactMouseEvent);
+    };
 
-      onCanvasDoubleClick?.(canvasPosition, event);
-    },
-    [viewport, onCanvasDoubleClick]
-  );
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onNodeSelect?.([]);
+        onEdgeSelect?.([]);
+      }
+    };
+
+    el.addEventListener("click", onClick);
+    el.addEventListener("dblclick", onDblClick);
+    el.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      el.removeEventListener("click", onClick);
+      el.removeEventListener("dblclick", onDblClick);
+      el.removeEventListener("keydown", onKeyDown);
+    };
+  }, [viewport, onCanvasClick, onCanvasDoubleClick, onNodeSelect, onEdgeSelect]);
 
   const { translateX = 0, translateY = 0, scale = 1 } = viewport?.viewport ?? {};
   const gridScale = scale || 1;
@@ -316,15 +329,8 @@ export const CanvasContent: React.FC<FlowCanvasContentProps> = ({
 
       <div
         ref={contentRef}
-        role="button"
-        tabIndex={0}
         data-testid="flow-canvas-content"
         aria-label="Flow canvas"
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-          }
-        }}
         style={{
           position: "absolute",
           top: 0,
@@ -339,8 +345,6 @@ export const CanvasContent: React.FC<FlowCanvasContentProps> = ({
           font: "inherit",
           color: "inherit",
         }}
-        onClick={handleClick}
-        onDoubleClick={handleDoubleClick}
       >
         <svg
           data-testid="flow-canvas-edges"
