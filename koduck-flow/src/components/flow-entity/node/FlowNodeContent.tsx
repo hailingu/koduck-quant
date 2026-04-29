@@ -194,7 +194,7 @@ export const FlowNodeContent: React.FC<FlowNodeContentProps> = React.memo(functi
     }
 
     // If entity has formSchema, render FlowNodeForm
-    if (formSchema && formSchema.properties && Object.keys(formSchema.properties).length > 0) {
+    if (formSchema?.properties && Object.keys(formSchema.properties).length > 0) {
       return (
         <FlowNodeForm
           schema={formSchema}

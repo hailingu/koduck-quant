@@ -264,6 +264,8 @@ function getProgressStyles(
  *   trackColor="#dcfce7"
  * />
  * ```
+ *
+ * @returns The rendered progress indicator element, or null if not connected
  */
 export const FlowNodeProgress: React.FC<FlowNodeProgressProps> = ({
   entityId,
@@ -363,19 +365,26 @@ export const FlowNodeProgress: React.FC<FlowNodeProgressProps> = ({
     return null;
   }
 
+  const ariaLabel = isIndeterminate
+    ? "Execution progress: loading"
+    : `Execution progress: ${effectiveProgress}%`;
+
   return (
     <div
       className={cssClass}
       style={containerStyles}
-      role="progressbar"
-      aria-valuenow={isIndeterminate ? undefined : effectiveProgress}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-label={`Execution progress: ${isIndeterminate ? "loading" : `${effectiveProgress}%`}`}
       data-testid={testId ?? `flow-node-progress-${entityId}`}
       data-position={position}
       data-indeterminate={isIndeterminate || undefined}
     >
+      {/* Native progress element for accessibility */}
+      <progress
+        value={isIndeterminate ? undefined : effectiveProgress}
+        max={100}
+        aria-label={ariaLabel}
+        style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", opacity: 0, border: 0, padding: 0, margin: "-1px" }}
+      />
+
       {/* Track (background) */}
       <div
         className="flow-node-progress__track"
@@ -399,7 +408,8 @@ export const FlowNodeProgress: React.FC<FlowNodeProgressProps> = ({
 
 /**
  * Preset: Top position progress bar
- * @param props
+ * @param props - Component props (same as FlowNodeProgressProps without position)
+ * @returns Progress bar fixed to the top of the node
  */
 export const FlowNodeProgressTop: React.FC<Omit<FlowNodeProgressProps, "position">> = (props) => (
   <FlowNodeProgress {...props} position="top" />
@@ -407,7 +417,8 @@ export const FlowNodeProgressTop: React.FC<Omit<FlowNodeProgressProps, "position
 
 /**
  * Preset: Bottom position progress bar
- * @param props
+ * @param props - Component props (same as FlowNodeProgressProps without position)
+ * @returns Progress bar fixed to the bottom of the node
  */
 export const FlowNodeProgressBottom: React.FC<Omit<FlowNodeProgressProps, "position">> = (
   props
@@ -415,7 +426,8 @@ export const FlowNodeProgressBottom: React.FC<Omit<FlowNodeProgressProps, "posit
 
 /**
  * Preset: Overlay position progress bar
- * @param props
+ * @param props - Component props (same as FlowNodeProgressProps without position)
+ * @returns Progress bar overlaid across the full node
  */
 export const FlowNodeProgressOverlay: React.FC<Omit<FlowNodeProgressProps, "position">> = (
   props

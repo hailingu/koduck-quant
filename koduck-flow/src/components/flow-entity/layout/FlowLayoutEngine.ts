@@ -34,6 +34,12 @@ function getNodeSize(node: IFlowNodeEntityData, fallback: Size): Size {
   };
 }
 
+/**
+ * Calculates the bounding box that encompasses all nodes in the graph.
+ * @param nodes - Array of node data with optional position and size
+ * @param fallbackSize - Default size to use when a node has no explicit size
+ * @returns Bounding box with min/max coordinates and total width/height
+ */
 export function calculateFlowGraphBounds(
   nodes: IFlowNodeEntityData[],
   fallbackSize: Size = DEFAULT_NODE_SIZE
@@ -91,8 +97,7 @@ function buildRanks(nodes: IFlowNodeEntityData[], edges: IFlowEdgeEntityData[]):
   const ranks = new Map<string, number>();
   queue.forEach((node) => ranks.set(node.id, 0));
 
-  for (let index = 0; index < queue.length; index += 1) {
-    const current = queue[index];
+  for (const current of queue) {
     const currentRank = ranks.get(current.id) ?? 0;
 
     for (const targetId of outgoing.get(current.id) ?? []) {
@@ -192,6 +197,13 @@ function layoutDag(
   });
 }
 
+/**
+ * Computes node positions for a flow graph using the specified layout strategy.
+ * @param nodes - Array of node data to lay out
+ * @param edges - Array of edge data defining connections between nodes
+ * @param options - Layout options including strategy, origin, gaps and node size
+ * @returns Layout result containing positioned nodes and their bounding box
+ */
 export function layoutFlowGraph(
   nodes: IFlowNodeEntityData[],
   edges: IFlowEdgeEntityData[] = [],
@@ -204,16 +216,12 @@ export function layoutFlowGraph(
     verticalGap: options.verticalGap ?? DEFAULT_VERTICAL_GAP,
   };
   const strategy = options.strategy ?? "horizontal-dag";
+  const dagDirection = strategy === "vertical-dag" ? "vertical" : "horizontal";
 
   const laidOutNodes =
     strategy === "freeform"
       ? nodes.map((node) => ({ ...node, size: getNodeSize(node, resolvedOptions.nodeSize) }))
-      : layoutDag(
-          nodes,
-          edges,
-          resolvedOptions,
-          strategy === "vertical-dag" ? "vertical" : "horizontal"
-        );
+      : layoutDag(nodes, edges, resolvedOptions, dagDirection);
 
   return {
     nodes: laidOutNodes,

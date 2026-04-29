@@ -7,8 +7,16 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { useFlowTheme, useIsDarkTheme, useThemeConfig } from "../../../hooks/useFlowTheme";
-import { FLOW_THEME_ATTRIBUTE, LIGHT_THEME_CONFIG, DARK_THEME_CONFIG } from "../index";
+import {
+  useFlowTheme,
+  useIsDarkTheme,
+  useThemeConfig,
+} from "../../../../../src/components/flow-entity/hooks/useFlowTheme";
+import {
+  FLOW_THEME_ATTRIBUTE,
+  LIGHT_THEME_CONFIG,
+  DARK_THEME_CONFIG,
+} from "../../../../../src/components/flow-entity/styles/themes";
 
 describe("useFlowTheme hook", () => {
   beforeEach(() => {

@@ -123,11 +123,12 @@ export interface FlowNodePortsProps {
 
 /**
  * Calculates the style for a port based on its position and index
- * @param position
- * @param index
- * @param totalPorts
- * @param portSize
- * @param nodeTheme
+ * @param position The position of the port on the node (top, bottom, left, right)
+ * @param index The index of the port among its siblings (0-based)
+ * @param totalPorts The total number of ports in the same position (used for spacing)
+ * @param portSize The size of the port in pixels
+ * @param nodeTheme The theme object for the node, used to determine port colors
+ * @returns A CSSProperties object with the computed style for the port element
  */
 function calculatePortStyle(
   position: PortPosition,
@@ -280,18 +281,22 @@ export const FlowNodePorts: React.FC<FlowNodePortsProps> = React.memo(function F
       connectionContext?.connectionState.hoveredTargetNodeId === entity.id &&
       connectionContext?.connectionState.hoveredTargetPort?.id === port.id;
 
+    // Compute box shadow for connection feedback
+    let connectionBoxShadow: string | undefined;
+    if (isHoveredTarget) {
+      connectionBoxShadow = isValidTarget
+        ? "0 0 8px 2px rgba(34, 197, 94, 0.6)" // Green glow for valid
+        : "0 0 8px 2px rgba(239, 68, 68, 0.6)"; // Red glow for invalid
+    } else if (isValidTarget) {
+      connectionBoxShadow = "0 0 4px 1px rgba(34, 197, 94, 0.3)"; // Subtle green for valid targets
+    }
+
     // Enhanced port style with connection feedback
     const portStyle: CSSProperties = {
       ...basePortStyle,
       // Visual feedback for valid/invalid targets during connection
       ...(connectionContext?.isConnecting && {
-        boxShadow: isHoveredTarget
-          ? isValidTarget
-            ? "0 0 8px 2px rgba(34, 197, 94, 0.6)" // Green glow for valid
-            : "0 0 8px 2px rgba(239, 68, 68, 0.6)" // Red glow for invalid
-          : isValidTarget
-            ? "0 0 4px 1px rgba(34, 197, 94, 0.3)" // Subtle green for valid targets
-            : undefined,
+        boxShadow: connectionBoxShadow,
         transform: isHoveredTarget
           ? `${basePortStyle.transform ?? ""} scale(1.3)`.trim()
           : basePortStyle.transform,
@@ -343,15 +348,33 @@ export const FlowNodePorts: React.FC<FlowNodePortsProps> = React.memo(function F
       }
     };
 
+    // Handle keyboard activation (Enter / Space) - mirrors mousedown logic
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (connectionContext) {
+        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        const pos = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        connectionContext.startConnection(entity.id, port, pos);
+      }
+      onPortConnect?.(entity, port.id, portType);
+    };
+
     // Use custom renderer if provided
     if (portRenderer) {
       return (
-        <div
+        <button
           key={port.id}
+          type="button"
+          tabIndex={0}
+          aria-label={`${portType} port: ${port.name}`}
+          style={{ background: "none", border: 0, padding: 0 }}
           onMouseDown={handleMouseDown}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
           onMouseUp={handleMouseUp}
+          onKeyDown={handleKeyDown}
           data-port-id={port.id}
           data-port-type={portType}
         >
@@ -362,27 +385,29 @@ export const FlowNodePorts: React.FC<FlowNodePortsProps> = React.memo(function F
             isHovered: isHoveredTarget,
             isValidTarget,
           })}
-        </div>
+        </button>
       );
     }
 
     // Default port rendering
     return (
-      <div
+      <button
         key={port.id}
+        type="button"
         className={`flow-node-port flow-node-port--${portType}${isValidTarget ? " flow-node-port--valid-target" : ""}${isHoveredTarget ? " flow-node-port--hovered" : ""}`}
-        style={portStyle}
+        style={{ ...portStyle, padding: 0, appearance: "none" }}
         onMouseDown={handleMouseDown}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         onMouseUp={handleMouseUp}
+        onKeyDown={handleKeyDown}
         data-testid={`flow-node-port-${entity.id}-${port.id}`}
         data-port-id={port.id}
         data-port-type={portType}
         data-port-data-type={port.dataType}
         data-valid-target={isValidTarget}
         title={port.name}
-        role="button"
+        tabIndex={0}
         aria-label={`${portType} port: ${port.name}`}
       />
     );

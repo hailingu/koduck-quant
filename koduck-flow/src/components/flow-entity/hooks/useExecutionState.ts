@@ -119,9 +119,9 @@ export function useExecutionState(options: UseExecutionStateOptions): UseExecuti
   const context = useExecutionStateContext();
 
   // Local state for reactivity
-  const [state, setLocalState] = useState<ExecutionState>(() => context.getState(entityId));
+  const [localState, setLocalState] = useState<ExecutionState>(() => context.getState(entityId));
   const [previousState, setPreviousState] = useState<ExecutionState | undefined>(undefined);
-  const [progress, setLocalProgress] = useState<number | undefined>(() =>
+  const [localProgress, setLocalProgress] = useState<number | undefined>(() =>
     context.getProgress(entityId)
   );
 
@@ -161,18 +161,18 @@ export function useExecutionState(options: UseExecutionStateOptions): UseExecuti
   }, [entityId, context, subscribeToProgress, onProgressChange]);
 
   // Derived state flags
-  const isExecuting = useMemo(() => state === "running" || state === "pending", [state]);
+  const isExecuting = useMemo(() => localState === "running" || localState === "pending", [localState]);
 
   const isCompleted = useMemo(
-    () => state === "success" || state === "error" || state === "skipped" || state === "cancelled",
-    [state]
+    () => localState === "success" || localState === "error" || localState === "skipped" || localState === "cancelled",
+    [localState]
   );
 
-  const isError = useMemo(() => state === "error", [state]);
+  const isError = useMemo(() => localState === "error", [localState]);
 
-  const isSuccess = useMemo(() => state === "success", [state]);
+  const isSuccess = useMemo(() => localState === "success", [localState]);
 
-  const isIdle = useMemo(() => state === "idle", [state]);
+  const isIdle = useMemo(() => localState === "idle", [localState]);
 
   // Action handlers
   const setState = useCallback(
@@ -192,13 +192,13 @@ export function useExecutionState(options: UseExecutionStateOptions): UseExecuti
   const reset = useCallback(() => {
     context.resetState(entityId);
     setLocalProgress(undefined);
-    setPreviousState(state);
-  }, [context, entityId, state]);
+    setPreviousState(localState);
+  }, [context, entityId, localState]);
 
   return {
-    state,
+    state: localState,
     previousState,
-    progress,
+    progress: localProgress,
     isExecuting,
     isCompleted,
     isError,
@@ -285,11 +285,11 @@ export function useExecutionStateOptional(
   const isConnected = context !== null;
 
   // Local state for reactivity - default to 'idle' when not connected
-  const [state, setLocalState] = useState<ExecutionState>(() =>
+  const [localState, setLocalState] = useState<ExecutionState>(() =>
     context ? context.getState(entityId) : "idle"
   );
   const [previousState, setPreviousState] = useState<ExecutionState | undefined>(undefined);
-  const [progress, setLocalProgress] = useState<number | undefined>(() =>
+  const [localProgress, setLocalProgress] = useState<number | undefined>(() =>
     context ? context.getProgress(entityId) : undefined
   );
 
@@ -334,16 +334,16 @@ export function useExecutionStateOptional(
   }, [entityId, context, subscribeToProgress, onProgressChange]);
 
   // Derived state flags
-  const isExecuting = useMemo(() => state === "running" || state === "pending", [state]);
+  const isExecuting = useMemo(() => localState === "running" || localState === "pending", [localState]);
 
   const isCompleted = useMemo(
-    () => state === "success" || state === "error" || state === "skipped" || state === "cancelled",
-    [state]
+    () => localState === "success" || localState === "error" || localState === "skipped" || localState === "cancelled",
+    [localState]
   );
 
-  const isError = useMemo(() => state === "error", [state]);
-  const isSuccess = useMemo(() => state === "success", [state]);
-  const isIdle = useMemo(() => state === "idle", [state]);
+  const isError = useMemo(() => localState === "error", [localState]);
+  const isSuccess = useMemo(() => localState === "success", [localState]);
+  const isIdle = useMemo(() => localState === "idle", [localState]);
 
   // Action functions - no-op when not connected
   const setState = useCallback(
@@ -368,14 +368,14 @@ export function useExecutionStateOptional(
     if (context) {
       context.resetState(entityId);
       setLocalProgress(undefined);
-      setPreviousState(state);
+      setPreviousState(localState);
     }
-  }, [context, entityId, state]);
+  }, [context, entityId, localState]);
 
   return {
-    state,
+    state: localState,
     previousState,
-    progress,
+    progress: localProgress,
     isExecuting,
     isCompleted,
     isError,
@@ -409,7 +409,7 @@ export function useExecutionStateOptional(
  */
 export function useExecutionStateValue(entityId: string): ExecutionState {
   const context = useExecutionStateContext();
-  const [state, setLocalState] = useState<ExecutionState>(() => context.getState(entityId));
+  const [localState, setLocalState] = useState<ExecutionState>(() => context.getState(entityId));
 
   useEffect(() => {
     const initialState = context.getState(entityId);
@@ -422,7 +422,7 @@ export function useExecutionStateValue(entityId: string): ExecutionState {
     return unsubscribe;
   }, [entityId, context]);
 
-  return state;
+  return localState;
 }
 
 /**
@@ -449,8 +449,8 @@ export function useExecutionStateWithProgress(
   entityId: string
 ): [ExecutionState, number | undefined] {
   const context = useExecutionStateContext();
-  const [state, setLocalState] = useState<ExecutionState>(() => context.getState(entityId));
-  const [progress, setLocalProgress] = useState<number | undefined>(() =>
+  const [localState, setLocalState] = useState<ExecutionState>(() => context.getState(entityId));
+  const [localProgress, setLocalProgress] = useState<number | undefined>(() =>
     context.getProgress(entityId)
   );
 
@@ -476,7 +476,7 @@ export function useExecutionStateWithProgress(
     return unsubscribe;
   }, [entityId, context]);
 
-  return [state, progress];
+  return [localState, localProgress];
 }
 
 /**

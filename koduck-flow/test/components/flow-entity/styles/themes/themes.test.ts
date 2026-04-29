@@ -6,7 +6,10 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import type { FlowThemeName, ResolvedThemeName } from "../index";
+import type {
+  FlowThemeName,
+  ResolvedThemeName,
+} from "../../../../../src/components/flow-entity/styles/themes";
 import {
   FLOW_THEME_ATTRIBUTE,
   LIGHT_THEME_CONFIG,
@@ -18,7 +21,7 @@ import {
   getEffectiveTheme,
   getThemeConfig,
   onSystemThemeChange,
-} from "../index";
+} from "../../../../../src/components/flow-entity/styles/themes";
 
 describe("Theme System", () => {
   describe("Constants", () => {
