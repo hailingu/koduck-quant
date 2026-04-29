@@ -5,13 +5,13 @@
 @keyframes koduck-stop-breathe {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgb(220 38 38 / 0.22);
+    box-shadow: 0 0 0 0 rgb(220 38 38 / 0.16);
     transform: scale(1);
   }
 
   50% {
-    box-shadow: 0 0 0 4px rgb(220 38 38 / 0);
-    transform: scale(1.02);
+    box-shadow: 0 0 0 3px rgb(220 38 38 / 0);
+    transform: scale(1.015);
   }
 }
 

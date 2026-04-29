@@ -252,6 +252,7 @@ export function KoduckAi() {
         if (controller.signal.aborted) {
           return;
         }
+        skipNextSessionRestoreRef.current = true;
         setMessages(transcriptMessages ?? readStoredMessages(initialSessionId));
       }
 

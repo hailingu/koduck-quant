@@ -1861,6 +1861,7 @@ fn flow_canvas_output_requested(request: &ChatRequest) -> bool {
     }
 
     request_execution_intent(request).presentation == PresentationIntent::FlowCanvas
+        && request_explicitly_asks_for_flow_canvas(request)
 }
 
 fn request_mentions_memory_entries(request: &ChatRequest) -> bool {
@@ -1884,6 +1885,69 @@ fn request_mentions_memory_entries(request: &ChatRequest) -> bool {
     .any(|needle| message.contains(needle))
 }
 
+fn request_explicitly_asks_for_flow_canvas(request: &ChatRequest) -> bool {
+    let message = request.message.to_lowercase();
+    let compact = message.split_whitespace().collect::<String>();
+    let flow_terms = [
+        "flow",
+        "canvas",
+        "流程图",
+        "流程画布",
+        "节点图",
+        "节点画布",
+        "可编辑流程",
+    ];
+    let display_verbs = [
+        "以",
+        "用",
+        "按",
+        "作为",
+        "展示",
+        "显示",
+        "呈现",
+        "生成",
+        "画",
+        "可视化",
+        "模式",
+        "方式",
+        "形式",
+    ];
+
+    let has_flow_term = flow_terms
+        .iter()
+        .any(|term| message.contains(term) || compact.contains(term));
+    let has_display_verb = display_verbs
+        .iter()
+        .any(|verb| message.contains(verb) || compact.contains(verb));
+
+    if !has_flow_term || !has_display_verb {
+        return false;
+    }
+
+    [
+        "根据该flow",
+        "根据这个flow",
+        "根据上面的flow",
+        "基于该flow",
+        "基于这个flow",
+        "参考该flow",
+        "参考这个flow",
+        "该flow",
+        "这个flow",
+        "上面的flow",
+    ]
+    .iter()
+    .all(|reference_only| {
+        !compact.contains(reference_only)
+            || compact.contains("以flow")
+            || compact.contains("用flow")
+            || compact.contains("flow展示")
+            || compact.contains("flow显示")
+            || compact.contains("flow模式")
+            || compact.contains("flow方式")
+    })
+}
+
 fn memory_entry_flow_requested(request: &ChatRequest) -> bool {
     if !plan_canvas_enabled(request) {
         return false;
@@ -1891,6 +1955,9 @@ fn memory_entry_flow_requested(request: &ChatRequest) -> bool {
 
     let intent = request_execution_intent(request);
     if intent.presentation != PresentationIntent::FlowCanvas {
+        return false;
+    }
+    if !request_explicitly_asks_for_flow_canvas(request) {
         return false;
     }
 
@@ -1993,7 +2060,8 @@ async fn classify_execution_intent(
 - targetIntent=knowledge: 目标是知识库、领域知识、资料。
 - targetIntent=conversation: 目标是当前对话、聊天记录、上下文。
 - targetIntent=none: 没有明确外部目标。
-- presentationIntent=flow_canvas: 用户明确希望以 flow、canvas、流程图、节点图、可编辑流程展示。
+- presentationIntent=flow_canvas: 仅当“当前用户最后一条消息”明确要求用 flow/canvas/流程图/节点图展示或生成可编辑流程时使用。
+- 如果用户只是说“根据该 flow”“基于这个 flow”“参考上面的 flow”，这是引用上下文，不是展示形式请求，presentationIntent 必须为 text。
 - presentationIntent=table: 用户明确要求表格。
 - presentationIntent=json: 用户明确要求 JSON。
 - presentationIntent=text: 默认文本表达。
@@ -3789,8 +3857,8 @@ fn api_error_response(err: AppError, request_id: String) -> Response {
 #[cfg(test)]
 mod tests {
     use super::{
-        extract_entity_like_query, memory_entry_flow_requested, resolve_knowledge_query,
-        ChatHistoryMessage, ChatRequest, QueryKnowledgeToolArgs,
+        extract_entity_like_query, flow_canvas_output_requested, memory_entry_flow_requested,
+        resolve_knowledge_query, ChatHistoryMessage, ChatRequest, QueryKnowledgeToolArgs,
     };
     use serde_json::json;
 
@@ -3864,5 +3932,59 @@ mod tests {
         };
 
         assert!(memory_entry_flow_requested(&request));
+    }
+
+    #[test]
+    fn flow_reference_does_not_force_flow_canvas_presentation() {
+        let request = ChatRequest {
+            session_id: None,
+            message: "根据该 flow，罗伯斯庇尔的主张是过于激进还是有什么其他的问题".to_string(),
+            history: Some(vec![ChatHistoryMessage {
+                role: "assistant".to_string(),
+                content: "```json\n{\"title\":\"一个 flow\",\"steps\":[]}\n```".to_string(),
+            }]),
+            provider: None,
+            model: None,
+            temperature: None,
+            max_tokens: None,
+            retrieve_policy: None,
+            metadata: Some(
+                [
+                    ("enablePlanCanvas".to_string(), json!(true)),
+                    ("targetIntent".to_string(), json!("conversation")),
+                    ("presentationIntent".to_string(), json!("flow_canvas")),
+                ]
+                .into_iter()
+                .collect(),
+            ),
+        };
+
+        assert!(!flow_canvas_output_requested(&request));
+        assert!(!memory_entry_flow_requested(&request));
+    }
+
+    #[test]
+    fn explicit_flow_display_request_still_uses_flow_canvas() {
+        let request = ChatRequest {
+            session_id: None,
+            message: "以 flow 的方式展示我们之前的聊天过程".to_string(),
+            history: None,
+            provider: None,
+            model: None,
+            temperature: None,
+            max_tokens: None,
+            retrieve_policy: None,
+            metadata: Some(
+                [
+                    ("enablePlanCanvas".to_string(), json!(true)),
+                    ("targetIntent".to_string(), json!("conversation")),
+                    ("presentationIntent".to_string(), json!("flow_canvas")),
+                ]
+                .into_iter()
+                .collect(),
+            ),
+        };
+
+        assert!(flow_canvas_output_requested(&request));
     }
 }
