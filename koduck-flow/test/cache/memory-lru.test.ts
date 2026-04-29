@@ -625,7 +625,7 @@ describe("MemoryLRUCache", () => {
       const key2Hash = JSON.stringify("key2");
 
       // 获取内部标签映射并添加孤立引用
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const tagsMap = (cache as any).tags;
       const tag1Set = tagsMap.get("tag1");
       if (tag1Set) {

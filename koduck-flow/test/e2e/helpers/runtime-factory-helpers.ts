@@ -25,7 +25,7 @@
  * ```
  */
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 import { Page, expect } from "@playwright/test";
 
 /**

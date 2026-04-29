@@ -327,7 +327,7 @@ export class PluginSandboxRunner<TInit = unknown, TAttach = unknown, TDispose = 
       return;
     }
 
-    const handler = lifecycle[phase as keyof PluginLifecycle];
+    const handler = lifecycle[phase];
     if (!handler) {
       return;
     }
@@ -352,7 +352,7 @@ export class PluginSandboxRunner<TInit = unknown, TAttach = unknown, TDispose = 
     phase: PluginLifecyclePhase
   ): Promise<T> {
     if (!isPromiseLike(result)) {
-      return result as T;
+      return result;
     }
 
     const timeout = this.options.timeoutMs;

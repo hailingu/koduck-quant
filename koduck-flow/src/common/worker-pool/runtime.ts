@@ -766,11 +766,11 @@ export class WorkerPoolRuntime implements WorkerPool {
    * Scheduling logic:
    * - Check if pool disposed, exit if true
    * - While activeWorkers < configured workerCount:
-   *   - Dequeue highest priority task from queue
-   *   - If no task, exit scheduling loop
-   *   - Try to acquire an available worker ID
-   *   - If no workers available, re-enqueue and exit
-   *   - Process task with worker
+   * - Dequeue highest priority task from queue
+   * - If no task, exit scheduling loop
+   * - Try to acquire an available worker ID
+   * - If no workers available, re-enqueue and exit
+   * - Process task with worker
    *
    * Performance: O(k) where k = queued tasks scheduled
    *

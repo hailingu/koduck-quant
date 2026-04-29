@@ -212,7 +212,7 @@ export class WorkerPoolMetricsAdapter {
    * Metrics created:
    * - Gauges: active_workers, queue.size, tasks.completed_total, tasks.failed_total
    * - Counters: task.completed.count, task.failed.count, task.fallback.count,
-   *   worker.crash.count, worker.recovered.count
+   * worker.crash.count, worker.recovered.count
    *
    * @param pool - WorkerPool instance to monitor
    * @param options - Configuration for metrics and logging
@@ -220,13 +220,13 @@ export class WorkerPoolMetricsAdapter {
    * @example
    * ```typescript
    * const adapter = new WorkerPoolMetricsAdapter(pool, {
-   *   poolId: 'compute-pool',
-   *   scope: 'my-app-metrics',
-   *   attributes: {
-   *     env: 'production',
-   *     region: 'us-west-2'
-   *   },
-   *   loggerTag: 'pool:compute'
+   * poolId: 'compute-pool',
+   * scope: 'my-app-metrics',
+   * attributes: {
+   * env: 'production',
+   * region: 'us-west-2'
+   * },
+   * loggerTag: 'pool:compute'
    * });
    * ```
    */

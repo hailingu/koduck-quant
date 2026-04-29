@@ -112,7 +112,7 @@ class ReactRender extends BaseRenderer implements IReactRenderer {
     });
 
     // 处理无效实体
-    if (!entity || !entity.id || !entity.type) {
+    if (!entity?.id || !entity?.type) {
       reactRenderLogger.warn({
         event: ReactRenderEvent.InvalidEntity,
         message: "ReactRender.render called with invalid entity",
@@ -126,7 +126,7 @@ class ReactRender extends BaseRenderer implements IReactRenderer {
 
     // 检查缓存
     const cached = this.entityRenderMap.get(entity);
-    if (cached && cached.element) {
+    if (cached?.element) {
       this.recordCacheHit(entity.type || "unknown");
       return cached.element;
     }
@@ -216,9 +216,9 @@ class ReactRender extends BaseRenderer implements IReactRenderer {
   private batchTimer: number | null = null;
 
   // 异步渲染支持
-  private asyncRenderCache = new Map<string, AsyncRenderCache>();
+  private readonly asyncRenderCache = new Map<string, AsyncRenderCache>();
 
-  private concurrentConfig = {
+  private readonly concurrentConfig = {
     enableConcurrentFeatures: true,
     enableSuspense: true,
     enableTransitions: true,

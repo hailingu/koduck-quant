@@ -55,7 +55,7 @@ class StubFlowSerializationState {
   id = "test-flow";
   metadata = undefined;
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   getEntity(id: string): IFlowEntity | undefined {
     return undefined;
   }
@@ -252,7 +252,7 @@ describe("FlowCore Lifecycle Management", () => {
         node: {
           id: "node-1",
         },
-      } as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+      } as any;  
 
       registry.addNodeEntity(nodeEntity);
       const retrieved = registry.getNodeEntity("node-1");
@@ -283,7 +283,7 @@ describe("FlowCore Lifecycle Management", () => {
         node: {
           id: "node-1",
         },
-      } as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+      } as any;  
 
       hooks.runEntityAdded(entity);
       expect(callCount).toBe(1);

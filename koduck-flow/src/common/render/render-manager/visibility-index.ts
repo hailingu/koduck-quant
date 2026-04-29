@@ -37,7 +37,7 @@ export class VisibilityIndex {
 
   markEntityInvisible(viewId: string, entityId: string): void {
     const viewSet = this.viewVisibleEntities.get(viewId);
-    if (!viewSet || !viewSet.delete(entityId)) {
+    if (!viewSet?.delete(entityId)) {
       return;
     }
 

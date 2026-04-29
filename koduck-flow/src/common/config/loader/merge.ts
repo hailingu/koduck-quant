@@ -186,7 +186,7 @@ function deepEqual(a: unknown, b: unknown): boolean {
       return false;
     }
     for (const key of keysA) {
-      if (!deepEqual((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key])) {
+      if (!deepEqual((a)[key], (b)[key])) {
         return false;
       }
     }

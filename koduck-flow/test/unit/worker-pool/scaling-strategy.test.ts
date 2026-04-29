@@ -54,14 +54,14 @@ describe("Scaling Strategies", () => {
   describe("Configuration Validation", () => {
     it("should reject minWorkers < 1", () => {
       expect(() => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+         
         const _s = new QueueLengthStrategy(createConfig("queue-length", { minWorkers: 0 }));
       }).toThrow("minWorkers must be at least 1");
     });
 
     it("should reject maxWorkers < minWorkers", () => {
       expect(() => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+         
         const _s = new QueueLengthStrategy(
           createConfig("queue-length", { minWorkers: 10, maxWorkers: 5 })
         );
@@ -70,21 +70,21 @@ describe("Scaling Strategies", () => {
 
     it("should reject maxDeltaPerScale < 1", () => {
       expect(() => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+         
         const _s = new QueueLengthStrategy(createConfig("queue-length", { maxDeltaPerScale: 0 }));
       }).toThrow("maxDeltaPerScale must be at least 1");
     });
 
     it("should reject cooldownMs < 0", () => {
       expect(() => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+         
         const _s = new QueueLengthStrategy(createConfig("queue-length", { cooldownMs: -1 }));
       }).toThrow("cooldownMs must be >= 0");
     });
 
     it("should reject maxScalingOperationsPerMinute < 1", () => {
       expect(() => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+         
         const _s = new QueueLengthStrategy(
           createConfig("queue-length", { maxScalingOperationsPerMinute: 0 })
         );
@@ -532,7 +532,7 @@ describe("Scaling Strategies", () => {
     });
 
     it("should throw on unknown strategy type", () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const config = createConfig("unknown" as any);
 
       expect(() => {

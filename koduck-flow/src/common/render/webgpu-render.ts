@@ -75,7 +75,7 @@ class WebGPURender extends BaseRenderer implements ICanvasRenderer {
   private uniformBuffer: GPUBuffer | null = null;
 
   // 性能配置
-  private config: WebGPUPerformanceOptimization = {
+  private readonly config: WebGPUPerformanceOptimization = {
     enableComputeShaders: true,
     enableInstancing: true,
     enableAsyncCompute: false,

@@ -621,7 +621,7 @@ export abstract class CapabilityAwareRegistryBase<
           );
           return result;
         } catch (error) {
-          logger.error(`Failed to execute capability '${operation.capability}':`, error as unknown);
+          logger.error(`Failed to execute capability '${operation.capability}':`, error);
           return error;
         }
       })

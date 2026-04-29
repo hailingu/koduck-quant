@@ -259,15 +259,15 @@ export function useNodeDrag(
     };
 
     // Attach listeners to window for reliable tracking outside the element
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
-    window.addEventListener("pointercancel", handlePointerUp);
+    globalThis.addEventListener("pointermove", handlePointerMove);
+    globalThis.addEventListener("pointerup", handlePointerUp);
+    globalThis.addEventListener("pointercancel", handlePointerUp);
 
     // Cleanup listeners on unmount or when drag ends
     return () => {
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-      window.removeEventListener("pointercancel", handlePointerUp);
+      globalThis.removeEventListener("pointermove", handlePointerMove);
+      globalThis.removeEventListener("pointerup", handlePointerUp);
+      globalThis.removeEventListener("pointercancel", handlePointerUp);
     };
   }, [dragState, hasExceededThreshold, dragThreshold, entity, onMove, onDragStart, onDragEnd]);
 

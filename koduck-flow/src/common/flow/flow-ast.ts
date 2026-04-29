@@ -7,7 +7,7 @@ import { meter, ScopedMeter } from "../metrics";
  * 基于 IFlowAST 接口，实现树形结构的 AST 管理。
  */
 export class FlowAST<T extends INode = BaseNode> implements IFlowAST<T> {
-  private m = new ScopedMeter(meter("flow"), { component: "FlowAST" });
+  private readonly m = new ScopedMeter(meter("flow"), { component: "FlowAST" });
   /**
    * 根节点
    */
@@ -108,7 +108,7 @@ export class FlowAST<T extends INode = BaseNode> implements IFlowAST<T> {
    * 深度优先遍历流程树
    */
   traverse(f: NodeTraversalFn<T>, node?: T, depth = 0): void {
-    const startNode = node ?? (this.root as T | undefined);
+    const startNode = node ?? (this.root);
     if (!startNode) return;
 
     const visited = new Set<T>();

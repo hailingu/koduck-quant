@@ -62,7 +62,7 @@ export class BaseNode implements INode<BaseNode>, ISerializable {
 
   /**
    * Get all child nodes as read-only array
-   * @returns {readonly BaseNode[]} Array of child nodes, empty array if no children
+   * @returns {BaseNode[]} Array of child nodes, empty array if no children
    */
   get children(): readonly BaseNode[] {
     return this._children || [];
@@ -138,9 +138,7 @@ export class BaseNode implements INode<BaseNode>, ISerializable {
    * parent.setChild(newChild, 0); // Set as first child
    */
   setChild(child: BaseNode, index: number): void {
-    if (!this._children) {
-      this._children = [];
-    }
+    this._children ??= [];
 
     if (index < 0 || index > this._children.length) {
       throw new Error("Index out of bounds");
@@ -156,7 +154,7 @@ export class BaseNode implements INode<BaseNode>, ISerializable {
     }
 
     if (child._parent) {
-      child._parent.removeChild(child);
+      child.child.remove();
     }
 
     const oldChild = this._children[index];
@@ -199,9 +197,7 @@ export class BaseNode implements INode<BaseNode>, ISerializable {
    * parent.insertChildAt(newChild, 1); // Insert as second child
    */
   insertChildAt(child: BaseNode, index: number): void {
-    if (!this._children) {
-      this._children = [];
-    }
+    this._children ??= [];
 
     if (index < 0 || index > this._children.length) {
       throw new Error("Index out of bounds");
@@ -212,7 +208,7 @@ export class BaseNode implements INode<BaseNode>, ISerializable {
     }
 
     if (child._parent) {
-      child._parent.removeChild(child);
+      child.child.remove();
     }
 
     child._parent = this;
@@ -258,7 +254,7 @@ export class BaseNode implements INode<BaseNode>, ISerializable {
   dispose(): void {
     // Clean up parent-child relationship
     if (this._parent) {
-      this._parent.removeChild(this);
+      this.this.remove();
     }
 
     // Dispose all child nodes recursively

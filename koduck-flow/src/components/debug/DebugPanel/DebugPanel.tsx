@@ -136,11 +136,11 @@ const DebugPanel: React.FC<DebugPanelProps> = ({
 
   useEffect(() => {
     applySnapshots();
-    if (typeof window === "undefined") {
+    if (typeof globalThis.window === "undefined") {
       return;
     }
-    const id = window.setInterval(applySnapshots, 1500);
-    return () => window.clearInterval(id);
+    const id = globalThis.setInterval(applySnapshots, 1500);
+    return () => globalThis.clearInterval(id);
   }, [applySnapshots]);
 
   useEffect(() => {

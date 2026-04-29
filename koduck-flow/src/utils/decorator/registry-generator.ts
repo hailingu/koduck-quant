@@ -11,7 +11,7 @@ import { logger } from "../../common/logger";
  * 根据实体类自动生成对应的ICapabilityAwareRegistry实现
  */
 export class DynamicRegistryGenerator {
-  private static capabilityDetector = new DefaultCapabilityDetector();
+  private static readonly capabilityDetector = new DefaultCapabilityDetector();
   private static generatedRegistries = new WeakMap<
     IEntityConstructor<IEntity>,
     IDynamicRegistryMeta
@@ -97,7 +97,7 @@ export class DynamicRegistryGenerator {
           } catch (error) {
             logger.warn(
               `Failed to create capability '${capabilityName}' for entity '${EntityClass.name}':`,
-              error as unknown
+              error
             );
           }
         });
@@ -163,7 +163,7 @@ export class DynamicRegistryGenerator {
           } catch (error) {
             logger.error(
               `Failed to execute capability '${operation.capability}':`,
-              error as unknown
+              error
             );
             results.push(error);
           }
@@ -187,7 +187,7 @@ export class DynamicRegistryGenerator {
           } catch (error) {
             logger.warn(
               `Registry capability '${capabilityName}' failed, trying entity method:`,
-              error as unknown
+              error
             );
           }
         }

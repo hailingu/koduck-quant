@@ -21,7 +21,7 @@ type EdgeConfig = {
 };
 
 export class Edge implements IEdge {
-  private m = new ScopedMeter(meter("flow"), { component: "Edge" });
+  private readonly m = new ScopedMeter(meter("flow"), { component: "Edge" });
   private _sources: IEndpoint[];
   private _targets: IEndpoint[];
   private _isValid: boolean = true;
@@ -193,9 +193,7 @@ export class Edge implements IEdge {
   }
 
   setWeight(weight: number): void {
-    if (!this._edgeData) {
-      this._edgeData = {};
-    }
+    this._edgeData ??= {};
     this._edgeData.weight = weight;
   }
 
@@ -204,9 +202,7 @@ export class Edge implements IEdge {
   }
 
   setLabel(label: string): void {
-    if (!this._edgeData) {
-      this._edgeData = {};
-    }
+    this._edgeData ??= {};
     this._edgeData.label = label;
   }
 
@@ -215,9 +211,7 @@ export class Edge implements IEdge {
   }
 
   setStyle(style: Record<string, unknown>): void {
-    if (!this._edgeData) {
-      this._edgeData = {};
-    }
+    this._edgeData ??= {};
     this._edgeData.style = { ...(this._edgeData.style || {}), ...style };
   }
 
@@ -226,9 +220,7 @@ export class Edge implements IEdge {
   }
 
   setEnabled(enabled: boolean): void {
-    if (!this._edgeData) {
-      this._edgeData = {};
-    }
+    this._edgeData ??= {};
     this._edgeData.enabled = enabled;
   }
 

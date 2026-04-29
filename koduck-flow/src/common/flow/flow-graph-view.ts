@@ -84,7 +84,7 @@ export function projectFlowGraphToTree(
 
     const children: FlowGraphTreeNode[] = [];
     for (const childLink of graph.getChildren(nodeId)) {
-      if (globallyVisited && globallyVisited.has(childLink.targetId)) {
+      if (globallyVisited?.has(childLink.targetId)) {
         continue;
       }
       const childTree = buildNode(childLink.targetId, depth + 1, nextPath);

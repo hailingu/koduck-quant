@@ -70,7 +70,7 @@ import type { ICapability, ICapabilityDetector } from "./types";
  * - removeCapabilityPattern() - Remove patterns
  * - createCapabilityFromMethod() - Auto-wrap methods
  *
- * @implements ICapabilityDetector
+ * @implements {ICapabilityDetector}
  *
  * @example
  * ```typescript
@@ -103,7 +103,7 @@ export class DefaultCapabilityDetector implements ICapabilityDetector {
    *
    * @private
    */
-  private capabilityPatterns = new Map<string, RegExp[]>([
+  private readonly capabilityPatterns = new Map<string, RegExp[]>([
     // Render-related capabilities
     ["render", [/^render$/, /^canRender$/, /^getRenderStyle$/]],
 
@@ -380,7 +380,7 @@ export class DefaultCapabilityDetector implements ICapabilityDetector {
  * ```
  *
  * @abstract
- * @implements ICapability
+ * @implements {ICapability}
  */
 export class BaseCapability implements ICapability {
   /**
@@ -588,7 +588,7 @@ export class EntityMethodCapability extends BaseCapability {
    *
    * @private
    */
-  private entity: Record<string, unknown>;
+  private readonly entity: Record<string, unknown>;
 
   /**
    * Name of the method to execute
@@ -597,7 +597,7 @@ export class EntityMethodCapability extends BaseCapability {
    *
    * @private
    */
-  private methodName: string;
+  private readonly methodName: string;
 
   /**
    * Optional name of canHandle method on entity
@@ -607,7 +607,7 @@ export class EntityMethodCapability extends BaseCapability {
    *
    * @private
    */
-  private canHandleMethodName?: string;
+  private readonly canHandleMethodName?: string;
 
   /**
    * Constructor

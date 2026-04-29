@@ -2,8 +2,8 @@
  * RegistryCapabilityUtils (精简版)
  * 目标: 统一三种能力来源, 降低分支复杂度, 避免再次出现漏检导致的渲染 fallback。
  * 能力来源优先级 (短路策略) - 统一后语义：
- *   1. 显式接口: hasCapability / executeCapability / listCapabilities / getCapabilities
- *   2. meta.extras.capabilities (唯一的规范存储位置，可能为 string[] 或 ICapability[])
+ * 1. 显式接口: hasCapability / executeCapability / listCapabilities / getCapabilities
+ * 2. meta.extras.capabilities (唯一的规范存储位置，可能为 string[] 或 ICapability[])
  * 根因记录: 曾因只读旧结构导致动态 registry 能力漏检，本次彻底规范化为 extras.capabilities。
  */
 

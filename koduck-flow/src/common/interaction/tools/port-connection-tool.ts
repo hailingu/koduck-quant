@@ -171,7 +171,7 @@ export class PortConnectionTool implements Tool {
   private state: ConnectionState | null = null;
   private readonly entityManager: EntityManager;
   private readonly renderEvents: RenderEventManager;
-  private getFlow: (() => FlowLinkAdapter | null) | undefined;
+  private readonly getFlow: (() => FlowLinkAdapter | null) | undefined;
 
   /**
    * Create a new PortConnectionTool instance
@@ -220,7 +220,7 @@ export class PortConnectionTool implements Tool {
 
     const created = flow
       ? (flow.createEdgeEntity("uml-line-canvas", lineArgs) as UMLLineEntity | null)
-      : (this.entityManager.createEntity("uml-line-canvas", lineArgs) as UMLLineEntity | null);
+      : (this.entityManager.createEntity("uml-line-canvas", lineArgs));
 
     const line = created;
 

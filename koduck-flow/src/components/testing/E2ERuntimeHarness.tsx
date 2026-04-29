@@ -1157,7 +1157,7 @@ export const E2ERuntimeHarness = () => {
           const readyTimestamp = Date.now();
           const nextHistory = [...previous.history];
           const lastEntry = nextHistory.at(-1);
-          if (!lastEntry || lastEntry.renderer !== target) {
+          if (lastEntry?.renderer !== target) {
             nextHistory.push({ renderer: target, timestamp: readyTimestamp });
           } else {
             nextHistory[nextHistory.length - 1] = {

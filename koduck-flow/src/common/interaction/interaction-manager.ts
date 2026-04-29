@@ -12,8 +12,8 @@ import type {
  */
 export class InteractionManager implements InteractionEnv {
   private tools: Tool[] = [];
-  private canvasProvider: CanvasProvider;
-  private viewportProvider: ViewportProvider;
+  private readonly canvasProvider: CanvasProvider;
+  private readonly viewportProvider: ViewportProvider;
 
   constructor(
     canvasProvider: CanvasProvider,

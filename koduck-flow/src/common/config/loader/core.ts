@@ -204,7 +204,7 @@ export function updateConfigSourcesImpl(base: IConfigLoaderInternal, sources: Me
   loader.configSources = new Map();
   for (const { source, config } of sources) {
     if (source === "defaults" || !isEmptyOverride(config)) {
-      loader.configSources.set(source, cloneValue(config) as Partial<KoduckFlowConfig>);
+      loader.configSources.set(source, cloneValue(config));
     }
   }
 }

@@ -111,8 +111,8 @@ function pruneExpiredSeries(touched: Map<string, number>, deleteKey: (key: strin
  * @internal
  */
 class InMemoryCounter implements Counter {
-  private data: Map<string, number>;
-  private touched: Map<string, number>;
+  private readonly data: Map<string, number>;
+  private readonly touched: Map<string, number>;
 
   /**
    * Create counter with data storage
@@ -179,8 +179,8 @@ class InMemoryCounter implements Counter {
  * @internal
  */
 class InMemoryUpDownCounter implements UpDownCounter {
-  private data: Map<string, number>;
-  private touched: Map<string, number>;
+  private readonly data: Map<string, number>;
+  private readonly touched: Map<string, number>;
 
   constructor(data: Map<string, number>, touched: Map<string, number>) {
     this.data = data;
@@ -227,8 +227,8 @@ class InMemoryUpDownCounter implements UpDownCounter {
  * @internal
  */
 class InMemoryGauge implements Gauge {
-  private data: Map<string, number>;
-  private touched: Map<string, number>;
+  private readonly data: Map<string, number>;
+  private readonly touched: Map<string, number>;
 
   constructor(data: Map<string, number>, touched: Map<string, number>) {
     this.data = data;
@@ -285,7 +285,7 @@ class InMemoryHistogram implements Histogram {
    * @param {number[]} [boundaries] - Bucket upper bounds, uses DEFAULT_BOUNDARIES if not provided
    */
   constructor(boundaries?: number[]) {
-    this.boundaries = (boundaries && boundaries.length ? [...boundaries] : DEFAULT_BOUNDARIES).sort(
+    this.boundaries = (boundaries?.length ? [...boundaries] : DEFAULT_BOUNDARIES).sort(
       (a, b) => a - b
     );
   }
@@ -412,7 +412,7 @@ class InMemoryHistogram implements Histogram {
  * @internal
  */
 class InMemoryMeter implements Meter {
-  private counters = new Map<
+  private readonly counters = new Map<
     string,
     {
       options?: MetricOptions | undefined;
@@ -420,7 +420,7 @@ class InMemoryMeter implements Meter {
       touched: Map<string, number>;
     }
   >();
-  private upDownCounters = new Map<
+  private readonly upDownCounters = new Map<
     string,
     {
       options?: MetricOptions | undefined;
@@ -428,7 +428,7 @@ class InMemoryMeter implements Meter {
       touched: Map<string, number>;
     }
   >();
-  private gauges = new Map<
+  private readonly gauges = new Map<
     string,
     {
       options?: MetricOptions | undefined;
@@ -436,11 +436,11 @@ class InMemoryMeter implements Meter {
       touched: Map<string, number>;
     }
   >();
-  private histograms = new Map<
+  private readonly histograms = new Map<
     string,
     { options?: MetricOptions | undefined; impl: InMemoryHistogram }
   >();
-  private observableGauges = new Map<
+  private readonly observableGauges = new Map<
     string,
     {
       options?: MetricOptions | undefined;
@@ -533,10 +533,10 @@ class InMemoryMeter implements Meter {
     }
     const impl: ObservableGauge = {
       addCallback: (cb: (observe: (o: Observation) => void) => void) => {
-        entry!.callbacks.add(cb);
+        entry.callbacks.add(cb);
       },
       removeCallback: (cb: (observe: (o: Observation) => void) => void) => {
-        entry!.callbacks.delete(cb);
+        entry.callbacks.delete(cb);
       },
     };
     return impl;
@@ -673,7 +673,7 @@ class InMemoryMeter implements Meter {
     for (const [name, { options, observations }] of this.observableGauges.entries()) {
       const existingIdx = gauges.findIndex((g) => g.name === name);
       if (existingIdx >= 0) {
-        const points = gauges[existingIdx].points as Record<string, GaugePoint>;
+        const points = gauges[existingIdx].points;
         for (const [k, v] of observations.entries()) points[k] = { value: v };
       } else {
         const points: Record<string, GaugePoint> = {};
@@ -716,7 +716,7 @@ class InMemoryMeter implements Meter {
  * ```
  */
 export class InMemoryMetricsProvider implements MetricsProvider {
-  private meters = new Map<string, InMemoryMeter>();
+  private readonly meters = new Map<string, InMemoryMeter>();
 
   /**
    * Get or create a meter for a scope

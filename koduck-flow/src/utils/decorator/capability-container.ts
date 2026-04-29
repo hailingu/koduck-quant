@@ -110,7 +110,7 @@ import { logger } from "../../common/logger";
  * ```
  *
  * @template T - Capability type managed by this provider
- * @implements ICapabilityProvider<T>
+ * @implements {ICapabilityProvider<T>}
  */
 export class DefaultCapabilityProvider<T extends ICapability = ICapability>
   implements ICapabilityProvider<T>
@@ -124,7 +124,7 @@ export class DefaultCapabilityProvider<T extends ICapability = ICapability>
    *
    * @private
    */
-  private capabilities: Map<string, T> = new Map();
+  private readonly capabilities: Map<string, T> = new Map();
 
   /**
    * Constructor
@@ -359,7 +359,7 @@ export class DefaultCapabilityProvider<T extends ICapability = ICapability>
     }
 
     try {
-      const result = await capability.execute(...(context.params as unknown[]));
+      const result = await capability.execute(...(context.params));
       return {
         result,
         capability: name,
@@ -401,7 +401,7 @@ export class DefaultCapabilityProvider<T extends ICapability = ICapability>
  * - Expired count: Number of entries that expired
  * - Average access time: Performance metric in milliseconds
  *
- * @implements ICapabilityCache
+ * @implements {ICapabilityCache}
  *
  * @example
  * ```typescript
@@ -430,7 +430,7 @@ export class DefaultCapabilityCache implements ICapabilityCache {
    *
    * @private
    */
-  private cache = new Map<string, { capability: ICapability; expiry?: number }>();
+  private readonly cache = new Map<string, { capability: ICapability; expiry?: number }>();
 
   /**
    * Cache hit counter
@@ -730,7 +730,7 @@ export class DefaultCapabilityCache implements ICapabilityCache {
  * - `T extends ICapability` - Capability type (default: ICapability)
  *
  * @template T - The capability type
- * @implements {@link ICapabilityExecutor}
+ * @implements {ICapabilityExecutor}
  *
  * @example
  * ```typescript
@@ -1363,7 +1363,7 @@ export class DefaultCapabilityExecutor<T extends ICapability = ICapability>
  * - Configuration loading from system defaults
  *
  * @template T - Capability type managed by this manager
- * @implements {@link ICapabilityManager}
+ * @implements {ICapabilityManager}
  *
  * @example
  * ```typescript

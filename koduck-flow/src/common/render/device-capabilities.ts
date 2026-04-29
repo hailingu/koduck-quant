@@ -238,7 +238,7 @@ export class DeviceCapabilityDetector {
    * 检测设备像素比
    */
   private detectDevicePixelRatio(): number {
-    if (typeof window === "undefined" || !("devicePixelRatio" in window)) {
+    if (typeof globalThis === "undefined" || !("devicePixelRatio" in globalThis)) {
       return 1;
     }
     return window.devicePixelRatio || 1;

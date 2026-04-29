@@ -426,7 +426,7 @@ export class RenderFrameScheduler {
       return priority;
     }
     if (priority && typeof priority === "string") {
-      const normalized = priority as FrameTaskPriority;
+      const normalized = priority;
       return PRIORITY_WEIGHTS[normalized] ?? PRIORITY_WEIGHTS.normal;
     }
     return PRIORITY_WEIGHTS.normal;

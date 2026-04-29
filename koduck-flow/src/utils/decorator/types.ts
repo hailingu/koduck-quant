@@ -652,7 +652,7 @@ export interface AutoRegistryOptions<T extends IEntity = IEntity, TMeta extends 
    *
    * This is required and determines which registry system manages the entity.
    *
-   * @type IRegistryManager<T, TMeta>
+   * @type {IRegistryManager<T, TMeta>}
    */
   registryManager: IRegistryManager<T, TMeta>;
 

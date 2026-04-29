@@ -85,7 +85,7 @@ export class DedupeManager<T> {
    */
   private _ensureDedupeCache(): void {
     const d = this._config.payloadDedupe;
-    if (d && d.enabled) {
+    if (d?.enabled) {
       // 重建缓存以应用策略变更
       this._dedupeCache = new MemoryLRUCache<string, true>({
         namespace: `event:${this._eventName}`,
@@ -104,7 +104,7 @@ export class DedupeManager<T> {
    */
   private _dedupeKeyOf(data: T): string | undefined {
     const d = this._config.payloadDedupe;
-    if (!d || !d.enabled) return undefined;
+    if (!d?.enabled) return undefined;
     try {
       const keyFn = d.key ?? ((x: unknown) => JSON.stringify(x));
       return keyFn(data as unknown);

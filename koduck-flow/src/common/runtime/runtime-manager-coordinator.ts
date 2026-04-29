@@ -1,5 +1,5 @@
 /**
- * @fileoverview RuntimeManagerCoordinator
+ * @file RuntimeManagerCoordinator
  * 提供 Manager 协调管理功能
  *
  * 职责:

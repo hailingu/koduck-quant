@@ -20,21 +20,21 @@ interface InternalEntry<K, V> extends CacheEntry<K, V> {
  * 轻量内存 LRU 缓存实现（并发去重 + 标签化失效）
  */
 export class MemoryLRUCache<K, V> implements Cache<K, V> {
-  private namespace?: string;
-  private maxEntries?: number;
-  private maxWeight?: number;
-  private weigh?: (key: K, value: V) => number;
+  private readonly namespace?: string;
+  private readonly maxEntries?: number;
+  private readonly maxWeight?: number;
+  private readonly weigh?: (key: K, value: V) => number;
   // 预留：淘汰策略（当前实现按 LRU 行为处理）
-  private onEvict?: (entry: CacheEntry<K, V>, reason: EvictReason) => void;
-  private clock: Clock = { now: () => Date.now() };
-  private scheduler?: SchedulerLike;
-  private defaultTTL?: number;
-  private keyHash: (key: K) => KeyHash = (k) => JSON.stringify(k);
+  private readonly onEvict?: (entry: CacheEntry<K, V>, reason: EvictReason) => void;
+  private readonly clock: Clock = { now: () => Date.now() };
+  private readonly scheduler?: SchedulerLike;
+  private readonly defaultTTL?: number;
+  private readonly keyHash: (key: K) => KeyHash = (k) => JSON.stringify(k);
 
   // LRU: 使用 Map 保持插入顺序；每次命中 move-to-end
-  private map = new Map<KeyHash, InternalEntry<K, V>>();
-  private tags = new Map<string, Set<KeyHash>>();
-  private inFlight = new Map<KeyHash, Promise<V>>();
+  private readonly map = new Map<KeyHash, InternalEntry<K, V>>();
+  private readonly tags = new Map<string, Set<KeyHash>>();
+  private readonly inFlight = new Map<KeyHash, Promise<V>>();
 
   private hits = 0;
   private misses = 0;
@@ -308,7 +308,7 @@ export class MemoryLRUCache<K, V> implements Cache<K, V> {
     if (this.maxEntries !== undefined) {
       while (this.map.size > this.maxEntries) {
         // LRU：Map 的第一项为最旧
-        const first = this.map.entries().next().value as [KeyHash, InternalEntry<K, V>] | undefined;
+        const first = this.map.entries().next().value;
         if (!first) break;
         const [kh, e] = first;
         this.removeEntry(kh, e, "evict", true);
@@ -317,7 +317,7 @@ export class MemoryLRUCache<K, V> implements Cache<K, V> {
     // 基于 maxWeight
     if (this.maxWeight !== undefined && this.weigh) {
       while (this.currentWeight > this.maxWeight) {
-        const first = this.map.entries().next().value as [KeyHash, InternalEntry<K, V>] | undefined;
+        const first = this.map.entries().next().value;
         if (!first) break;
         const [kh, e] = first;
         this.removeEntry(kh, e, "evict", true);

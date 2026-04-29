@@ -27,7 +27,7 @@
  * @see docs/e2e-remediation-task-list.md#E2E-C2
  */
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 import { test, expect, testData } from "./fixtures";
 import { RuntimeFactoryHelpers } from "./helpers";
 

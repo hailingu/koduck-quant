@@ -125,7 +125,7 @@ export class EventConfigValidator {
 
     // 负载去重规范化
     if (validated.payloadDedupe) {
-      const d = validated.payloadDedupe as PayloadDedupeConfig;
+      const d = validated.payloadDedupe;
       const enabled = !!d.enabled;
       const ttl = Math.max(1, Math.min(Math.floor(d.ttl ?? 0), 60_000));
       const maxEntriesValue =

@@ -273,7 +273,7 @@ export class DragTool implements Tool {
       const b = readBounds(ent);
       if (!b) continue;
       if (modelX >= b.x && modelX <= b.x + b.width && modelY >= b.y && modelY <= b.y + b.height) {
-        hit = entities[i] as IEntity;
+        hit = entities[i];
         break;
       }
     }
@@ -296,14 +296,14 @@ export class DragTool implements Tool {
 
     const selection = (() => {
       const cur = this.opts.getSelectedIds();
-      return cur.size > 0 ? cur : new Set([hit!.id]);
+      return cur.size > 0 ? cur : new Set([hit.id]);
     })();
 
     if (selection.size > 1 && selection.has(hit.id)) {
       // 组拖
       const starts = new Map<string, { x: number; y: number }>();
       selection.forEach((id) => {
-        const ent = this.entityManager.getEntity(id) as IEntity | undefined;
+        const ent = this.entityManager.getEntity(id);
         const pos = ent ? readPosition(ent) : { x: 0, y: 0 };
         starts.set(id, pos);
       });
@@ -381,7 +381,7 @@ export class DragTool implements Tool {
         this.pending = null;
         if (!batch || batch.length === 0) return;
         for (const u of batch) {
-          const ent = this.entityManager.getEntity(u.id) as IEntity | undefined;
+          const ent = this.entityManager.getEntity(u.id);
           if (!ent) continue;
           // 尝试读取旧/新 bounds 用于后续脏矩形优化
           const prevBounds = readBounds(ent) || undefined;

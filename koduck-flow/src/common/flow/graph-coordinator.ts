@@ -248,9 +248,7 @@ export class FlowGraphCoordinator<
    * ```
    */
   ensureGraph(): FlowGraphAST {
-    if (!this.graph) {
-      this.graph = this.createGraph();
-    }
+    this.graph ??= this.createGraph();
     return this.graph;
   }
 
@@ -701,7 +699,7 @@ export class FlowGraphCoordinator<
     }
     const resolved = this.resolveEntity?.(nodeId);
     if (this.isFlowNodeEntity(resolved)) {
-      const typed = resolved as NE;
+      const typed = resolved;
       this.registry.addNodeEntity(typed);
       return typed;
     }

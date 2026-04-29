@@ -259,7 +259,7 @@ export async function renderWithRenderer(
       throw new Error("RenderManager not available");
     }
 
-    const renderManagerObj = renderManager as Record<string, unknown>;
+    const renderManagerObj = renderManager;
 
     if (typeof renderManagerObj.setDefaultRenderer === "function") {
       const setRendererMethod = renderManagerObj.setDefaultRenderer as (type: string) => void;
@@ -336,7 +336,7 @@ export async function batchRender(
       throw new Error("RenderManager not available");
     }
 
-    const renderManagerObj = renderManager as Record<string, unknown>;
+    const renderManagerObj = renderManager;
 
     if (typeof renderManagerObj.batchRender === "function") {
       const batchRenderMethod = renderManagerObj.batchRender as (

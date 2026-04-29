@@ -256,7 +256,7 @@ describe("calculatePath", () => {
   });
 
   it("defaults to bezier for unknown path type", () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const path = calculatePath(source, target, "unknown" as any);
     expect(path).toContain("C");
   });

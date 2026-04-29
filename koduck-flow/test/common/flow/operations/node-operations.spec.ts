@@ -25,7 +25,7 @@ function createMockEntity(id: string): IFlowNodeEntity {
   return {
     id,
     node: { id },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
   } as any;
 }
 

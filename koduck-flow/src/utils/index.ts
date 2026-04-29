@@ -6,7 +6,7 @@
  *
  * **Exported Submodules**:
  * - Decorator Module: Capability-aware entity system with automatic registration,
- *   pattern-based capability detection, dynamic registry generation, and smart execution
+ * pattern-based capability detection, dynamic registry generation, and smart execution
  *
  * **Organization**:
  * This module serves as the public API for utilities, re-exporting from specialized submodules.
@@ -22,9 +22,9 @@
  * **Usage Pattern**:
  * ```typescript
  * import {
- *   AutoRegistry,
- *   CapabilityManager,
- *   DefaultCapabilityDetector
+ * AutoRegistry,
+ * CapabilityManager,
+ * DefaultCapabilityDetector
  * } from '@/utils';
  * ```
  *

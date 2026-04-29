@@ -12,7 +12,7 @@ import type {
  * 负责事件系统的性能指标收集和监控
  */
 export class MetricsCollector {
-  private _m?: {
+  private readonly _m?: {
     meter: ScopedMeter;
     counters: {
       emitted: Counter;

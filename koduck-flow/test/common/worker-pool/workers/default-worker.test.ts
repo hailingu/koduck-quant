@@ -106,7 +106,7 @@ class MockWorkerHandler {
 /**
  * Mock WorkerResponse for testing
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+ 
 interface WorkerResponse {
   type: "result" | "error" | "pong";
   taskId?: string;
@@ -414,7 +414,7 @@ describe("Default Worker Implementation", () => {
   describe("Task Context Creation", () => {
     it("should create task context with correct properties", async () => {
       const executor = handler.getExecutor();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       let capturedContext: any = null;
 
       executor.execute.mockImplementation(async (context: unknown): Promise<unknown> => {
@@ -594,7 +594,7 @@ describe("Default Worker Implementation", () => {
 
     it("should handle task with complex data objects", async () => {
       const executor = handler.getExecutor();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       let receivedData: any = null;
 
       executor.execute.mockImplementation(async (context: unknown): Promise<unknown> => {

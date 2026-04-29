@@ -3,7 +3,7 @@ import type { IEntity, IEntityArguments } from "../../../src/common/entity/types
 import type { ICapability } from "../../../src/utils/decorator/types";
 import { CapabilityAwareRegistryBase } from "../../../src/utils/decorator/capability-aware-registry-base";
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 
 // Mock entity class for testing
 class MockEntity implements IEntity {

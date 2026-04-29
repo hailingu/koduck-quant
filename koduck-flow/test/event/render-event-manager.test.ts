@@ -165,18 +165,18 @@ describe("RenderEventManager", () => {
       renderManager.onRenderEntities(listener);
 
       // 测试 null payload
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       renderManager.requestRenderEntities(null as any);
       expect(listener).not.toHaveBeenCalled();
 
       // 测试 undefined payload
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       renderManager.requestRenderEntities(undefined as any);
       expect(listener).not.toHaveBeenCalled();
 
       // 测试 非数组 entityIds
       renderManager.requestRenderEntities({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         entityIds: "not-an-array" as any,
         reason: "invalid test",
       });

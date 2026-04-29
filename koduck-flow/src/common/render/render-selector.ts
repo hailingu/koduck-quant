@@ -39,10 +39,10 @@ export class RenderSelector implements IRenderStrategy {
   // ✅ 缓存相关字段 (纯内部，不对外)
   private renderManager?: { getVersion?: () => number }; // RenderManager引用
   private managerVersion = 0; // 版本号
-  private selectionCache = new Map<string, RenderSelection>(); // 选择缓存
+  private readonly selectionCache = new Map<string, RenderSelection>(); // 选择缓存
 
   // 性能监控
-  private performanceMetrics: PerformanceMetrics = {
+  private readonly performanceMetrics: PerformanceMetrics = {
     fps: PERFORMANCE_THRESHOLDS.TARGET_FPS,
     memory: 0.5,
     lastUpdateTime: Date.now(),

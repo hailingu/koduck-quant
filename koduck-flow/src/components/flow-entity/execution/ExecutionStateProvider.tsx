@@ -164,9 +164,7 @@ export function ExecutionStateProvider({
   // Create or use provided manager
   const managerRef = useRef<ExecutionStateManager | null>(null);
 
-  if (!managerRef.current) {
-    managerRef.current = externalManager ?? new ExecutionStateManager(config);
-  }
+  managerRef.current ??= externalManager ?? new ExecutionStateManager(config);
 
   const manager = managerRef.current;
 

@@ -16,7 +16,6 @@
 import React, { useCallback, useMemo, useRef } from "react";
 import type {
   ExtendedFormSchema,
-  ExtendedFormFieldSchema,
   FieldProps,
   FieldRenderer,
   FieldRendererRegistry,
@@ -485,7 +484,7 @@ export const FlowNodeForm: React.FC<FlowNodeFormProps> = ({
   // Render a single field
   const renderField = useCallback(
     (name: string) => {
-      const fieldSchema = schema.properties[name] as ExtendedFormFieldSchema;
+      const fieldSchema = schema.properties[name];
       if (!fieldSchema) {
         return null;
       }

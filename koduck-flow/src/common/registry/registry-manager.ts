@@ -60,13 +60,13 @@ export class RegistryManager implements IRegistryManager<IEntity>, IDisposable {
   /** 当前默认注册表名称（更明确的默认指针管理） */
   private _defaultRegistryName: string | undefined;
   /** 类型绑定表：实体类型 -> 注册表名称 */
-  private _typeBindings: Map<string, string> = new Map();
+  private readonly _typeBindings: Map<string, string> = new Map();
   /** 等待注册表的实体队列 */
-  private _pendingEntities: Set<IEntity> = new Set();
+  private readonly _pendingEntities: Set<IEntity> = new Set();
 
   // Performance optimization: lookup cache for entity type -> registry
-  private _typeLookupCache: Map<string, IRegistry<IEntity> | null> = new Map();
-  private _metaTypeLookupCache: Map<string, IRegistry<IEntity> | null> = new Map();
+  private readonly _typeLookupCache: Map<string, IRegistry<IEntity> | null> = new Map();
+  private readonly _metaTypeLookupCache: Map<string, IRegistry<IEntity> | null> = new Map();
 
   // Persistence support
   private _persistence?: IRegistryPersistence;

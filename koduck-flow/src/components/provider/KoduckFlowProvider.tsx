@@ -365,9 +365,9 @@ const ControlledKoduckFlowProvider: React.FC<ControlledKoduckFlowProviderProps> 
 
 export const KoduckFlowProvider: React.FC<KoduckFlowProviderProps> = (props) => {
   if ("controller" in props && props.controller) {
-    return <ControlledKoduckFlowProvider {...(props as ControlledKoduckFlowProviderProps)} />;
+    return <ControlledKoduckFlowProvider {...(props)} />;
   }
-  const uncontrolledProps = props as UncontrolledKoduckFlowProviderProps;
+  const uncontrolledProps = props;
   return (
     <UncontrolledKoduckFlowProvider
       key={uncontrolledProps.lifecycleKey}

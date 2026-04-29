@@ -154,7 +154,7 @@ export class FlowTraversal<
       for (const id of startIds) {
         const shouldContinue = this.graphCoordinator.traverseFromEntity(
           id,
-          (entity) => fn(entity.node as N),
+          (entity) => fn(entity.node),
           visited
         );
         if (shouldContinue === false) {
@@ -282,7 +282,7 @@ export class FlowTraversal<
   private collectAllNodes(): N[] {
     return this.entityRegistry
       .listNodeEntities()
-      .map((entity) => entity.node as N)
+      .map((entity) => entity.node)
       .filter((node): node is N => !!node);
   }
 }

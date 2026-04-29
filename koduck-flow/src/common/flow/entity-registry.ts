@@ -242,7 +242,7 @@ export class EntityRegistry<
     // Slow path: query EntityManager and cache
     const candidate = this.entityManager.getEntity(id);
     if (this.guards.isNodeEntity(candidate)) {
-      const typed = candidate as NE;
+      const typed = candidate;
       this.addNodeEntity(typed);
       return typed;
     }
@@ -282,7 +282,7 @@ export class EntityRegistry<
       if (!this.guards.isNodeEntity(entity)) {
         continue;
       }
-      const typed = entity as NE;
+      const typed = entity;
       const entityNode = typed.node as N | undefined;
       if (entityNode) {
         this.nodeIndex.set(entityNode, typed);
@@ -325,7 +325,7 @@ export class EntityRegistry<
       if (!this.guards.isNodeEntity(entity)) {
         continue;
       }
-      const typed = entity as NE;
+      const typed = entity;
       const node = typed.node as N | undefined;
       if (node) {
         this.nodeIndex.set(node, typed);
@@ -337,7 +337,7 @@ export class EntityRegistry<
 
     // Cleanup stale entries
     if (entities.length < this.nodeIndex.size) {
-      const validNodes = new Set(entities.map((entity) => entity.node as N));
+      const validNodes = new Set(entities.map((entity) => entity.node));
       for (const key of [...this.nodeIndex.keys()]) {
         if (!validNodes.has(key)) {
           this.nodeIndex.delete(key);
@@ -408,7 +408,7 @@ export class EntityRegistry<
     }
     const candidate = this.entityManager.getEntity(id);
     if (this.guards.isEdgeEntity(candidate)) {
-      const typed = candidate as EE;
+      const typed = candidate;
       this.edgeEntities.set(id, typed);
       return typed;
     }
@@ -446,7 +446,7 @@ export class EntityRegistry<
       if (!this.guards.isEdgeEntity(entity)) {
         continue;
       }
-      const typed = entity as EE;
+      const typed = entity;
       this.edgeEntities.set(typed.id, typed);
       edges.push(typed);
     }
@@ -530,7 +530,7 @@ export class EntityRegistry<
   removeEntity(id: string): boolean {
     const candidate = this.entityManager.getEntity(id);
     if (this.guards.isNodeEntity(candidate)) {
-      const typed = candidate as NE;
+      const typed = candidate;
       const node = typed.node as N | undefined;
       if (node) {
         this.nodeIndex.delete(node);

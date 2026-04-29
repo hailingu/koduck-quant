@@ -13,27 +13,27 @@ import type { RuntimeQuotaManager } from "./runtime-quota-manager";
  * ## 核心职责
  *
  * 1. **实体操作**：
- *    - 实体创建（含配额检查）
- *    - 实体查询
- *    - 实体删除（含配额同步）
- *    - 批量删除
+ * - 实体创建（含配额检查）
+ * - 实体查询
+ * - 实体删除（含配额同步）
+ * - 批量删除
  *
  * 2. **渲染操作**：
- *    - 添加实体到渲染
- *    - 从渲染移除实体
- *    - 获取实体渲染元素
+ * - 添加实体到渲染
+ * - 从渲染移除实体
+ * - 获取实体渲染元素
  *
  * 3. **配额集成**：
- *    - 创建前配额检查
- *    - 删除后配额同步
+ * - 创建前配额检查
+ * - 删除后配额同步
  *
  * ## 使用示例
  *
  * ```typescript
  * const operations = new RuntimeEntityOperations(
- *   entityManager,
- *   renderManager,
- *   quotaManager
+ * entityManager,
+ * renderManager,
+ * quotaManager
  * );
  *
  * // 创建实体（自动配额检查）
@@ -41,7 +41,7 @@ import type { RuntimeQuotaManager } from "./runtime-quota-manager";
  *
  * // 添加到渲染
  * if (entity) {
- *   operations.addEntityToRender(entity);
+ * operations.addEntityToRender(entity);
  * }
  *
  * // 删除实体（自动配额同步）

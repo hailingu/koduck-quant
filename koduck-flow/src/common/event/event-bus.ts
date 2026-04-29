@@ -199,7 +199,7 @@ class EventBus extends EventManager {
   public readonly system = new SystemEventBus();
 
   /** 通用事件映射 */
-  private customEvents = new Map<string, BaseEvent<unknown>>();
+  private readonly customEvents = new Map<string, BaseEvent<unknown>>();
 
   constructor() {
     super();

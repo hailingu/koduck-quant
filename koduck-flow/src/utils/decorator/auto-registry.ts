@@ -166,7 +166,7 @@ function trackAutoRegistry<T extends IEntity, TMeta extends IMeta>(
   let entries = autoRegistryTracker.get(manager);
   if (!entries) {
     entries = new Map();
-    autoRegistryTracker.set(manager, entries as Map<string, AutoRegistryRecord>);
+    autoRegistryTracker.set(manager, entries);
   }
 
   const record: AutoRegistryRecord = {
@@ -398,7 +398,7 @@ export function AutoRegistry<T extends IEntity, TMeta extends IMeta = IMeta>(
 
         logger.debug(`[AutoRegistry] Registered ${name} with capabilities:`, capabilities);
       } catch (error) {
-        logger.error(`[AutoRegistry] ❌ Registration failed: ${name}`, error as unknown);
+        logger.error(`[AutoRegistry] ❌ Registration failed: ${name}`, error);
       }
     }
 
@@ -594,7 +594,7 @@ export function manualRegister<T extends IEntity, TMeta extends IMeta = IMeta>(
     logger.debug(`[AutoRegistry] Manually registered ${name}`);
     return true;
   } catch (error) {
-    logger.warn(`[AutoRegistry] Failed to manually register ${name}:`, error as unknown);
+    logger.warn(`[AutoRegistry] Failed to manually register ${name}:`, error);
     return false;
   }
 }
@@ -646,7 +646,7 @@ export function unregister<T extends IEntity>(
     }
     return removed;
   } catch (error) {
-    logger.warn(`[AutoRegistry] Failed to unregister ${name}:`, error as unknown);
+    logger.warn(`[AutoRegistry] Failed to unregister ${name}:`, error);
     return false;
   }
 }

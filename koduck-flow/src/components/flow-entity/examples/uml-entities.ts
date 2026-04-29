@@ -100,6 +100,10 @@ export type UMLEntityData = {
 // 基础 UML 实体类
 // ============================================================================
 
+/**
+ *UMLEntity
+ *
+ */
 export abstract class UMLEntity extends Entity<UMLEntityData> {
   protected constructor(args?: IEntityArguments) {
     super();
@@ -137,6 +141,11 @@ export abstract class UMLEntity extends Entity<UMLEntityData> {
     }
   }
 
+  /**
+   * toJSON
+转换为 JSON
+   *
+   */
   toJSON(): Record<string, unknown> {
     return {
       id: this.id,
@@ -148,6 +157,7 @@ export abstract class UMLEntity extends Entity<UMLEntityData> {
 
   /**
    * 检查是否可以渲染
+   * @param context
    */
   canRender(context?: unknown): boolean {
     return !!context && typeof context === "object";
@@ -155,6 +165,7 @@ export abstract class UMLEntity extends Entity<UMLEntityData> {
 
   /**
    * 渲染实体
+   * @param context
    */
   async render(context?: unknown): Promise<void> {
     // 基础 Canvas 绘制实现
@@ -199,6 +210,7 @@ export abstract class UMLEntity extends Entity<UMLEntityData> {
 
   /**
    * 检查是否可以执行
+   * @param params
    */
   canExecute(params?: unknown): boolean {
     return params !== undefined;
@@ -206,6 +218,7 @@ export abstract class UMLEntity extends Entity<UMLEntityData> {
 
   /**
    * 执行实体特定的操作
+   * @param params
    */
   async execute(params?: unknown): Promise<unknown> {
     logger.debug(`Executing ${this.constructor.name} with params:`, params);
@@ -218,6 +231,7 @@ export abstract class UMLEntity extends Entity<UMLEntityData> {
 
   /**
    * 检查是否可以验证
+   * @param data
    */
   canValidate(data?: unknown): boolean {
     return data !== undefined;
@@ -225,6 +239,7 @@ export abstract class UMLEntity extends Entity<UMLEntityData> {
 
   /**
    * 验证实体数据
+   * @param data
    */
   async validate(data?: unknown): Promise<boolean> {
     logger.debug(`Validating ${this.constructor.name} with data:`, data);
@@ -235,6 +250,11 @@ export abstract class UMLEntity extends Entity<UMLEntityData> {
   // 几何和属性方法
   // ============================================================================
 
+  /**
+   * getBounds
+获取 Bounds
+   *
+   */
   getBounds() {
     return {
       x: this.data?.position?.x ?? 0,
@@ -244,6 +264,13 @@ export abstract class UMLEntity extends Entity<UMLEntityData> {
     };
   }
 
+  /**
+   * setPosition
+设置 Position
+   *
+   * @param x
+   * @param y
+   */
   setPosition(x: number, y: number) {
     if (this.data) {
       this.data.position = { x, y };
@@ -251,60 +278,120 @@ export abstract class UMLEntity extends Entity<UMLEntityData> {
   }
 
   // 属性访问器
+  /**
+   *x
+   * x
+   *
+   */
   get x(): number {
     return this.data?.position?.x ?? 0;
   }
 
+  /**
+   *x
+   * x
+   *
+   */
   set x(value: number) {
     if (this.data?.position) {
       this.data.position.x = value;
     }
   }
 
+  /**
+   *y
+   * y
+   *
+   */
   get y(): number {
     return this.data?.position?.y ?? 0;
   }
 
+  /**
+   *y
+   * y
+   *
+   */
   set y(value: number) {
     if (this.data?.position) {
       this.data.position.y = value;
     }
   }
 
+  /**
+   *width
+   * width
+   *
+   */
   get width(): number {
     return this.data?.width ?? 120;
   }
 
+  /**
+   *width
+   * width
+   *
+   */
   set width(value: number) {
     if (this.data) {
       this.data.width = value;
     }
   }
 
+  /**
+   *height
+   * height
+   *
+   */
   get height(): number {
     return this.data?.height ?? 80;
   }
 
+  /**
+   *height
+   * height
+   *
+   */
   set height(value: number) {
     if (this.data) {
       this.data.height = value;
     }
   }
 
+  /**
+   *label
+   * label
+   *
+   */
   get label(): string {
     return this.data?.label ?? "";
   }
 
+  /**
+   *label
+   * label
+   *
+   */
   set label(value: string) {
     if (this.data) {
       this.data.label = value;
     }
   }
 
+  /**
+   *umlType
+   * umlType
+   *
+   */
   get umlType(): UMLNodeType {
     return this.data?.umlType ?? "class";
   }
 
+  /**
+   *umlType
+   * umlType
+   *
+   */
   set umlType(value: UMLNodeType) {
     if (this.data) {
       this.data.umlType = value;
@@ -312,6 +399,11 @@ export abstract class UMLEntity extends Entity<UMLEntityData> {
   }
 }
 
+/**
+ *
+UMLNodeEntity 类
+ *
+ */
 export abstract class UMLNodeEntity extends UMLEntity implements IFlowNodeEntity<BaseNode> {
   readonly node: BaseNode;
   protected ports: UMLPortDefinition[] = [];
@@ -324,6 +416,11 @@ export abstract class UMLNodeEntity extends UMLEntity implements IFlowNodeEntity
     }
   }
 
+  /**
+   *toJSON
+   * toJSON
+   *
+   */
   override toJSON(): Record<string, unknown> {
     return {
       ...super.toJSON(),
@@ -343,16 +440,33 @@ export abstract class UMLNodeEntity extends UMLEntity implements IFlowNodeEntity
     }
   }
 
+  /**
+   * getPortDefinitions
+获取 PortDefinitions
+   *
+   */
   getPortDefinitions(): readonly UMLPortDefinition[] {
     return this.ports;
   }
 
+  /**
+   * getAllPortInfo
+获取 AllPortInfo
+   *
+   */
   getAllPortInfo(): UMLPortInfo[] {
     return this.ports
       .map((definition) => this.computePortInfo(definition))
       .filter((info): info is UMLPortInfo => info !== null);
   }
 
+  /**
+   * getPortInfo
+获取 PortInfo
+   *
+   * @param name
+   * @param index
+   */
   getPortInfo(name: string, index = 0): UMLPortInfo | null {
     let matchIndex = 0;
     for (const definition of this.ports) {
@@ -410,6 +524,11 @@ export abstract class UMLNodeEntity extends UMLEntity implements IFlowNodeEntity
     };
   }
 
+  /**
+   *dispose
+   * dispose
+   *
+   */
   override dispose(): void {
     try {
       if (typeof this.node.dispose === "function") {
@@ -440,6 +559,11 @@ export abstract class UMLNodeEntity extends UMLEntity implements IFlowNodeEntity
   }
 }
 
+/**
+ *
+UMLEdgeEntity 类
+ *
+ */
 export abstract class UMLEdgeEntity<E extends IEdge = IEdge>
   extends UMLEntity
   implements IFlowEdgeEntity<E>
@@ -453,6 +577,11 @@ export abstract class UMLEdgeEntity<E extends IEdge = IEdge>
 
   protected abstract createEdge(args?: IEntityArguments): E;
 
+  /**
+   *toJSON
+   * toJSON
+   *
+   */
   override toJSON(): Record<string, unknown> {
     return {
       ...super.toJSON(),
@@ -460,6 +589,11 @@ export abstract class UMLEdgeEntity<E extends IEdge = IEdge>
     };
   }
 
+  /**
+   *dispose
+   * dispose
+   *
+   */
   override dispose(): void {
     try {
       if (typeof this.edge.dispose === "function") {
@@ -493,6 +627,12 @@ export abstract class UMLEdgeEntity<E extends IEdge = IEdge>
 export class UMLClassEntity extends UMLNodeEntity {
   static readonly type = "uml-class-canvas";
 
+  /**
+   * constructor
+构造函数
+   *
+   * @param args
+   */
   constructor(args?: IEntityArguments) {
     super(args);
     this.umlType = "class";
@@ -503,6 +643,11 @@ export class UMLClassEntity extends UMLNodeEntity {
     }
   }
 
+  /**
+   * execute
+   *
+   * @param params
+   */
   override async execute(params?: unknown): Promise<string> {
     await super.execute(params);
     logger.info("Executing class code generation for", this.label);
@@ -528,12 +673,23 @@ export class UMLClassEntity extends UMLNodeEntity {
 export class UMLInterfaceEntity extends UMLNodeEntity {
   static readonly type = "uml-interface-canvas";
 
+  /**
+   * constructor
+构造函数
+   *
+   * @param args
+   */
   constructor(args?: IEntityArguments) {
     super(args);
     this.umlType = "interface";
     this.label = (args?.label as string) || "Interface";
   }
 
+  /**
+   * execute
+   *
+   * @param params
+   */
   override async execute(params?: unknown): Promise<string> {
     await super.execute(params);
     logger.info("Executing interface code generation for", this.label);
@@ -542,6 +698,7 @@ export class UMLInterfaceEntity extends UMLNodeEntity {
 
   /**
    * 渲染：虚线边框 + stereotype
+   * @param context
    */
   override async render(context?: unknown): Promise<void> {
     const ctxObj = context as { canvas?: HTMLCanvasElement } | undefined;
@@ -599,6 +756,12 @@ export class UMLInterfaceEntity extends UMLNodeEntity {
 export class UMLUseCaseEntity extends UMLNodeEntity {
   static readonly type = "uml-usecase-canvas";
 
+  /**
+   * constructor
+构造函数
+   *
+   * @param args
+   */
   constructor(args?: IEntityArguments) {
     super(args);
     this.umlType = "usecase";
@@ -615,6 +778,11 @@ export class UMLUseCaseEntity extends UMLNodeEntity {
     ]);
   }
 
+  /**
+   * execute
+   *
+   * @param params
+   */
   override async execute(params?: unknown): Promise<string> {
     await super.execute(params);
     logger.info("Executing use case documentation generation for", this.label);
@@ -623,6 +791,7 @@ export class UMLUseCaseEntity extends UMLNodeEntity {
 
   /**
    * 渲染：椭圆用例
+   * @param context
    */
   override async render(context?: unknown): Promise<void> {
     const ctxObj = context as { canvas?: HTMLCanvasElement } | undefined;
@@ -682,6 +851,12 @@ export class UMLUseCaseEntity extends UMLNodeEntity {
 export class UMLActorEntity extends UMLNodeEntity {
   static readonly type = "uml-actor-canvas";
 
+  /**
+   * constructor
+构造函数
+   *
+   * @param args
+   */
   constructor(args?: IEntityArguments) {
     super(args);
     this.umlType = "actor";
@@ -698,6 +873,11 @@ export class UMLActorEntity extends UMLNodeEntity {
     ]);
   }
 
+  /**
+   * execute
+   *
+   * @param params
+   */
   override async execute(params?: unknown): Promise<string> {
     await super.execute(params);
     logger.info("Executing actor analysis for", this.label);
@@ -706,6 +886,7 @@ export class UMLActorEntity extends UMLNodeEntity {
 
   /**
    * 渲染：简易火柴人
+   * @param context
    */
   override async render(context?: unknown): Promise<void> {
     const ctxObj = context as { canvas?: HTMLCanvasElement } | undefined;
@@ -941,6 +1122,10 @@ function isEdgeState(value: unknown): value is "active" | "inactive" | "disabled
   return value === "active" || value === "inactive" || value === "disabled";
 }
 
+/**
+ * AutoRegistry
+ *
+ */
 @AutoRegistry({
   registryManager: umlRegistryManager,
   autoRegister: true,
@@ -957,6 +1142,12 @@ export class UMLLineEntity extends UMLEdgeEntity<LineEdge> {
   static readonly type = "uml-line-canvas";
   private readonly missingEndpointLogs = new Set<string>();
 
+  /**
+   * constructor
+构造函数
+   *
+   * @param args
+   */
   constructor(args?: IEntityArguments) {
     super(args);
     this.umlType = "line";
@@ -1181,6 +1372,11 @@ export class UMLLineEntity extends UMLEdgeEntity<LineEdge> {
     return new LineEdgeedgeConfig;
   }
 
+  /**
+   * render
+   *
+   * @param context
+   */
   override async render(context?: unknown): Promise<void> {
     const ctxObj = context as { canvas?: HTMLCanvasElement } | undefined;
     const canvas = ctxObj?.canvas;
@@ -1218,6 +1414,11 @@ export class UMLLineEntity extends UMLEdgeEntity<LineEdge> {
     ctx.restore();
   }
 
+  /**
+   *getBounds
+   * getBounds
+   *
+   */
   override getBounds() {
     const { start, end } = this.computeRenderEndpoints();
     const lineWidth = this.data?.lineWidth ?? 2;
@@ -1235,6 +1436,13 @@ export class UMLLineEntity extends UMLEdgeEntity<LineEdge> {
     };
   }
 
+  /**
+   * setLineEnd
+设置 LineEnd
+   *
+   * @param x
+   * @param y
+   */
   setLineEnd(x: number, y: number) {
     if (!this.data) return;
     const startX = this.data.position?.x ?? 0;
@@ -1243,6 +1451,11 @@ export class UMLLineEntity extends UMLEdgeEntity<LineEdge> {
     this.data.height = y - startY;
   }
 
+  /**
+   * setConnection
+设置 Connection
+   *
+   */
   setConnection(config: {
     sourceId?: string | null;
     targetId?: string | null;
@@ -1291,6 +1504,11 @@ export class UMLLineEntity extends UMLEdgeEntity<LineEdge> {
     }
   }
 
+  /**
+   * getConnection
+获取 Connection
+   *
+   */
   getConnection(): {
     sourceId: string | null;
     targetId: string | null;

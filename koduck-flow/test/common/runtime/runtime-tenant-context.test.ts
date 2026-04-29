@@ -123,7 +123,7 @@ describe("RuntimeTenantContext", () => {
 
       tenantContext.setTenantContext(context);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const quotas = container.resolve<any>(TOKENS.tenantQuota);
       expect(quotas).toBeDefined();
       expect(quotas.maxEntities).toBe(500);
@@ -141,7 +141,7 @@ describe("RuntimeTenantContext", () => {
 
       tenantContext.setTenantContext(context);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const rollout = container.resolve<any>(TOKENS.tenantRollout);
       expect(rollout).toBeDefined();
       expect(rollout.percentage).toBe(50);

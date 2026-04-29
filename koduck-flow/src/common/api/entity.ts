@@ -241,9 +241,9 @@ export function removeEntities(ids: string[]): number {
  *
  * if (result) {
  * console.log('Capability executed:', result.status);
- *   } else {
- *     console.log('Capability execution failed');
- *   }
+ * } else {
+ * console.log('Capability execution failed');
+ * }
  * }
  * ```
  *

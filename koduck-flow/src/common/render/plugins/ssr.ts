@@ -58,7 +58,7 @@ export class SSRDefaultStrategyPlugin implements IRenderStrategyPlugin {
 
   canHandle(entity: IEntity, context: IRenderContext): boolean {
     if (!entity) return false;
-    if (this.requireServerEnvironment && typeof window !== "undefined") {
+    if (this.requireServerEnvironment && typeof globalThis.window !== "undefined") {
       return false;
     }
 
@@ -84,7 +84,7 @@ export class SSRDefaultStrategyPlugin implements IRenderStrategyPlugin {
       throw new RenderStrategyNotApplicableError("SSR strategy requires a render context");
     }
 
-    if (this.requireServerEnvironment && typeof window !== "undefined") {
+    if (this.requireServerEnvironment && typeof globalThis.window !== "undefined") {
       throw new RenderStrategyNotApplicableError("SSR strategy requires server environment");
     }
 
@@ -126,7 +126,7 @@ export class SSRDefaultStrategyPlugin implements IRenderStrategyPlugin {
   }
 
   selectForBatch(entities: IEntity[]): Map<IRender, IEntity[]> {
-    if (this.requireServerEnvironment && typeof window !== "undefined") {
+    if (this.requireServerEnvironment && typeof globalThis.window !== "undefined") {
       throw new RenderStrategyNotApplicableError("SSR strategy requires server environment");
     }
 

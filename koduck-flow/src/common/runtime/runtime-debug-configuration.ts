@@ -1,5 +1,5 @@
 /**
- * @fileoverview RuntimeDebugConfiguration
+ * @file RuntimeDebugConfiguration
  * 提供调试配置管理功能
  *
  * 职责:

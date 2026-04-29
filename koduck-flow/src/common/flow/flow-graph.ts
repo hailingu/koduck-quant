@@ -105,7 +105,6 @@ import type {
   FlowGraphNode,
   FlowGraphNodeInit,
   FlowGraphNodeSnapshot,
-  FlowGraphLinkInit,
   FlowLinkMetadata,
   IFlowGraphAST,
 } from "./types";
@@ -350,7 +349,7 @@ export class FlowGraphAST implements IFlowGraphAST {
       const parents = new Set(node.parents ?? []);
       const children = new Map<string, FlowGraphLink>();
       if (node.children) {
-        for (const linkInit of node.children as Iterable<FlowGraphLinkInit>) {
+        for (const linkInit of node.children) {
           const nextLink: FlowGraphLink = {
             id: linkInit.id ?? createLinkId(node.id, linkInit.targetId),
             sourceId: linkInit.sourceId ?? node.id,

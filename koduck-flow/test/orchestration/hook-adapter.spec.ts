@@ -2,7 +2,7 @@ import { describe, expect, it, beforeEach, vi } from "vitest";
 import { HookAdapter } from "../../src/common/flow/orchestration/hook-adapter";
 import { FlowHooks } from "../../src/common/flow/hooks";
 
-/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any */
+ 
 
 describe("HookAdapter", () => {
   let flowHooks: FlowHooks;

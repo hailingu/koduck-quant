@@ -195,13 +195,13 @@ export class ConfigLoader implements IConfigLoaderInternal {
   public eventBus: EventBus;
 
   // Private properties (internal implementation details)
-  private fileWatcher: FSWatcher | null = null;
-  private hotReloadEnabled = false;
-  private httpServer: HttpServer | null = null;
-  private httpPort?: number;
-  private httpPath: string = DEFAULT_HTTP_OVERRIDE_PATH;
-  private runtimeAuditTrail: RuntimeOverrideAuditRecord[] = [];
-  private scopedMeter: ScopedMeter;
+  private readonly fileWatcher: FSWatcher | null = null;
+  private readonly hotReloadEnabled = false;
+  private readonly httpServer: HttpServer | null = null;
+  private readonly httpPort?: number;
+  private readonly httpPath: string = DEFAULT_HTTP_OVERRIDE_PATH;
+  private readonly runtimeAuditTrail: RuntimeOverrideAuditRecord[] = [];
+  private readonly scopedMeter: ScopedMeter;
   private configStateManager: ConfigStateManager | null = null;
   private constructor() {
     this.eventBus = createEventBus();
@@ -585,21 +585,21 @@ export class ConfigLoader implements IConfigLoaderInternal {
 }
 
 /**
- *
+ *getConfigLoader
  */
 export function getConfigLoader(): ConfigLoader {
   return ConfigLoader.getInstance();
 }
 
 /**
- *
+ *getConfig
  */
 export function getConfig(): KoduckFlowConfig {
   return getConfigLoader().load();
 }
 
 /**
- *
+ *reloadConfig
  * @param options
  */
 export function reloadConfig(options?: Partial<KoduckFlowConfig>): KoduckFlowConfig {

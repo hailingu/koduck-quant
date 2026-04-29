@@ -450,7 +450,7 @@ export const CheckboxesField: React.FC<SelectFieldProps> = ({
   testId,
 }) => {
   const options = useMemo(() => getOptions(schema), [schema]);
-  const currentValue = Array.isArray(value) ? value : [];
+  const currentValue = useMemo(() => (Array.isArray(value) ? value : []), [value]);
   const isRequired = Boolean(schema.validation?.required);
   const testIdValue = testId ?? `checkboxes-field-${name}`;
 

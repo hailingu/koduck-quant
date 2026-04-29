@@ -229,7 +229,7 @@ export function useFlow(options: UseFlowOptions = {}): UseFlowResult {
     setNodePositions((prev) => {
       const next = new Map(prev);
       const pos = entity.data?.position;
-      const color = (entity.data?.fillColor as string | undefined) || "#666666";
+      const color = (entity.data?.fillColor) || "#666666";
       if (pos) {
         next.set(entity.id, {
           x: pos.x ?? 0,
@@ -284,7 +284,7 @@ export function useFlow(options: UseFlowOptions = {}): UseFlowResult {
         );
         logger.debug("📋 注册详情:", registryInfo);
       } catch (registryError) {
-        logger.error("❌ 装饰器自动注册失败:", registryError as unknown);
+        logger.error("❌ 装饰器自动注册失败:", registryError);
       }
 
       // 🔧 使用 context 中的 registryManager 进行检查（与装饰器注册保持一致）
@@ -312,7 +312,7 @@ export function useFlow(options: UseFlowOptions = {}): UseFlowResult {
       const existingNodeEntities = allEntities
         .filter(isFlowNodeEntity)
         .reduce<Map<string, FlowEntity>>((map, entity) => {
-          map.set(entity.id, entity as FlowEntity);
+          map.set(entity.id, entity);
           return map;
         }, new Map<string, FlowEntity>());
 
@@ -320,10 +320,10 @@ export function useFlow(options: UseFlowOptions = {}): UseFlowResult {
       setNodes(nodeList);
       nodeList.forEach((entity) => syncPositionsFromEntity(entity));
       nodeList.forEach((entity) => {
-        newFlow.attachEntityToNode?.(entity.node as FlowNode, entity);
+        newFlow.attachEntityToNode?.(entity.node, entity);
       });
 
-      const edgeList = allEntities.filter(isFlowEdgeEntity) as FlowEdgeEntity[];
+      const edgeList = allEntities.filter(isFlowEdgeEntity);
       setEdges(edgeList);
       edgeList.forEach((edge) => {
         newFlow.addEdgeEntity?.(edge);
@@ -336,7 +336,7 @@ export function useFlow(options: UseFlowOptions = {}): UseFlowResult {
             return [...prev, entity];
           });
           syncPositionsFromEntity(entity);
-          newFlow.attachEntityToNode?.(entity.node as FlowNode, entity);
+          newFlow.attachEntityToNode?.(entity.node, entity);
           return;
         }
 
@@ -345,7 +345,7 @@ export function useFlow(options: UseFlowOptions = {}): UseFlowResult {
             if (prev.some((edge) => edge.id === entity.id)) return prev;
             return [...prev, entity];
           });
-          newFlow.addEdgeEntity?.(entity as FlowEdgeEntity);
+          newFlow.addEdgeEntity?.(entity);
         }
       });
 
@@ -394,7 +394,7 @@ export function useFlow(options: UseFlowOptions = {}): UseFlowResult {
           try {
             dispose();
           } catch (listenerError) {
-            logger.warn("Failed to cleanup entity event listener", listenerError as unknown);
+            logger.warn("Failed to cleanup entity event listener", listenerError);
           }
         });
         cleanupListenersRef.current = [];
@@ -571,7 +571,7 @@ export function useFlow(options: UseFlowOptions = {}): UseFlowResult {
 
         return success;
       } catch (updateError) {
-        logger.error(`[useFlow] updateNode: error updating entity ${id}:`, updateError as unknown);
+        logger.error(`[useFlow] updateNode: error updating entity ${id}:`, updateError);
         return false;
       }
     },
@@ -607,7 +607,7 @@ export function useFlow(options: UseFlowOptions = {}): UseFlowResult {
 
         return success;
       } catch (updateError) {
-        logger.error(`[useFlow] updateEdge: error updating entity ${id}:`, updateError as unknown);
+        logger.error(`[useFlow] updateEdge: error updating entity ${id}:`, updateError);
         return false;
       }
     },

@@ -30,6 +30,7 @@ export default tseslint.config([
           caughtErrorsIgnorePattern: "^_",
         },
       ],
+
     },
   },
   {
@@ -44,33 +45,19 @@ export default tseslint.config([
        */
 
       // 要求导出的类、方法必须有 JSDoc
-      "jsdoc/require-jsdoc": [
-        "warn",
-        {
-          require: {
-            FunctionDeclaration: true,
-            MethodDefinition: true,
-            ClassDeclaration: true,
-          },
-          publicOnly: true,
-          checkGetters: true,
-          checkSetters: true,
-        },
-      ],
+      // 暂不启用：当前代码库中大量函数缺少 JSDoc，待逐步补充后再开启
+      "jsdoc/require-jsdoc": "off",
 
       // 要求参数有说明
-      "jsdoc/require-param": [
-        "warn",
-        {
-          checkDestructuredRoots: false,
-        },
-      ],
-      "jsdoc/require-param-description": "warn",
+      // 暂不启用：与 require-jsdoc 配套，待 JSDoc 完善后再开启
+      "jsdoc/require-param": "off",
+      "jsdoc/require-param-description": "off",
       "jsdoc/require-param-type": "off", // TypeScript 类型系统已提供
 
       // 要求返回值有说明
-      "jsdoc/require-returns": "warn",
-      "jsdoc/require-returns-description": "warn",
+      // 暂不启用：与 require-jsdoc 配套，待 JSDoc 完善后再开启
+      "jsdoc/require-returns": "off",
+      "jsdoc/require-returns-description": "off",
       "jsdoc/require-returns-type": "off", // TypeScript 类型系统已提供
 
       // JSDoc 语法检查
@@ -80,7 +67,12 @@ export default tseslint.config([
       "jsdoc/check-line-alignment": "warn",
 
       // 检查标记有效性
-      "jsdoc/check-tag-names": "warn",
+      "jsdoc/check-tag-names": [
+        "warn",
+        {
+          definedTags: ["remarks", "typeParam", "responsibilities", "fileoverview"],
+        },
+      ],
       "jsdoc/valid-types": "warn",
 
       // 示例代码检查

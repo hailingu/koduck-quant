@@ -10,7 +10,7 @@ type EventPayloadMap = {
 };
 
 class LightweightEventEmitter<TEvents extends Record<string, unknown[]>> {
-  private listeners = new Map<keyof TEvents, Set<(...args: unknown[]) => void>>();
+  private readonly listeners = new Map<keyof TEvents, Set<(...args: unknown[]) => void>>();
 
   on<K extends keyof TEvents>(event: K, listener: (...args: TEvents[K]) => void): void {
     const existing = this.listeners.get(event);
@@ -70,7 +70,7 @@ export const RegistryBrokerEvent = {
  * 通过事件总线协调注册表查询和管理操作，避免直接依赖。
  */
 export class RegistryBroker implements IRegistryBroker {
-  private eventEmitter = new LightweightEventEmitter<EventPayloadMap>();
+  private readonly eventEmitter = new LightweightEventEmitter<EventPayloadMap>();
   private registryManager?: IRegistryManager<IEntity> | undefined;
   private entityManager?: { getEntityTypeRegistry: (type: string) => unknown } | undefined;
 

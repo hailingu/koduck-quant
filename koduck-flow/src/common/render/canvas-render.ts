@@ -235,7 +235,7 @@ class CanvasRender extends BaseRenderer implements ICanvasRenderer {
   }
 
   // 性能配置
-  private config: CanvasPerformanceOptimization = {
+  private readonly config: CanvasPerformanceOptimization = {
     enableOffscreenRendering: true,
     enableLayerCaching: true,
     enableViewportCulling: true,
@@ -253,7 +253,7 @@ class CanvasRender extends BaseRenderer implements ICanvasRenderer {
   private dpr: number = 1; // 当前设备像素比
 
   // Cache manager for rendered entity results
-  private cache!: RenderCacheManager<string, ImageData>;
+  private readonly cache!: RenderCacheManager<string, ImageData>;
 
   /**
    * Create a Canvas renderer instance with optional performance configuration

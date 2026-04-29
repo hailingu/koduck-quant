@@ -287,7 +287,7 @@ export function getOrderedFieldNames(schema: BaseFormSchema | ExtendedFormSchema
 
   // Check for extended schema with ui:order
   if ("ui:order" in schema && Array.isArray(schema["ui:order"])) {
-    const order = schema["ui:order"] as string[];
+    const order = schema["ui:order"];
     const orderedFields: string[] = [];
 
     // Add fields in specified order

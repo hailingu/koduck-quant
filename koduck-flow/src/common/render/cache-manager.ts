@@ -58,8 +58,8 @@ export interface CacheConfig {
  * ```
  */
 export class RenderCacheManager<K, V> {
-  private cache = new Map<string, CacheEntry<V>>();
-  private config: Required<CacheConfig>;
+  private readonly cache = new Map<string, CacheEntry<V>>();
+  private readonly config: Required<CacheConfig>;
   private readonly m: ScopedMeter;
   private readonly cacheType: string;
 

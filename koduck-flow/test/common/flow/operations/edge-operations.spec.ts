@@ -23,7 +23,7 @@ function createMockEdgeEntity(
     edge: { id },
     sourceId,
     targetId,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
   } as any;
 }
 
@@ -32,7 +32,7 @@ function createMockNodeEntity(id: string): IFlowNodeEntity {
   return {
     id,
     node: { id },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
   } as any;
 }
 

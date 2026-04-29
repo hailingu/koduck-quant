@@ -398,6 +398,5 @@ class WorkerHandler {
 
 // Initialize worker when script loads
 if (typeof globalThis !== "undefined" && typeof globalThis.addEventListener === "function") {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _handler = new WorkerHandler();
 }

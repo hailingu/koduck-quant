@@ -1293,7 +1293,7 @@ export class RenderDispatcherCore implements IDisposable {
       return undefined;
     }
     try {
-      return (this.entityManager.getEntity?.(entityId) as IEntity | undefined) ?? undefined;
+      return (this.entityManager.getEntity?.(entityId)) ?? undefined;
     } catch (error) {
       this.metrics.recordError("entity_lookup_failure");
       diagnostics.warn("Failed to retrieve entity for dirty mark", {

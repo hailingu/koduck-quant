@@ -391,7 +391,7 @@ class Logger {
 
   child(context: Record<string, unknown>): LoggerContextAdapter {
     return this.withContext({
-      tag: typeof context.tag === "string" ? (context.tag as string) : undefined,
+      tag: typeof context.tag === "string" ? context.tag : undefined,
       metadata: context,
     });
   }
@@ -448,6 +448,7 @@ export const noopMinimalLogger: LoggerCore = {
  * 便捷方法：获取当前全局 logger 的最小适配体（事件系统可直接注入）
  */
 /**
+ * getMinimalLogger
  * @deprecated 请使用 getLoggerCore()
  */
 export function getMinimalLogger(): LoggerCore {

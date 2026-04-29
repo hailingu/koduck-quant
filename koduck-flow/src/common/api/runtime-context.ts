@@ -230,13 +230,13 @@ if (shouldTraceMissingRuntime) {
 }
 
 /**
- *
+ * KoduckFlowRuntimeMissingError
  */
 export class KoduckFlowRuntimeMissingError extends Error {
   readonly metadata?: ApiRuntimeMetadata;
 
   /**
-   *
+   * constructor
    * @param message
    * @param metadata
    */
@@ -251,7 +251,7 @@ export class KoduckFlowRuntimeMissingError extends Error {
 }
 
 /**
- *
+ * setApiRuntimeConfig
  * @param config
  */
 export function setApiRuntimeConfig(config: Partial<ApiRuntimeConfig>): ApiRuntimeConfig {
@@ -263,21 +263,21 @@ export function setApiRuntimeConfig(config: Partial<ApiRuntimeConfig>): ApiRunti
 }
 
 /**
- *
+ * getApiRuntimeConfig
  */
 export function getApiRuntimeConfig(): ApiRuntimeConfig {
   return { ...apiRuntimeConfig };
 }
 
 /**
- *
+ * resetApiRuntimeConfig
  */
 export function resetApiRuntimeConfig(): void {
   apiRuntimeConfig = { ...DEFAULT_API_RUNTIME_CONFIG };
 }
 
 /**
- *
+ * setApiRuntime
  * @param runtime
  * @param metadata
  */
@@ -295,7 +295,7 @@ export function setApiRuntime(
 }
 
 /**
- *
+ * clearApiRuntime
  * @param token
  */
 export function clearApiRuntime(token: ApiRuntimeToken | null | undefined): void {
@@ -314,7 +314,7 @@ function getActiveApiRuntimeEntry(): ApiRuntimeEntry | undefined {
 }
 
 /**
- *
+ * getApiRuntime
  */
 export function getApiRuntime(): KoduckFlowRuntime {
   const active = getActiveApiRuntimeEntry();
@@ -357,7 +357,7 @@ export function getApiRuntime(): KoduckFlowRuntime {
 }
 
 /**
- *
+ * getApiRuntimeInfo
  */
 export function getApiRuntimeInfo(): ApiRuntimeMetadata & {
   isLegacyFallback: boolean;
@@ -377,7 +377,7 @@ export function getApiRuntimeInfo(): ApiRuntimeMetadata & {
 }
 
 /**
- *
+ * runWithApiRuntime
  * @param runtime
  * @param fn
  * @param metadata
@@ -435,7 +435,7 @@ export const runtime = new Proxy(runtimeProxyTarget, {
     const rt = getApiRuntime();
     return Object.getOwnPropertyDescriptor(rt as unknown as object, prop);
   },
-}) as KoduckFlowRuntime;
+});
 
 /**
  * Get the runtime proxy.

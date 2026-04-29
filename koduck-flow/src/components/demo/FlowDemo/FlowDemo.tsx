@@ -705,10 +705,8 @@ const FlowDemoContent: React.FC = () => {
     handleNodeFormChange,
     nodeConfigs,
     nodePositions,
-    nodes,
     renderContextBuilder,
     setActiveFlowNodeId,
-    viewportState,
   ]);
 
   // Start 节点使用 React BaseFlowNode 组件渲染（而不是 Canvas）

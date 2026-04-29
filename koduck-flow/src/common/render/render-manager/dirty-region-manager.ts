@@ -41,7 +41,7 @@ export interface DirtyRegionManagerOptions {
 }
 
 /**
- *
+ *DirtyRegionManager
  */
 export class DirtyRegionManager {
   private readonly frameScheduler: RenderFrameScheduler;
@@ -60,6 +60,7 @@ export class DirtyRegionManager {
   private dirtyFlushScheduled = false;
 
   /**
+   *constructor
    *
    * @param options
    */
@@ -77,6 +78,7 @@ export class DirtyRegionManager {
   }
 
   /**
+   *markEntityDirty
    *
    * @param entity
    * @param reason
@@ -102,6 +104,7 @@ export class DirtyRegionManager {
   }
 
   /**
+   *schedulePartialFlush
    *
    */
   schedulePartialFlush(): void {
@@ -133,6 +136,7 @@ export class DirtyRegionManager {
   }
 
   /**
+   *requestFullRedraw
    *
    * @param reason
    */
@@ -144,6 +148,7 @@ export class DirtyRegionManager {
   }
 
   /**
+   *resetForFullRedraw
    *
    */
   resetForFullRedraw(): void {
@@ -153,6 +158,7 @@ export class DirtyRegionManager {
   }
 
   /**
+   *getDirtyRegionCount
    *
    */
   getDirtyRegionCount(): number {
@@ -160,6 +166,7 @@ export class DirtyRegionManager {
   }
 
   /**
+   *getDirtyEntityCount
    *
    */
   getDirtyEntityCount(): number {
@@ -167,6 +174,7 @@ export class DirtyRegionManager {
   }
 
   /**
+   *getDirtyRegionsSnapshot
    *
    */
   getDirtyRegionsSnapshot(): DirtyRegion[] {
@@ -174,6 +182,7 @@ export class DirtyRegionManager {
   }
 
   /**
+   *getDirtyEntityIds
    *
    */
   getDirtyEntityIds(): Set<string> {
@@ -486,6 +495,7 @@ export class DirtyRegionManager {
   }
 
   /**
+   *paintBackground
    *
    * @param c2d
    * @param canvas
