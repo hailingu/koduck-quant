@@ -119,6 +119,28 @@ const defaultNodeContentStyle: React.CSSProperties = {
   color: "var(--flow-node-content-text, #64748b)",
 };
 
+function isNodeDragSuppressedTarget(target: EventTarget | null) {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+
+  return Boolean(
+    target.closest(
+      [
+        "button",
+        "a",
+        "input",
+        "textarea",
+        "select",
+        "summary",
+        "[contenteditable='true']",
+        "[data-flow-no-drag='true']",
+        "[data-port-id]",
+      ].join(",")
+    )
+  );
+}
+
 function DefaultCanvasNode({
   node,
   selected,
@@ -235,6 +257,26 @@ const CanvasNodeContainer: React.FC<CanvasNodeContainerProps> = ({
     },
     [interaction.dragNodes, interaction.selectNodes, node, onNodeMove, onNodeSelect]
   );
+  const handleContainerPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLElement>) => {
+      if (!renderNode || isNodeDragSuppressedTarget(event.target)) {
+        return;
+      }
+
+      handlePressStart(event);
+    },
+    [handlePressStart, renderNode]
+  );
+  const handleContainerKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLElement>) => {
+      if (!renderNode || isNodeDragSuppressedTarget(event.target)) {
+        return;
+      }
+
+      handleKeyDown(event);
+    },
+    [handleKeyDown, renderNode]
+  );
   const shellContextValue = useMemo(
     () => ({
       managedByCanvas: true,
@@ -251,6 +293,9 @@ const CanvasNodeContainer: React.FC<CanvasNodeContainerProps> = ({
       data-node-id={node.id}
       aria-label={node.label || "Node"}
       aria-selected={selected}
+      tabIndex={renderNode ? 0 : undefined}
+      onPointerDown={renderNode ? handleContainerPointerDown : undefined}
+      onKeyDown={renderNode ? handleContainerKeyDown : undefined}
       style={{
         position: "absolute",
         left: node.position?.x ?? 0,

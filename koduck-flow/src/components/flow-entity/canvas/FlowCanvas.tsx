@@ -7,6 +7,7 @@
  */
 
 import React, {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -132,53 +133,61 @@ interface FlowCanvasOverlayProps {
   selectedNodeIds: Set<string>;
 }
 
-const zoomControlsStyle: CSSProperties = {
+const controlDockStyle: CSSProperties = {
   position: "absolute",
-  right: 12,
-  top: 12,
+  left: 16,
+  bottom: 16,
   display: "flex",
   flexDirection: "column",
+  alignItems: "flex-start",
+  gap: 8,
+  zIndex: 30,
+  pointerEvents: "none",
+};
+
+const controlToolbarStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
   gap: 4,
   padding: 4,
   border: "1px solid var(--flow-overlay-border, rgba(15, 23, 42, 0.12))",
   borderRadius: "var(--flow-overlay-radius, 8px)",
   background: "var(--flow-overlay-bg, rgba(255, 255, 255, 0.92))",
   boxShadow: "var(--flow-overlay-shadow, 0 8px 24px rgba(15, 23, 42, 0.12))",
-  zIndex: 20,
+  pointerEvents: "auto",
 };
 
 const zoomControlButtonStyle: CSSProperties = {
-  width: 32,
-  height: 28,
+  width: 30,
+  height: 30,
   border: 0,
   borderRadius: 6,
   background: "transparent",
   color: "var(--flow-control-text, #0f172a)",
   cursor: "pointer",
-  fontSize: 13,
+  fontSize: 14,
   fontWeight: 700,
-  lineHeight: "28px",
+  lineHeight: "30px",
+  textAlign: "center",
 };
 
 const minimapStyle: CSSProperties = {
-  position: "absolute",
-  right: 12,
-  bottom: 12,
-  width: 160,
-  height: 110,
+  position: "relative",
+  width: 176,
+  height: 118,
   border: "1px solid var(--flow-overlay-border-strong, rgba(15, 23, 42, 0.16))",
   borderRadius: "var(--flow-overlay-radius, 8px)",
   background: "var(--flow-overlay-bg, rgba(255, 255, 255, 0.92))",
   boxShadow: "var(--flow-overlay-shadow, 0 8px 24px rgba(15, 23, 42, 0.12))",
   overflow: "hidden",
-  zIndex: 20,
+  pointerEvents: "auto",
 };
 
 function FlowCanvasZoomControls({
   minZoom,
   maxZoom,
 }: Pick<FlowCanvasOverlayProps, "minZoom" | "maxZoom">) {
-  const { viewport, setZoom, reset } = useViewport();
+  const { viewport, setZoom } = useViewport();
   const zoomPercent = Math.round(viewport.scale * 100);
 
   const handleZoomOut = () => {
@@ -189,39 +198,38 @@ function FlowCanvasZoomControls({
     setZoom(Math.min(maxZoom, viewport.scale * 1.2));
   };
 
-  const handleReset = () => {
-    reset();
-  };
-
   return (
-    <div aria-label="Canvas zoom controls" style={zoomControlsStyle}>
+    <>
+      <button
+        aria-label="Zoom out"
+        disabled={viewport.scale <= minZoom}
+        style={zoomControlButtonStyle}
+        title="Zoom out"
+        type="button"
+        onClick={handleZoomOut}
+      >
+        -
+      </button>
       <button
         aria-label="Zoom in"
         disabled={viewport.scale >= maxZoom}
         style={zoomControlButtonStyle}
+        title="Zoom in"
         type="button"
         onClick={handleZoomIn}
       >
         +
       </button>
       <button
-        aria-label="Reset zoom"
-        style={{ ...zoomControlButtonStyle, fontSize: 11, fontWeight: 600 }}
+        aria-label="Zoom level"
+        style={{ ...zoomControlButtonStyle, width: 54, fontSize: 11, fontWeight: 600 }}
+        title="Zoom level"
         type="button"
-        onClick={handleReset}
+        onClick={() => setZoom(1)}
       >
         {zoomPercent}%
       </button>
-      <button
-        aria-label="Zoom out"
-        disabled={viewport.scale <= minZoom}
-        style={zoomControlButtonStyle}
-        type="button"
-        onClick={handleZoomOut}
-      >
-        -
-      </button>
-    </div>
+    </>
   );
 }
 
@@ -231,9 +239,10 @@ function FlowCanvasMinimap({
   containerSize,
   selectedNodeIds,
 }: Omit<FlowCanvasOverlayProps, "minZoom" | "maxZoom">) {
-  const { viewport } = useViewport();
-  const minimapWidth = 160;
-  const minimapHeight = 110;
+  const { viewport, centerOn } = useViewport();
+  const isMinimapDraggingRef = useRef(false);
+  const minimapWidth = 176;
+  const minimapHeight = 118;
   const padding = 10;
   const contentWidth = Math.max(1, contentBounds.maxX - contentBounds.minX);
   const contentHeight = Math.max(1, contentBounds.maxY - contentBounds.minY);
@@ -252,8 +261,78 @@ function FlowCanvasMinimap({
         }
       : undefined;
 
+  const centerViewportFromPointer = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const rect = event.currentTarget.getBoundingClientRect();
+      const minimapX = Math.min(
+        minimapWidth - padding,
+        Math.max(padding, event.clientX - rect.left)
+      );
+      const minimapY = Math.min(
+        minimapHeight - padding,
+        Math.max(padding, event.clientY - rect.top)
+      );
+      const x = contentBounds.minX + (minimapX - padding) / scale;
+      const y = contentBounds.minY + (minimapY - padding) / scale;
+      centerOn(x, y);
+    },
+    [centerOn, contentBounds.minX, contentBounds.minY, scale]
+  );
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    isMinimapDraggingRef.current = true;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    centerViewportFromPointer(event);
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!isMinimapDraggingRef.current) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    centerViewportFromPointer(event);
+  };
+
+  const handlePointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!isMinimapDraggingRef.current) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    isMinimapDraggingRef.current = false;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+  };
+
   return (
-    <div aria-label="Canvas minimap" style={minimapStyle}>
+    <div
+      aria-label="Canvas minimap"
+      role="button"
+      tabIndex={0}
+      style={minimapStyle}
+      title="Click to center viewport"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerEnd}
+      onPointerCancel={handlePointerEnd}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          centerOn(
+            contentBounds.minX + contentWidth / 2,
+            contentBounds.minY + contentHeight / 2
+          );
+        }
+      }}
+    >
       {nodes.map((node) => {
         const x = node.position?.x ?? 0;
         const y = node.position?.y ?? 0;
@@ -295,6 +374,110 @@ function FlowCanvasMinimap({
   );
 }
 
+function FlowCanvasLocationControls({
+  nodes,
+  contentBounds,
+  selectedNodeIds,
+}: Pick<FlowCanvasOverlayProps, "nodes" | "contentBounds" | "selectedNodeIds">) {
+  const { fitToContent, centerOn, reset } = useViewport();
+  const selectedNode = nodes.find((node) => selectedNodeIds.has(node.id));
+
+  const handleCenterSelected = () => {
+    if (!selectedNode) {
+      fitToContent(contentBounds);
+      return;
+    }
+
+    const width = selectedNode.size?.width ?? 200;
+    const height = selectedNode.size?.height ?? 100;
+    centerOn(
+      (selectedNode.position?.x ?? 0) + width / 2,
+      (selectedNode.position?.y ?? 0) + height / 2
+    );
+  };
+
+  return (
+    <>
+      <button
+        aria-label="Fit graph"
+        style={zoomControlButtonStyle}
+        title="Fit graph"
+        type="button"
+        onClick={() => fitToContent(contentBounds)}
+      >
+        ⛶
+      </button>
+      <button
+        aria-label="Center selected node"
+        style={zoomControlButtonStyle}
+        title={selectedNode ? "Center selected node" : "Center graph"}
+        type="button"
+        onClick={handleCenterSelected}
+      >
+        ◎
+      </button>
+      <button
+        aria-label="Reset viewport"
+        style={zoomControlButtonStyle}
+        title="Reset viewport"
+        type="button"
+        onClick={reset}
+      >
+        ↺
+      </button>
+    </>
+  );
+}
+
+function FlowCanvasControlDock({
+  nodes,
+  contentBounds,
+  containerSize,
+  minZoom,
+  maxZoom,
+  selectedNodeIds,
+  showMinimap,
+  showZoomControls,
+  showLocationControls,
+}: FlowCanvasOverlayProps & {
+  showMinimap: boolean;
+  showZoomControls: boolean;
+  showLocationControls: boolean;
+}) {
+  if (!showMinimap && !showZoomControls && !showLocationControls) {
+    return null;
+  }
+
+  return (
+    <div
+      aria-label="Canvas navigation controls"
+      style={controlDockStyle}
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
+      onDoubleClick={(event) => event.stopPropagation()}
+    >
+      {showMinimap ? (
+        <FlowCanvasMinimap
+          nodes={nodes}
+          contentBounds={contentBounds}
+          containerSize={containerSize}
+          selectedNodeIds={selectedNodeIds}
+        />
+      ) : null}
+      <div aria-label="Canvas toolbar" style={controlToolbarStyle}>
+        {showZoomControls ? <FlowCanvasZoomControls minZoom={minZoom} maxZoom={maxZoom} /> : null}
+        {showLocationControls ? (
+          <FlowCanvasLocationControls
+            nodes={nodes}
+            contentBounds={contentBounds}
+            selectedNodeIds={selectedNodeIds}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 /**
  * Props for FlowCanvas component
  */
@@ -331,6 +514,9 @@ export interface FlowCanvasProps {
 
   /** Whether to show zoom controls */
   showZoomControls?: boolean;
+
+  /** Whether to show viewport location controls */
+  showLocationControls?: boolean;
 
   /** Minimum zoom level */
   minZoom?: number;
@@ -448,6 +634,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
   showGrid = true,
   showMinimap = false,
   showZoomControls = false,
+  showLocationControls = false,
   gridPattern,
   minZoom = 0.1,
   maxZoom = 4,
@@ -597,6 +784,19 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
   }, [fitView, fitViewStrategy, fitViewport, fitViewportKey, fitViewportSeed]);
 
   const viewportInitialState = fitViewportSeed ?? initialViewport;
+  const viewportOverlay = (
+    <FlowCanvasControlDock
+      nodes={nodes}
+      contentBounds={contentBounds}
+      containerSize={containerSize}
+      minZoom={minZoom}
+      maxZoom={maxZoom}
+      selectedNodeIds={selectedNodeSet}
+      showMinimap={showMinimap}
+      showZoomControls={showZoomControls}
+      showLocationControls={showLocationControls}
+    />
+  );
 
   useEffect(() => {
     const container = containerRef.current;
@@ -646,6 +846,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
         enablePan={resolvedInteraction.pan}
         enableZoom={resolvedInteraction.zoom}
         wheelZoomActivation="modifier"
+        overlay={viewportOverlay}
         {...(onViewportChange !== undefined ? { onViewportChange } : {})}
       >
         <CanvasContent
@@ -674,15 +875,6 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
         >
           {children}
         </CanvasContent>
-        {showZoomControls && <FlowCanvasZoomControls minZoom={minZoom} maxZoom={maxZoom} />}
-        {showMinimap && (
-          <FlowCanvasMinimap
-            nodes={nodes}
-            contentBounds={contentBounds}
-            containerSize={containerSize}
-            selectedNodeIds={selectedNodeSet}
-          />
-        )}
       </FlowViewport>
     </div>
   );

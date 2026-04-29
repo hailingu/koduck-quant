@@ -1,4 +1,5 @@
 import type { Message, SessionLookupEnvelope, SessionTranscriptEntry, SessionTranscriptEnvelope } from "./types";
+import { handleAuthExpired } from "../../auth";
 
 const SESSION_LOOKUP_RETRY_DELAYS_MS = [150, 400];
 
@@ -45,6 +46,11 @@ export async function fetchSessionExists(
         }
 
         return body.data?.exists === true;
+      }
+
+      if (response.status === 401) {
+        handleAuthExpired();
+        return null;
       }
 
       if (
@@ -102,6 +108,9 @@ export async function fetchSessionTranscript(
   );
 
   if (!response.ok) {
+    if (response.status === 401) {
+      handleAuthExpired();
+    }
     return null;
   }
 

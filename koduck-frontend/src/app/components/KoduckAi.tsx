@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Plus, Trash2, Upload } from "lucide-react";
+import { isAuthExpiredError, throwAuthExpired } from "../auth";
 import { FALLBACK_LLM_OPTIONS, RUNTIME_CONFIG_URL, normalizeLlmOptions } from "./koduck-ai/llm-config";
 import { KoduckAiComposer } from "./koduck-ai/KoduckAiComposer";
 import { MessageList } from "./koduck-ai/MessageList";
@@ -329,13 +330,16 @@ export function KoduckAi() {
     if (sessionId) {
       const token = window.localStorage.getItem("koduck.auth.token");
       try {
-        await fetch(`/api/v1/ai/sessions/${encodeURIComponent(sessionId)}`, {
+        const response = await fetch(`/api/v1/ai/sessions/${encodeURIComponent(sessionId)}`, {
           method: "DELETE",
           headers: {
             Accept: "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
         });
+        if (response.status === 401) {
+          throwAuthExpired();
+        }
       } catch {
         // Best-effort: still clear local state even if backend delete fails
       }
@@ -409,6 +413,10 @@ export function KoduckAi() {
   };
 
   const extractApiErrorMessage = async (response: Response) => {
+    if (response.status === 401) {
+      throwAuthExpired();
+    }
+
     const fallback = `chat api failed: ${response.status}`;
 
     try {
@@ -780,6 +788,18 @@ export function KoduckAi() {
       await syncSessionMessagesFromMemory(sessionId);
       shouldAbortRequest = false;
     } catch (error) {
+      if (isAuthExpiredError(error)) {
+        updateAssistantMessage(assistantMessageId, (prev) => ({
+          ...prev,
+          content: error.message,
+          timestamp: prev.timestamp || Date.now(),
+          streaming: false,
+          type: "text",
+        }));
+        shouldAbortRequest = false;
+        return;
+      }
+
       logStreamTrace(localRequestId, "request_error", {
         sessionId,
         upstreamRequestId,

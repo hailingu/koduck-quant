@@ -47,6 +47,7 @@ export const FlowEditorCanvas: React.FC<FlowEditorCanvasProps> = ({
   style,
   overlay,
   nodes = [],
+  fitViewStrategy = "initial",
   ...canvasProps
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -146,6 +147,7 @@ export const FlowEditorCanvas: React.FC<FlowEditorCanvasProps> = ({
           maxZoom={maxZoom}
           defaultZoom={defaultZoom}
           nodes={nodes}
+          fitViewStrategy={fitViewStrategy}
           {...viewportProps}
         />
       ) : null}

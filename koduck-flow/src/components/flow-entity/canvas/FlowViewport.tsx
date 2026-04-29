@@ -103,6 +103,8 @@ interface PanState {
 export interface FlowViewportProps {
   /** Child elements to render within the viewport */
   children: ReactNode;
+  /** Overlay elements rendered above the viewport without canvas transforms */
+  overlay?: ReactNode;
   /** Initial viewport state */
   initialState?: Partial<ViewportState>;
   /** Controlled viewport state */
@@ -245,6 +247,7 @@ export function useViewportOptional(): ViewportContextValue | undefined {
  */
 export const FlowViewport: React.FC<FlowViewportProps> = ({
   children,
+  overlay,
   initialState,
   viewport: controlledViewport,
   constraints: constraintOverrides,
@@ -834,6 +837,7 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
         <div data-testid="flow-viewport-content" style={transformStyle}>
           {children}
         </div>
+        {overlay}
       </div>
     </ViewportContext.Provider>
   );

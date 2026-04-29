@@ -718,6 +718,9 @@ export function ConversationKoduckFlowCanvas({
         height: CONVERSATION_FLOW_MIN_NODE_HEIGHT,
       }}
       showGrid
+      showMinimap
+      showZoomControls
+      showLocationControls
       gridPattern={{ size: 24, opacity: 0.35 }}
       theme={{ canvasBackground: "#f8fafc" }}
       onCanvasClick={handleCanvasClick}

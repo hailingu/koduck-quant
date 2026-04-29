@@ -155,6 +155,29 @@ export function clearAuth(): void {
   localStorage.removeItem(AUTH_USER_STORAGE_KEY);
 }
 
+export class AuthExpiredError extends Error {
+  constructor(message = "登录已过期，请重新登录") {
+    super(message);
+    this.name = "AuthExpiredError";
+  }
+}
+
+export function isAuthExpiredError(error: unknown): error is AuthExpiredError {
+  return error instanceof AuthExpiredError;
+}
+
+export function handleAuthExpired(): void {
+  clearAuth();
+  if (window.location.pathname !== "/login") {
+    window.location.replace("/login");
+  }
+}
+
+export function throwAuthExpired(): never {
+  handleAuthExpired();
+  throw new AuthExpiredError();
+}
+
 export function getCurrentUser(): UserInfo | null {
   const raw = localStorage.getItem(AUTH_USER_STORAGE_KEY);
   if (!raw) {
@@ -189,14 +212,7 @@ export async function fetchCurrentUserProfile(): Promise<UserInfo | null> {
       },
     });
     if (response.status === 401) {
-      // Only force logout when token itself is actually expired.
-      // Some environments may have /users/me auth mismatch while login token is still valid.
-      if (isTokenExpired(token)) {
-        clearAuth();
-        if (window.location.pathname !== "/login") {
-          window.location.replace("/login");
-        }
-      }
+      handleAuthExpired();
       return null;
     }
     if (!response.ok) {
