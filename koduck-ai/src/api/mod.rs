@@ -101,6 +101,8 @@ const KNOWLEDGE_QUERY_SUFFIXES: &[&str] = &[
 pub struct ChatHistoryMessage {
     pub role: String,
     pub content: String,
+    #[serde(default)]
+    pub memory_entry_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -167,6 +169,8 @@ pub struct SessionTranscriptItem {
     pub role: String,
     pub content: String,
     pub timestamp: i64,
+    pub sequence_num: i64,
+    pub metadata: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -1182,6 +1186,8 @@ pub async fn get_session_transcript(
             role: entry.role,
             content: entry.content,
             timestamp: entry.timestamp,
+            sequence_num: entry.sequence_num,
+            metadata: entry.metadata,
         })
         .collect();
 
@@ -2102,23 +2108,85 @@ fn flow_safe_snippet(content: &str) -> String {
     snippet
 }
 
+fn find_quoted_dependency(
+    metadata: &HashMap<String, String>,
+    content: &str,
+    known_ids: &HashMap<String, String>,
+    previous_entries: &[(String, String, String, i64, i64, HashMap<String, String>)],
+) -> Option<String> {
+    if let Some(id) = metadata
+        .get("quoted_memory_entry_id")
+        .or_else(|| metadata.get("quoted_message_id"))
+        .and_then(|entry_id| known_ids.get(entry_id))
+        .cloned()
+    {
+        return Some(id);
+    }
+
+    let quoted_text = metadata
+        .get("quoted_content")
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| {
+            content
+                .lines()
+                .take_while(|line| line.trim_start().starts_with('>') || line.trim().is_empty())
+                .filter_map(|line| line.trim_start().strip_prefix('>'))
+                .map(str::trim)
+                .filter(|line| !line.is_empty())
+                .collect::<Vec<_>>()
+                .join(" ")
+        });
+    if quoted_text.is_empty() {
+        return None;
+    }
+
+    previous_entries
+        .iter()
+        .rev()
+        .find_map(|(entry_id, _, previous_content, _, _, _)| {
+            let normalized_previous = previous_content.split_whitespace().collect::<String>();
+            let normalized_quote = quoted_text.split_whitespace().collect::<String>();
+            if !normalized_quote.is_empty()
+                && (normalized_previous.contains(&normalized_quote)
+                    || normalized_quote.contains(&normalized_previous))
+            {
+                known_ids.get(entry_id).cloned()
+            } else {
+                None
+            }
+        })
+}
+
 fn build_memory_entry_flow_json(
-    entries: Vec<(String, String, String, i64, i64)>,
+    entries: Vec<(String, String, String, i64, i64, HashMap<String, String>)>,
 ) -> String {
     let mut previous_id: Option<String> = None;
+    let mut known_ids: HashMap<String, String> = HashMap::new();
+    let mut previous_entries: Vec<(String, String, String, i64, i64, HashMap<String, String>)> =
+        Vec::new();
     let steps = entries
         .into_iter()
-        .filter(|(_, role, content, _, _)| {
+        .filter(|(_, role, content, _, _, _)| {
             matches!(role.as_str(), "user" | "assistant") && !content.trim().is_empty()
         })
         .enumerate()
-        .map(|(index, (entry_id, role, content, timestamp, sequence_num))| {
+        .map(|(index, (entry_id, role, content, timestamp, sequence_num, metadata))| {
             let id = if entry_id.trim().is_empty() {
                 format!("entry_{}", index + 1)
             } else {
                 format!("entry_{}", entry_id.replace('-', "_"))
             };
-            let depends_on = previous_id.iter().cloned().collect::<Vec<_>>();
+            known_ids.insert(entry_id.clone(), id.clone());
+            let depends_on = find_quoted_dependency(
+                &metadata,
+                &content,
+                &known_ids,
+                &previous_entries,
+            )
+            .or_else(|| previous_id.clone())
+            .into_iter()
+            .collect::<Vec<_>>();
             let step = json!({
                 "id": id.clone(),
                 "name": format!("{} #{}", if role == "user" { "用户消息" } else { "助手回复" }, sequence_num),
@@ -2133,6 +2201,7 @@ fn build_memory_entry_flow_json(
                 "dependsOn": depends_on,
             });
             previous_id = Some(id);
+            previous_entries.push((entry_id, role, content, timestamp, sequence_num, metadata));
             step
         })
         .collect::<Vec<_>>();
@@ -2168,6 +2237,7 @@ async fn build_current_memory_entries_flow_answer(
                     entry.content,
                     entry.timestamp,
                     entry.sequence_num,
+                    entry.metadata,
                 )
             })
             .collect::<Vec<_>>();
@@ -2188,6 +2258,7 @@ async fn build_current_memory_entries_flow_answer(
                         item.content.clone(),
                         0,
                         (index + 1) as i64,
+                        HashMap::new(),
                     )
                 })
                 .collect::<Vec<_>>()
@@ -3178,6 +3249,23 @@ fn build_memory_entry_metadata(
         metadata.insert("domain_class".to_string(), domain_class);
     }
 
+    for key in [
+        "quoted_message_id",
+        "quoted_memory_entry_id",
+        "quoted_role",
+        "quoted_content",
+    ] {
+        if let Some(value) = request
+            .metadata
+            .as_ref()
+            .and_then(|metadata| metadata.get(key))
+            .and_then(json_value_as_string)
+            .filter(|value| !value.trim().is_empty())
+        {
+            metadata.insert(key.to_string(), value);
+        }
+    }
+
     metadata
 }
 
@@ -3857,10 +3945,12 @@ fn api_error_response(err: AppError, request_id: String) -> Response {
 #[cfg(test)]
 mod tests {
     use super::{
-        extract_entity_like_query, flow_canvas_output_requested, memory_entry_flow_requested,
-        resolve_knowledge_query, ChatHistoryMessage, ChatRequest, QueryKnowledgeToolArgs,
+        build_memory_entry_flow_json, extract_entity_like_query, flow_canvas_output_requested,
+        memory_entry_flow_requested, resolve_knowledge_query, ChatHistoryMessage, ChatRequest,
+        QueryKnowledgeToolArgs,
     };
-    use serde_json::json;
+    use serde_json::{json, Value};
+    use std::collections::HashMap;
 
     #[test]
     fn extract_entity_like_query_rejects_generic_follow_up() {
@@ -3889,10 +3979,12 @@ mod tests {
                 ChatHistoryMessage {
                     role: "user".to_string(),
                     content: "我们有没有关于威廉的可靠信息？".to_string(),
+                    memory_entry_id: None,
                 },
                 ChatHistoryMessage {
                     role: "assistant".to_string(),
                     content: "我可以继续从知识库开始介绍。".to_string(),
+                    memory_entry_id: None,
                 },
             ]),
             provider: None,
@@ -3942,6 +4034,7 @@ mod tests {
             history: Some(vec![ChatHistoryMessage {
                 role: "assistant".to_string(),
                 content: "```json\n{\"title\":\"一个 flow\",\"steps\":[]}\n```".to_string(),
+                memory_entry_id: None,
             }]),
             provider: None,
             model: None,
@@ -3986,5 +4079,48 @@ mod tests {
         };
 
         assert!(flow_canvas_output_requested(&request));
+    }
+
+    #[test]
+    fn quoted_memory_entry_creates_flow_branch_dependency() {
+        let flow = build_memory_entry_flow_json(vec![
+            (
+                "root".to_string(),
+                "user".to_string(),
+                "火箭队和马刺队的荣誉对比".to_string(),
+                1,
+                1,
+                HashMap::new(),
+            ),
+            (
+                "answer".to_string(),
+                "assistant".to_string(),
+                "火箭有总冠军，马刺也有总冠军。".to_string(),
+                2,
+                2,
+                HashMap::new(),
+            ),
+            (
+                "quote_follow_up".to_string(),
+                "user".to_string(),
+                "> 火箭队和马刺队的荣誉对比\n\n为什么马刺更多？".to_string(),
+                3,
+                3,
+                HashMap::from([(
+                    "quoted_memory_entry_id".to_string(),
+                    "root".to_string(),
+                )]),
+            ),
+        ]);
+        let payload = flow
+            .trim()
+            .trim_start_matches("```json")
+            .trim_end_matches("```")
+            .trim();
+        let parsed: Value = serde_json::from_str(payload).expect("flow json should parse");
+        let steps = parsed["steps"].as_array().expect("steps should be an array");
+
+        assert_eq!(steps[2]["id"], "entry_quote_follow_up");
+        assert_eq!(steps[2]["dependsOn"], json!(["entry_root"]));
     }
 }

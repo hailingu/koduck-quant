@@ -19,6 +19,14 @@ function mapTranscriptEntriesToMessages(entries: SessionTranscriptEntry[]): Mess
       content: entry.content,
       type: "text",
       timestamp: entry.timestamp,
+      quote:
+        entry.metadata?.quoted_memory_entry_id || entry.metadata?.quoted_content
+          ? {
+              memoryEntryId: entry.metadata.quoted_memory_entry_id,
+              role: entry.metadata.quoted_role === "user" ? "user" : "assistant",
+              content: entry.metadata.quoted_content ?? "",
+            }
+          : undefined,
     }));
 }
 

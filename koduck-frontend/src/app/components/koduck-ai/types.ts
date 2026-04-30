@@ -3,6 +3,12 @@ export type MessageType = "text" | "card";
 export interface Message {
   id: string;
   memoryEntryId?: string;
+  quote?: {
+    messageId?: string;
+    memoryEntryId?: string;
+    role: "user" | "assistant";
+    content: string;
+  };
   role: "user" | "assistant";
   content: string;
   type: MessageType;
@@ -26,6 +32,7 @@ export interface UploadedFile {
 export interface ChatHistoryMessage {
   role: "user" | "assistant";
   content: string;
+  memoryEntryId?: string;
 }
 
 export type LlmProvider = string;
@@ -111,6 +118,7 @@ export interface SessionTranscriptEntry {
   role?: "user" | "assistant";
   content?: string;
   timestamp?: number;
+  metadata?: Record<string, string>;
 }
 
 export interface SessionTranscriptData {

@@ -71,6 +71,7 @@ export function KoduckAi() {
   const activeChatAbortControllerRef = useRef<AbortController | null>(null);
   const skipNextSessionRestoreRef = useRef(false);
   const draftBeforePromptHistoryRef = useRef("");
+  const pendingQuoteRef = useRef<Message["quote"] | null>(null);
   const createSessionId = () => crypto.randomUUID();
   const activateSession = (
     sessionId: string | null,
@@ -316,6 +317,7 @@ export function KoduckAi() {
       .map((message) => ({
         role: message.role,
         content: message.content,
+        ...(message.memoryEntryId ? { memoryEntryId: message.memoryEntryId } : {}),
       }));
 
   const handleCreateSession = () => {
@@ -481,6 +483,12 @@ export function KoduckAi() {
 
     setPromptHistoryIndex(null);
     draftBeforePromptHistoryRef.current = "";
+    pendingQuoteRef.current = {
+      messageId: message.id,
+      memoryEntryId: message.memoryEntryId,
+      role: message.role,
+      content: normalizedContent,
+    };
     setChatMessage(nextMessage);
 
     window.requestAnimationFrame(() => {
@@ -575,6 +583,7 @@ export function KoduckAi() {
     if (!content || sending) {
       return;
     }
+    const quotedMessage = pendingQuoteRef.current;
 
     const sessionId = currentSessionIdRef.current ?? createSessionId();
     if (!currentSessionIdRef.current) {
@@ -587,6 +596,7 @@ export function KoduckAi() {
       content,
       type: "text",
       timestamp: Date.now(),
+      quote: quotedMessage ?? undefined,
     };
     const assistantMessageId = (Date.now() + 1).toString();
     const assistantPlaceholder: Message = {
@@ -600,6 +610,7 @@ export function KoduckAi() {
     setPromptHistory((prev) => pushPromptHistoryEntry(prev, content));
     setPromptHistoryIndex(null);
     draftBeforePromptHistoryRef.current = "";
+    pendingQuoteRef.current = null;
     setMessages((prev) => [...prev, userMessage, assistantPlaceholder]);
     setChatMessage("");
     setSending(true);
@@ -642,6 +653,18 @@ export function KoduckAi() {
           metadata: {
             enablePlanCanvas: true,
             planMode: "collaborative",
+            ...(quotedMessage?.messageId
+              ? { quoted_message_id: quotedMessage.messageId }
+              : {}),
+            ...(quotedMessage?.memoryEntryId
+              ? { quoted_memory_entry_id: quotedMessage.memoryEntryId }
+              : {}),
+            ...(quotedMessage
+              ? {
+                  quoted_role: quotedMessage.role,
+                  quoted_content: quotedMessage.content,
+                }
+              : {}),
           },
         }),
       });
@@ -1006,6 +1029,10 @@ export function KoduckAi() {
     if (promptHistoryIndex !== null) {
       setPromptHistoryIndex(null);
       draftBeforePromptHistoryRef.current = "";
+    }
+
+    if (!value.includes(">")) {
+      pendingQuoteRef.current = null;
     }
 
     setChatMessage(value);
