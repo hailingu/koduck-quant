@@ -224,8 +224,19 @@ export function buildOrthogonalRoute({
   const stub = typeof pathConfig?.offset === "number" ? Math.max(24, pathConfig.offset) : 56;
   const cornerRadius =
     typeof pathConfig?.borderRadius === "number" ? Math.max(0, pathConfig.borderRadius) : 14;
-  const sourceStub = { x: sourcePosition.x + direction * stub, y: sourcePosition.y };
-  const targetStub = { x: targetPosition.x - direction * stub, y: targetPosition.y };
+  const horizontalGap = Math.abs(targetPosition.x - sourcePosition.x);
+  const sharedBendX =
+    horizontalGap < stub * 2
+      ? (sourcePosition.x + targetPosition.x) / 2
+      : undefined;
+  const sourceStub = {
+    x: sharedBendX ?? sourcePosition.x + direction * stub,
+    y: sourcePosition.y,
+  };
+  const targetStub = {
+    x: sharedBendX ?? targetPosition.x - direction * stub,
+    y: targetPosition.y,
+  };
   const candidateLanes = buildLaneCandidates(
     obstacleRects,
     sourcePosition.y,

@@ -76,13 +76,7 @@ export function syncConversationFlowRuntime(
       continue;
     }
 
-    entity.data = {
-      ...node,
-      metadata: {
-        ...(node.metadata ?? {}),
-        runtimeSourceId: node.id,
-      },
-    };
+    mergeConversationFlowEntityData(entity, node, node.id);
     runtime.RenderManager.addEntityToRender(entity, { markDirty: true });
   }
 
@@ -95,13 +89,7 @@ export function syncConversationFlowRuntime(
       continue;
     }
 
-    entity.data = {
-      ...edge,
-      metadata: {
-        ...(edge.metadata ?? {}),
-        runtimeSourceId: edge.id,
-      },
-    };
+    mergeConversationFlowEntityData(entity, edge, edge.id);
     runtime.RenderManager.addEntityToRender(entity, { markDirty: true });
   }
 
@@ -161,13 +149,7 @@ export function createConversationFlowRuntimeEdge(
     return undefined;
   }
 
-  entity.data = {
-    ...edge,
-    metadata: {
-      ...(edge.metadata ?? {}),
-      runtimeSourceId: edge.id,
-    },
-  };
+  mergeConversationFlowEntityData(entity, edge, edge.id);
   runtime.RenderManager.addEntityToRender(entity, { markDirty: true });
   return getConversationFlowRuntimeSnapshot(runtime);
 }
@@ -225,4 +207,23 @@ function getConversationFlowRuntimeSnapshot(
     dirtyEntityCount: renderStats.dirtyEntityCount,
     pendingFullRedraw: renderStats.pendingFullRedraw,
   };
+}
+
+function mergeConversationFlowEntityData(
+  entity: FlowNodeEntity | FlowEdgeEntity,
+  data: IFlowNodeEntityData | IFlowEdgeEntityData,
+  sourceId: string,
+): void {
+  const currentData = entity.data;
+  if (!currentData) {
+    entity.data = data;
+    return;
+  }
+
+  Object.assign(currentData, data, {
+    metadata: {
+      ...(data.metadata ?? {}),
+      runtimeSourceId: sourceId,
+    },
+  });
 }
