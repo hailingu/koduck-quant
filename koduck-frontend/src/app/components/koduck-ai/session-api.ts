@@ -15,6 +15,9 @@ function mapTranscriptEntriesToMessages(entries: SessionTranscriptEntry[]): Mess
     .map((entry) => ({
       id: entry.entry_id,
       memoryEntryId: entry.entry_id,
+      sequenceNum: typeof entry.sequence_num === "number" ? entry.sequence_num : undefined,
+      requestId: entry.metadata?.request_id,
+      traceId: entry.metadata?.trace_id,
       role: entry.role,
       content: entry.content,
       type: "text",

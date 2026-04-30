@@ -31,6 +31,7 @@ import {
 import type {
   ApiErrorEnvelope,
   ChatHistoryMessage,
+  ConversationFlowStep,
   LlmOptionsConfig,
   LlmProvider,
   Message,
@@ -254,7 +255,12 @@ export function KoduckAi() {
           return;
         }
         skipNextSessionRestoreRef.current = true;
-        setMessages(transcriptMessages ?? readStoredMessages(initialSessionId));
+        if (transcriptMessages) {
+          setMessages(transcriptMessages);
+        } else {
+          clearStoredMessages(initialSessionId);
+          setMessages([]);
+        }
       }
 
       setSessionHydrated(true);
@@ -308,6 +314,159 @@ export function KoduckAi() {
       setMessages(transcriptMessages);
     }
     return transcriptMessages;
+  };
+
+  const deleteMemoryEntryById = async (sessionId: string, entryId: string) => {
+    const token = window.localStorage.getItem("koduck.auth.token");
+    console.info("[koduck-ai][memory-delete][api-request]", { sessionId, entryId });
+    const response = await fetch(
+      `/api/v1/ai/sessions/${encodeURIComponent(sessionId)}/entries/${encodeURIComponent(entryId)}`,
+      {
+        method: "DELETE",
+        headers: {
+          Accept: "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      },
+    );
+
+    console.info("[koduck-ai][memory-delete][api-response]", {
+      sessionId,
+      entryId,
+      status: response.status,
+      ok: response.ok,
+    });
+
+    if (response.status === 404) {
+      console.warn("[koduck-ai][memory-delete][api-not-found]", { sessionId, entryId });
+      return;
+    }
+
+    if (!response.ok) {
+      throw new Error(await extractApiErrorMessage(response));
+    }
+  };
+
+  const resolveLegacyFlowNodeEntryId = (
+    step: ConversationFlowStep | undefined,
+    transcriptMessages: Message[],
+  ): string | null => {
+    if (!step) {
+      return null;
+    }
+
+    const legacyNodeMatch = /^msg_(\d+)$/.exec(step.id);
+    if (!legacyNodeMatch) {
+      return null;
+    }
+
+    const legacySequenceNum = Number.parseInt(legacyNodeMatch[1], 10);
+    const transcriptIndex = legacySequenceNum - 1;
+    const resolvedMessage =
+      transcriptMessages.find((message) => message.sequenceNum === legacySequenceNum) ??
+      transcriptMessages[transcriptIndex];
+    const resolvedEntryId = resolvedMessage?.memoryEntryId ?? null;
+    console.info("[koduck-ai][memory-delete][resolve-legacy-flow-node]", {
+      nodeId: step.id,
+      stepName: step.name,
+      legacySequenceNum,
+      transcriptIndex,
+      transcriptCount: transcriptMessages.length,
+      resolvedEntryId,
+      resolvedMessage: resolvedMessage
+        ? {
+            id: resolvedMessage.id,
+            role: resolvedMessage.role,
+            sequenceNum: resolvedMessage.sequenceNum,
+            timestamp: resolvedMessage.timestamp,
+            requestId: resolvedMessage.requestId,
+            traceId: resolvedMessage.traceId,
+            contentPreview: resolvedMessage.content.slice(0, 160),
+          }
+        : null,
+    });
+
+    return resolvedEntryId;
+  };
+
+  const handleMemoryEntryDeleted = async (
+    entryId: string | null,
+    flowStep?: ConversationFlowStep,
+  ) => {
+    const sessionId = currentSessionIdRef.current;
+    if (!sessionId) {
+      if (entryId) {
+        setMessages((prev) => prev.filter((message) => message.memoryEntryId !== entryId));
+      }
+      return;
+    }
+
+    const latestMessages = (await fetchSessionTranscript(sessionId)) ?? messages;
+    const resolvedEntryId = entryId ?? resolveLegacyFlowNodeEntryId(flowStep, latestMessages);
+    if (!resolvedEntryId) {
+      console.info("[koduck-ai][memory-delete][local-flow-node-only]", {
+        sessionId,
+        entryId,
+        flowStepId: flowStep?.id,
+        stepName: flowStep?.name,
+        transcriptCount: latestMessages.length,
+      });
+      return;
+    }
+
+    const targetMessage = latestMessages.find((message) => message.memoryEntryId === resolvedEntryId);
+    console.info("[koduck-ai][memory-delete][resolve-group]", {
+      sessionId,
+      entryId: resolvedEntryId,
+      originalEntryId: entryId,
+      flowStepId: flowStep?.id,
+      transcriptCount: latestMessages.length,
+      target: targetMessage
+        ? {
+            id: targetMessage.id,
+            role: targetMessage.role,
+            timestamp: targetMessage.timestamp,
+            requestId: targetMessage.requestId,
+            traceId: targetMessage.traceId,
+            contentPreview: targetMessage.content.slice(0, 120),
+        }
+        : null,
+    });
+
+    const relatedEntryIds = new Set<string>([resolvedEntryId]);
+    if (targetMessage?.requestId || targetMessage?.traceId) {
+      latestMessages.forEach((message) => {
+        if (
+          message.memoryEntryId &&
+          ((targetMessage.requestId && message.requestId === targetMessage.requestId) ||
+            (targetMessage.traceId && message.traceId === targetMessage.traceId))
+        ) {
+          relatedEntryIds.add(message.memoryEntryId);
+        }
+      });
+    }
+    console.info("[koduck-ai][memory-delete][delete-group]", {
+      sessionId,
+      entryId: resolvedEntryId,
+      originalEntryId: entryId,
+      relatedEntryIds: [...relatedEntryIds],
+      relatedMessages: latestMessages
+        .filter((message) => relatedEntryIds.has(message.memoryEntryId ?? ""))
+        .map((message) => ({
+          entryId: message.memoryEntryId,
+          role: message.role,
+          requestId: message.requestId,
+          traceId: message.traceId,
+          contentPreview: message.content.slice(0, 120),
+        })),
+    });
+
+    clearStoredMessages(sessionId);
+    setMessages((prev) => prev.filter((message) => !relatedEntryIds.has(message.memoryEntryId ?? "")));
+    for (const relatedEntryId of relatedEntryIds) {
+      await deleteMemoryEntryById(sessionId, relatedEntryId);
+    }
+    void syncSessionMessagesFromMemory(sessionId);
   };
 
   const buildHistoryMessages = (): ChatHistoryMessage[] =>
@@ -1164,9 +1323,7 @@ export function KoduckAi() {
               onDelete={(message) => {
                 void deleteMessage(message);
               }}
-              onMemoryEntryDeleted={(entryId) => {
-                setMessages((prev) => prev.filter((message) => message.memoryEntryId !== entryId));
-              }}
+              onMemoryEntryDeleted={handleMemoryEntryDeleted}
             />
           )}
         </div>

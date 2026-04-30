@@ -1,5 +1,5 @@
 import { isValidElement, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
-import { Maximize2, Minimize2, X } from "lucide-react";
+import { Maximize2, Minimize2, Trash2, X } from "lucide-react";
 import {
   FlowEditorCanvas,
   layoutFlowGraph,
@@ -217,7 +217,14 @@ function normalizeFlowStringList(value: unknown): string[] {
 function extractMemoryEntryIdFromStep(step: ConversationFlowStep): string | null {
   const entryInput = step.input.find((item) => item.startsWith("entry_id="));
   const entryId = entryInput?.slice("entry_id=".length).trim();
-  return entryId || null;
+  if (entryId) {
+    return entryId;
+  }
+
+  const idMatch = /^entry_([0-9a-f]{8})_([0-9a-f]{4})_([0-9a-f]{4})_([0-9a-f]{4})_([0-9a-f]{12})$/i.exec(
+    step.id,
+  );
+  return idMatch ? idMatch.slice(1).join("-") : null;
 }
 
 export function parseConversationFlowSpec(raw: string): ConversationFlowSpec | null {
@@ -701,7 +708,7 @@ export function ConversationKoduckFlowCanvas({
   spec: ConversationFlowSpec;
   sessionId?: string | null;
   storageKey?: string;
-  onMemoryEntryDeleted?: (entryId: string) => void;
+  onMemoryEntryDeleted?: (entryId: string | null, step: ConversationFlowStep) => void | Promise<void>;
 }) {
   const specSignature = useMemo(() => getConversationFlowSpecSignature(spec), [spec]);
   const initialPersistedState = useMemo(
@@ -1101,12 +1108,34 @@ export function ConversationKoduckFlowCanvas({
     }
 
     const entryId = extractMemoryEntryIdFromStep(step);
+    console.info("[koduck-ai][memory-delete][flow-node]", {
+      nodeId,
+      entryId,
+      stepName: step.name,
+      input: step.input,
+      output: step.output,
+      hasParentDeleteHandler: Boolean(onMemoryEntryDeleted),
+      sessionId,
+    });
     setDeletingStepId(nodeId);
     try {
-      if (entryId) {
+      if (!entryId && !onMemoryEntryDeleted) {
+        console.info(
+          "[koduck-ai][memory-delete][flow-node-blocked] memory entry id is required for backend deletion",
+          { nodeId, stepName: step.name, input: step.input, output: step.output },
+        );
+        return;
+      }
+
+      if (onMemoryEntryDeleted) {
+        await onMemoryEntryDeleted(entryId, step);
+      } else {
+        console.info("[koduck-ai][memory-delete][flow-node-direct-delete]", {
+          nodeId,
+          entryId,
+          sessionId,
+        });
         await deleteMemoryEntryFromBackend(entryId);
-      } else if (sessionId) {
-        throw new Error("memory entry id is unavailable for this flow node");
       }
 
       pushUndoSnapshot();
@@ -1142,11 +1171,18 @@ export function ConversationKoduckFlowCanvas({
       });
       setSelectedStepId(null);
       setEditingStepId((prev) => (prev === nodeId ? null : prev));
-      if (entryId) {
-        onMemoryEntryDeleted?.(entryId);
-      }
+      console.info("[koduck-ai][memory-delete][flow-node-removed]", {
+        nodeId,
+        entryId,
+        sessionId,
+      });
     } catch (error) {
-      console.error("failed to delete conversation flow node:", error);
+      console.error("[koduck-ai][memory-delete][flow-node-failed]", {
+        nodeId,
+        entryId,
+        sessionId,
+        error,
+      });
     } finally {
       setDeletingStepId((prev) => (prev === nodeId ? null : prev));
     }
@@ -1236,15 +1272,38 @@ export function ConversationKoduckFlowCanvas({
 
   const renderFlowNode = (isEditor: boolean) => (props: NodeRenderProps) => {
     const runtimeRenderedNode = renderNodeThroughRuntime(props);
+    const step = flowSpec.steps.find((item) => item.id === props.node.id);
+    const canDeleteNode = step?.editable !== false;
     return (
       <div
-        className="h-full w-full text-left outline-none transition hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-[#0d8b6d]"
+        className="relative h-full w-full text-left outline-none transition hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-[#0d8b6d]"
         onDoubleClick={() => {
           if (isEditor) {
             setEditingStepId(props.node.id);
           }
         }}
       >
+        {props.selected && canDeleteNode ? (
+          <button
+            type="button"
+            data-flow-no-drag="true"
+            className="absolute -right-2 -top-2 z-30 flex h-7 w-7 items-center justify-center rounded-full border border-red-100 bg-white text-red-500 shadow-sm transition hover:bg-red-50 hover:text-red-600 disabled:cursor-wait disabled:opacity-60"
+            disabled={deletingStepId === props.node.id}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              void handleNodeDelete(props.node.id);
+            }}
+            onPointerDown={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+            title="删除节点"
+            aria-label="删除节点"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        ) : null}
         {runtimeRenderedNode ?? <ConversationFlowNode node={props.node} selected={props.selected} />}
       </div>
     );

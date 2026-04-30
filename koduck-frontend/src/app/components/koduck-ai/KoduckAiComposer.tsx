@@ -1,5 +1,5 @@
 import { type RefObject } from "react";
-import { ArrowUp, ChevronDown, FileText, Mic, Paperclip, Square, X } from "lucide-react";
+import { ArrowUp, ChevronDown, FileText, Mic, Paperclip, X } from "lucide-react";
 import type { LlmOptionsConfig, LlmProvider, UploadedFile } from "./types";
 
 interface KoduckAiComposerProps {
@@ -137,9 +137,9 @@ export function KoduckAiComposer({
               type="button"
               aria-label="终止本轮请求"
               title="终止"
-              className="koduck-stop-button flex h-6.5 w-6.5 items-center justify-center rounded-full text-white"
+              className="koduck-stop-button flex h-8 w-8 items-center justify-center rounded-full"
             >
-              <Square className="h-2.5 w-2.5 fill-current" />
+              <span className="koduck-stop-button__square" aria-hidden="true" />
             </button>
           ) : (
             <button

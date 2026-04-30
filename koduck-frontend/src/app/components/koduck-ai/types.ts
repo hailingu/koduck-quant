@@ -3,6 +3,9 @@ export type MessageType = "text" | "card";
 export interface Message {
   id: string;
   memoryEntryId?: string;
+  sequenceNum?: number;
+  requestId?: string;
+  traceId?: string;
   quote?: {
     messageId?: string;
     memoryEntryId?: string;
@@ -118,6 +121,7 @@ export interface SessionTranscriptEntry {
   role?: "user" | "assistant";
   content?: string;
   timestamp?: number;
+  sequence_num?: number;
   metadata?: Record<string, string>;
 }
 

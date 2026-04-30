@@ -1,7 +1,7 @@
 import { Check, Copy, MessageSquareQuote, Trash2 } from "lucide-react";
 import { MarkdownMessage } from "./MarkdownMessage";
 import { StreamingPlaceholder } from "./StreamingPlaceholder";
-import type { Message } from "./types";
+import type { ConversationFlowStep, Message } from "./types";
 
 interface MessageListProps {
   messages: Message[];
@@ -12,7 +12,7 @@ interface MessageListProps {
   onQuote: (message: Message) => void;
   onCopy: (trigger: HTMLButtonElement, messageId: string, fallbackContent: string) => void;
   onDelete: (message: Message) => void;
-  onMemoryEntryDeleted: (entryId: string) => void;
+  onMemoryEntryDeleted: (entryId: string | null, step: ConversationFlowStep) => void | Promise<void>;
 }
 
 function formatTimestamp(timestamp: number): string {
@@ -46,7 +46,7 @@ function MessageBody({
   message: Message;
   currentSessionId: string | null;
   allowImplicitFlow: boolean;
-  onMemoryEntryDeleted: (entryId: string) => void;
+  onMemoryEntryDeleted: (entryId: string | null, step: ConversationFlowStep) => void | Promise<void>;
 }) {
   if (message.type !== "text") {
     return (

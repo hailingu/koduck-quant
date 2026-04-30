@@ -5,37 +5,48 @@
 @keyframes koduck-stop-breathe {
   0% {
     border-radius: 0.25rem;
-    inset: 0.55rem;
-    opacity: 0.95;
+    inset: 0.625rem;
+    opacity: 1;
   }
 
-  58% {
+  50% {
     border-radius: 9999px;
-    inset: 0;
+    inset: 0.125rem;
     opacity: 1;
   }
 
   100% {
-    border-radius: 9999px;
-    inset: 0;
+    border-radius: 0.25rem;
+    inset: 0.625rem;
     opacity: 1;
   }
 }
 
 .koduck-stop-button {
+  border: 2px solid #dc2626;
   background: transparent;
   overflow: hidden;
   position: relative;
+  transition: background-color 140ms ease, box-shadow 140ms ease;
+}
+
+.koduck-stop-button:hover {
+  background: rgba(220, 38, 38, 0.04);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.08);
 }
 
 .koduck-stop-button::before {
-  animation: koduck-stop-breathe 1.5s ease-in-out infinite;
+  animation: koduck-stop-breathe 1.8s ease-in-out infinite;
   background: #dc2626;
   content: "";
   position: absolute;
 }
 
-.koduck-stop-button > svg {
+.koduck-stop-button__square {
+  border: 2px solid #dc2626;
+  border-radius: 0.2rem;
+  height: 0.7rem;
   position: relative;
+  width: 0.7rem;
   z-index: 1;
 }

@@ -27,6 +27,8 @@ export default defineConfig({
             return undefined;
           }
 
+          const normalizedId = id.replace(/\\/g, "/");
+
           if (
             id.includes("react-router") ||
             id.includes("/react/") ||
@@ -40,7 +42,23 @@ export default defineConfig({
             return "markdown";
           }
 
-          if (id.includes("recharts") || id.includes("d3-")) {
+          if (
+            normalizedId.includes("/mermaid/") ||
+            normalizedId.includes("/@mermaid-js/") ||
+            normalizedId.includes("/dagre-d3-es/") ||
+            normalizedId.includes("/cytoscape") ||
+            normalizedId.includes("/dompurify/") ||
+            normalizedId.includes("/katex/") ||
+            normalizedId.includes("/khroma/") ||
+            normalizedId.includes("/marked/") ||
+            normalizedId.includes("/roughjs/") ||
+            normalizedId.includes("/ts-dedent/") ||
+            normalizedId.includes("/@braintree/sanitize-url/")
+          ) {
+            return "mermaid";
+          }
+
+          if (id.includes("recharts")) {
             return "charts";
           }
 

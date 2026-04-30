@@ -1,5 +1,6 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { isMermaidDiagramSource, MermaidDiagram } from "./MermaidDiagram";
 import { buildConversationFlowStateStorageKey } from "./storage";
 import { normalizeMarkdownContent } from "./markdown-utils";
 import {
@@ -9,7 +10,7 @@ import {
   isConversationFlowCodeBlock,
   parseConversationFlowSpec,
 } from "./ConversationFlow";
-import type { ConversationFlowSpec } from "./types";
+import type { ConversationFlowSpec, ConversationFlowStep } from "./types";
 
 export function MarkdownMessage({
   content,
@@ -21,7 +22,7 @@ export function MarkdownMessage({
   content: string;
   messageId: string;
   sessionId: string | null;
-  onMemoryEntryDeleted?: (entryId: string) => void;
+  onMemoryEntryDeleted?: (entryId: string | null, step: ConversationFlowStep) => void | Promise<void>;
   allowImplicitFlow?: boolean;
 }) {
   const flowSpec = extractConversationFlowSpecFromContent(content, {
@@ -85,10 +86,20 @@ export function MarkdownMessage({
             </a>
           ),
           code: ({ className, children }) => {
-            const isBlock = Boolean(className);
+            const codeContent = String(children).replace(/\n$/, "");
+            const language = /\blanguage-([^\s]+)/i.exec(className ?? "")?.[1]?.toLowerCase();
+            const isBlock = Boolean(className) || codeContent.includes("\n");
             if (isBlock) {
+              if (
+                language === "mermaid" ||
+                language === "flowchart" ||
+                isMermaidDiagramSource(codeContent)
+              ) {
+                return <MermaidDiagram source={codeContent} />;
+              }
+
               const flowSpec = isConversationFlowCodeBlock(className) || allowImplicitFlow
-                ? parseConversationFlowSpec(String(children))
+                ? parseConversationFlowSpec(codeContent)
                 : null;
               if (flowSpec) {
                 return (
@@ -103,7 +114,7 @@ export function MarkdownMessage({
 
               return (
                 <code className="block overflow-x-auto rounded-xl bg-gray-100 px-4 py-3 font-mono text-sm leading-6 text-gray-900">
-                  {children}
+                  {codeContent}
                 </code>
               );
             }
