@@ -3,18 +3,39 @@
 @import './theme.css';
 
 @keyframes koduck-stop-breathe {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 rgb(220 38 38 / 0.16);
-    transform: scale(1);
+  0% {
+    border-radius: 0.25rem;
+    inset: 0.55rem;
+    opacity: 0.95;
   }
 
-  50% {
-    box-shadow: 0 0 0 3px rgb(220 38 38 / 0);
-    transform: scale(1.015);
+  58% {
+    border-radius: 9999px;
+    inset: 0;
+    opacity: 1;
+  }
+
+  100% {
+    border-radius: 9999px;
+    inset: 0;
+    opacity: 1;
   }
 }
 
 .koduck-stop-button {
+  background: transparent;
+  overflow: hidden;
+  position: relative;
+}
+
+.koduck-stop-button::before {
   animation: koduck-stop-breathe 1.5s ease-in-out infinite;
+  background: #dc2626;
+  content: "";
+  position: absolute;
+}
+
+.koduck-stop-button > svg {
+  position: relative;
+  z-index: 1;
 }

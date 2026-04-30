@@ -12,6 +12,7 @@ interface MessageListProps {
   onQuote: (message: Message) => void;
   onCopy: (trigger: HTMLButtonElement, messageId: string, fallbackContent: string) => void;
   onDelete: (message: Message) => void;
+  onMemoryEntryDeleted: (entryId: string) => void;
 }
 
 function formatTimestamp(timestamp: number): string {
@@ -29,12 +30,23 @@ function formatTimestamp(timestamp: number): string {
   return `${dateStr}.${ms}`;
 }
 
+function userRequestedFlowVisualization(content: string): boolean {
+  const normalized = content.toLowerCase();
+  return /(?:以|用|按).{0,12}flow.{0,12}(?:展示|显示|模式|视图|图)|flow.{0,12}(?:展示|显示|模式|视图|图)|(?:流程图|可视化流程|图形化流程)/i.test(
+    normalized,
+  );
+}
+
 function MessageBody({
   message,
   currentSessionId,
+  allowImplicitFlow,
+  onMemoryEntryDeleted,
 }: {
   message: Message;
   currentSessionId: string | null;
+  allowImplicitFlow: boolean;
+  onMemoryEntryDeleted: (entryId: string) => void;
 }) {
   if (message.type !== "text") {
     return (
@@ -83,6 +95,8 @@ function MessageBody({
       content={message.content}
       messageId={message.id}
       sessionId={currentSessionId}
+      onMemoryEntryDeleted={onMemoryEntryDeleted}
+      allowImplicitFlow={allowImplicitFlow}
     />
   );
 }
@@ -96,68 +110,85 @@ export function MessageList({
   onQuote,
   onCopy,
   onDelete,
+  onMemoryEntryDeleted,
 }: MessageListProps) {
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6 pb-8">
-      {messages.map((message) => (
-        <div key={message.id} data-copy-scope="message" className="group space-y-2">
-          <div className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div
-              className={`inline-flex max-w-[80%] flex-col ${
-                message.role === "user" ? "ml-auto items-start" : "items-start"
-              }`}
-            >
-              <div data-message-content="true">
-                <MessageBody message={message} currentSessionId={currentSessionId} />
-              </div>
-              <div data-copy-row="true" className="mt-2 flex items-center gap-2">
-                {Boolean(message.timestamp) && (
-                  <div className="text-xs text-gray-500">{formatTimestamp(message.timestamp)}</div>
-                )}
-                <div
-                  data-copy-actions="true"
-                  className="flex shrink-0 items-center gap-1.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
-                >
-                  <button
-                    aria-label="引用消息"
-                    className="p-1 text-gray-400 transition-colors hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40"
-                    disabled={!message.content.trim()}
-                    onClick={() => onQuote(message)}
-                    title="引用"
-                    type="button"
+      {messages.map((message, index) => {
+        const previousUserMessage = messages
+          .slice(0, index)
+          .reverse()
+          .find((item) => item.role === "user");
+        const allowImplicitFlow =
+          message.role === "assistant" &&
+          Boolean(previousUserMessage?.content) &&
+          userRequestedFlowVisualization(previousUserMessage?.content ?? "");
+
+        return (
+          <div key={message.id} data-copy-scope="message" className="group space-y-2">
+            <div className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div
+                className={`inline-flex max-w-[80%] flex-col ${
+                  message.role === "user" ? "ml-auto items-start" : "items-start"
+                }`}
+              >
+                <div data-message-content="true">
+                  <MessageBody
+                    message={message}
+                    currentSessionId={currentSessionId}
+                    allowImplicitFlow={allowImplicitFlow}
+                    onMemoryEntryDeleted={onMemoryEntryDeleted}
+                  />
+                </div>
+                <div data-copy-row="true" className="mt-2 flex items-center gap-2">
+                  {Boolean(message.timestamp) && (
+                    <div className="text-xs text-gray-500">{formatTimestamp(message.timestamp)}</div>
+                  )}
+                  <div
+                    data-copy-actions="true"
+                    className="flex shrink-0 items-center gap-1.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
                   >
-                    <MessageSquareQuote className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    aria-label="复制消息"
-                    className="p-1 text-gray-400 transition-colors hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40"
-                    disabled={!message.content.trim()}
-                    onClick={(event) => onCopy(event.currentTarget, message.id, message.content)}
-                    title="复制"
-                    type="button"
-                  >
-                    {copiedMessageId === message.id ? (
-                      <Check className="h-3.5 w-3.5 text-[#10a37f]" />
-                    ) : (
-                      <Copy className="h-3.5 w-3.5" />
-                    )}
-                  </button>
-                  <button
-                    aria-label="删除消息"
-                    className="p-1 text-gray-400 transition-colors hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
-                    disabled={message.streaming || deletingMessageId === message.id}
-                    onClick={() => onDelete(message)}
-                    title="删除"
-                    type="button"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                    <button
+                      aria-label="引用消息"
+                      className="p-1 text-gray-400 transition-colors hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40"
+                      disabled={!message.content.trim()}
+                      onClick={() => onQuote(message)}
+                      title="引用"
+                      type="button"
+                    >
+                      <MessageSquareQuote className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      aria-label="复制消息"
+                      className="p-1 text-gray-400 transition-colors hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40"
+                      disabled={!message.content.trim()}
+                      onClick={(event) => onCopy(event.currentTarget, message.id, message.content)}
+                      title="复制"
+                      type="button"
+                    >
+                      {copiedMessageId === message.id ? (
+                        <Check className="h-3.5 w-3.5 text-[#10a37f]" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                    <button
+                      aria-label="删除消息"
+                      className="p-1 text-gray-400 transition-colors hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                      disabled={message.streaming || deletingMessageId === message.id}
+                      onClick={() => onDelete(message)}
+                      title="删除"
+                      type="button"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
       <div ref={messagesEndRef} />
     </div>
   );

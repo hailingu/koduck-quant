@@ -171,6 +171,23 @@ export function deleteConversationFlowRuntimeEdge(
   return getConversationFlowRuntimeSnapshot(runtime);
 }
 
+export function deleteConversationFlowRuntimeNode(
+  runtime: KoduckFlowRuntime,
+  sourceNodeId: string,
+): ConversationFlowRuntimeSnapshot | undefined {
+  const entityId = getConversationFlowRuntimeEntityId(runtime, sourceNodeId);
+  if (!entityId) {
+    return undefined;
+  }
+
+  runtime.RenderManager.removeEntityFromRender(entityId, {
+    markDirty: true,
+    schedule: true,
+  });
+  runtime.removeEntity(entityId);
+  return getConversationFlowRuntimeSnapshot(runtime);
+}
+
 export function getConversationFlowRuntimeEntityId(
   runtime: KoduckFlowRuntime,
   sourceId: string,

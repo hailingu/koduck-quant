@@ -1164,6 +1164,9 @@ export function KoduckAi() {
               onDelete={(message) => {
                 void deleteMessage(message);
               }}
+              onMemoryEntryDeleted={(entryId) => {
+                setMessages((prev) => prev.filter((message) => message.memoryEntryId !== entryId));
+              }}
             />
           )}
         </div>

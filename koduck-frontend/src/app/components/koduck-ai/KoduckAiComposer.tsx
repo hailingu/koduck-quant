@@ -137,7 +137,7 @@ export function KoduckAiComposer({
               type="button"
               aria-label="终止本轮请求"
               title="终止"
-              className="koduck-stop-button flex h-6.5 w-6.5 items-center justify-center rounded-full bg-red-600 text-white transition-colors hover:bg-red-700"
+              className="koduck-stop-button flex h-6.5 w-6.5 items-center justify-center rounded-full text-white"
             >
               <Square className="h-2.5 w-2.5 fill-current" />
             </button>

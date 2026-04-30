@@ -13,6 +13,7 @@ import {
   createConversationFlowRuntimeEdge,
   createConversationFlowRuntime,
   deleteConversationFlowRuntimeEdge,
+  deleteConversationFlowRuntimeNode,
   getConversationFlowRuntimeEntityId,
   moveConversationFlowRuntimeNode,
   syncConversationFlowRuntime,
@@ -213,6 +214,12 @@ function normalizeFlowStringList(value: unknown): string[] {
   return singleValue ? [singleValue] : [];
 }
 
+function extractMemoryEntryIdFromStep(step: ConversationFlowStep): string | null {
+  const entryInput = step.input.find((item) => item.startsWith("entry_id="));
+  const entryId = entryInput?.slice("entry_id=".length).trim();
+  return entryId || null;
+}
+
 export function parseConversationFlowSpec(raw: string): ConversationFlowSpec | null {
   const trimmed = raw.trim();
   if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
@@ -280,19 +287,70 @@ export function parseConversationFlowSpec(raw: string): ConversationFlowSpec | n
   };
 }
 
-export function extractConversationFlowSpecFromContent(content: string): ConversationFlowSpec | null {
+function hasConversationFlowRenderHint(value: unknown): boolean {
+  const normalized = normalizeFlowString(value)?.toLowerCase();
+  return normalized === "koduck-flow" ||
+    normalized === "conversation-flow" ||
+    normalized === "flow";
+}
+
+function parseExplicitConversationFlowSpec(raw: string): ConversationFlowSpec | null {
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
+    return null;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    return null;
+  }
+
+  if (typeof parsed !== "object" || parsed === null) {
+    return null;
+  }
+
+  const record = parsed as Record<string, unknown>;
+  if (
+    !hasConversationFlowRenderHint(record.renderAs) &&
+    !hasConversationFlowRenderHint(record.visualization) &&
+    !hasConversationFlowRenderHint(record.type)
+  ) {
+    return null;
+  }
+
+  return parseConversationFlowSpec(raw);
+}
+
+export function isConversationFlowCodeBlock(className: string | undefined): boolean {
+  return /\blanguage-(koduck-flow|conversation-flow)\b/i.test(className ?? "");
+}
+
+export function extractConversationFlowSpecFromContent(
+  content: string,
+  options?: { allowImplicit?: boolean },
+): ConversationFlowSpec | null {
   const normalized = content.replace(/\r\n/g, "\n").trim();
-  const fencedCodeBlocks = normalized.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi);
+  const fencedCodeBlocks = normalized.matchAll(/```([^\n`]*)\n([\s\S]*?)```/g);
+  const allowImplicit = options?.allowImplicit === true;
 
   for (const match of fencedCodeBlocks) {
-    const block = match[1] ?? "";
+    const language = (match[1] ?? "").trim().toLowerCase();
+    const explicitFlowLanguage = language === "koduck-flow" || language === "conversation-flow";
+    const implicitJsonLanguage = allowImplicit && (language === "" || language === "json");
+    if (!explicitFlowLanguage && !implicitJsonLanguage) {
+      continue;
+    }
+
+    const block = match[2] ?? "";
     const flowSpec = parseConversationFlowSpec(block);
     if (flowSpec) {
       return flowSpec;
     }
   }
 
-  return parseConversationFlowSpec(normalized);
+  return allowImplicit ? parseConversationFlowSpec(normalized) : parseExplicitConversationFlowSpec(normalized);
 }
 
 export function getConversationFlowSpecSignature(spec: ConversationFlowSpec): string {
@@ -584,24 +642,32 @@ function buildConversationFlowGraph(spec: ConversationFlowSpec) {
   });
 
   const edges: IFlowEdgeEntityData[] = [];
+  const stepIds = new Set(spec.steps.map((step) => step.id));
   spec.steps.forEach((step, index) => {
-    if (index === 0) {
+    const dependencyIds = step.dependsOn.filter((dependencyId) => stepIds.has(dependencyId));
+    const sourceIds = dependencyIds.length > 0
+      ? dependencyIds
+      : index > 0
+        ? [spec.steps[index - 1].id]
+        : [];
+    if (sourceIds.length === 0) {
       return;
     }
 
-    const sourceId = spec.steps[index - 1].id;
     const relationKind = inferConversationFlowRelationKind(step);
-    edges.push({
-      id: `${sourceId}->${step.id}`,
-      edgeType: "conversation-flow",
-      label: conversationFlowRelationLabel(relationKind),
-      sourceNodeId: sourceId,
-      sourcePortId: "out",
-      targetNodeId: step.id,
-      targetPortId: "in",
-      animationState: step.status === "running" ? "flowing" : "idle",
-      metadata: { relationKind },
-    } as unknown as IFlowEdgeEntityData);
+    sourceIds.forEach((sourceId) => {
+      edges.push({
+        id: `${sourceId}->${step.id}`,
+        edgeType: "conversation-flow",
+        label: conversationFlowRelationLabel(relationKind),
+        sourceNodeId: sourceId,
+        sourcePortId: "out",
+        targetNodeId: step.id,
+        targetPortId: "in",
+        animationState: step.status === "running" ? "flowing" : "idle",
+        metadata: { relationKind },
+      } as unknown as IFlowEdgeEntityData);
+    });
   });
 
   const layout = layoutFlowGraph(nodes, edges, {
@@ -628,10 +694,14 @@ function buildConversationFlowGraph(spec: ConversationFlowSpec) {
 
 export function ConversationKoduckFlowCanvas({
   spec,
+  sessionId,
   storageKey,
+  onMemoryEntryDeleted,
 }: {
   spec: ConversationFlowSpec;
+  sessionId?: string | null;
   storageKey?: string;
+  onMemoryEntryDeleted?: (entryId: string) => void;
 }) {
   const specSignature = useMemo(() => getConversationFlowSpecSignature(spec), [spec]);
   const initialPersistedState = useMemo(
@@ -664,6 +734,7 @@ export function ConversationKoduckFlowCanvas({
     () => new Set(initialPersistedState?.deletedEdgeIds ?? []),
   );
   const [fullscreen, setFullscreen] = useState(false);
+  const [deletingStepId, setDeletingStepId] = useState<string | null>(null);
   const flowRuntimeRef = useRef<ReturnType<typeof createConversationFlowRuntime> | null>(null);
   const flowRuntimeRendererRef = useRef<ConversationFlowRuntimeRenderer | null>(null);
   const [runtimeSnapshot, setRuntimeSnapshot] = useState<ConversationFlowRuntimeSnapshot>({
@@ -834,6 +905,34 @@ export function ConversationKoduckFlowCanvas({
   });
 
   useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        isEditableEventTarget(event.target) ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey ||
+        (event.key !== "Delete" && event.key !== "Backspace")
+      ) {
+        return;
+      }
+
+      if (selectedStepId) {
+        event.preventDefault();
+        void handleNodeDelete(selectedStepId);
+        return;
+      }
+
+      if (selectedEdgeId) {
+        event.preventDefault();
+        handleEdgeDelete(selectedEdgeId);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  });
+
+  useEffect(() => {
     const currentNodeIds = new Set(flowSpec.steps.map((step) => step.id));
     setManualNodePositions((prev) => {
       const next = Object.fromEntries(
@@ -967,6 +1066,90 @@ export function ConversationKoduckFlowCanvas({
     }
     setDeletedEdgeIds((prev) => new Set(prev).add(edgeId));
     setSelectedEdgeId(null);
+  };
+
+  const deleteMemoryEntryFromBackend = async (entryId: string) => {
+    if (!sessionId) {
+      throw new Error("session id is required to delete a memory entry");
+    }
+
+    const token = window.localStorage.getItem("koduck.auth.token");
+    const response = await fetch(
+      `/api/v1/ai/sessions/${encodeURIComponent(sessionId)}/entries/${encodeURIComponent(entryId)}`,
+      {
+        method: "DELETE",
+        headers: {
+          Accept: "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+  };
+
+  const handleNodeDelete = async (nodeId: string) => {
+    if (deletingStepId) {
+      return;
+    }
+
+    const step = flowSpec.steps.find((item) => item.id === nodeId);
+    if (!step) {
+      return;
+    }
+
+    const entryId = extractMemoryEntryIdFromStep(step);
+    setDeletingStepId(nodeId);
+    try {
+      if (entryId) {
+        await deleteMemoryEntryFromBackend(entryId);
+      } else if (sessionId) {
+        throw new Error("memory entry id is unavailable for this flow node");
+      }
+
+      pushUndoSnapshot();
+      const runtimeDeleteSnapshot = flowRuntimeRef.current
+        ? deleteConversationFlowRuntimeNode(flowRuntimeRef.current, nodeId)
+        : undefined;
+      if (runtimeDeleteSnapshot) {
+        setRuntimeSnapshot(runtimeDeleteSnapshot);
+      }
+      setFlowSpec((prev) => ({
+        ...prev,
+        steps: prev.steps
+          .filter((item) => item.id !== nodeId)
+          .map((item) => ({
+            ...item,
+            dependsOn: item.dependsOn.filter((dependencyId) => dependencyId !== nodeId),
+          })),
+      }));
+      setManualNodePositions((prev) => {
+        const next = { ...prev };
+        delete next[nodeId];
+        return next;
+      });
+      setCreatedEdges((prev) =>
+        prev.filter((edge) => edge.sourceNodeId !== nodeId && edge.targetNodeId !== nodeId),
+      );
+      setDeletedEdgeIds((prev) => {
+        const next = new Set(prev);
+        edges
+          .filter((edge) => edge.sourceNodeId === nodeId || edge.targetNodeId === nodeId)
+          .forEach((edge) => next.delete(edge.id));
+        return next;
+      });
+      setSelectedStepId(null);
+      setEditingStepId((prev) => (prev === nodeId ? null : prev));
+      if (entryId) {
+        onMemoryEntryDeleted?.(entryId);
+      }
+    } catch (error) {
+      console.error("failed to delete conversation flow node:", error);
+    } finally {
+      setDeletingStepId((prev) => (prev === nodeId ? null : prev));
+    }
   };
 
   const handleEdgeCreate = (
@@ -1114,6 +1297,7 @@ export function ConversationKoduckFlowCanvas({
       height="100vh"
       initialFit="contain"
       fitPadding={80}
+      minZoom={0.2}
       fallbackNodeSize={{
         width: CONVERSATION_FLOW_NODE_WIDTH,
         height: CONVERSATION_FLOW_MIN_NODE_HEIGHT,
@@ -1155,7 +1339,7 @@ export function ConversationKoduckFlowCanvas({
         height={320}
         initialFit="contain"
         fitPadding={48}
-        minZoom={0.25}
+        minZoom={0.2}
         maxZoom={1.5}
         fallbackNodeSize={{
           width: CONVERSATION_FLOW_NODE_WIDTH,

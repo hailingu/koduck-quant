@@ -6,6 +6,7 @@ import {
   ConversationKoduckFlowCanvas,
   extractConversationFlowSpecFromContent,
   getConversationFlowSpecSignature,
+  isConversationFlowCodeBlock,
   parseConversationFlowSpec,
 } from "./ConversationFlow";
 import type { ConversationFlowSpec } from "./types";
@@ -14,12 +15,18 @@ export function MarkdownMessage({
   content,
   messageId,
   sessionId,
+  onMemoryEntryDeleted,
+  allowImplicitFlow = false,
 }: {
   content: string;
   messageId: string;
   sessionId: string | null;
+  onMemoryEntryDeleted?: (entryId: string) => void;
+  allowImplicitFlow?: boolean;
 }) {
-  const flowSpec = extractConversationFlowSpecFromContent(content);
+  const flowSpec = extractConversationFlowSpecFromContent(content, {
+    allowImplicit: allowImplicitFlow,
+  });
   const buildFlowStorageKey = (spec: ConversationFlowSpec) =>
     buildConversationFlowStateStorageKey(
       sessionId,
@@ -28,7 +35,14 @@ export function MarkdownMessage({
     );
 
   if (flowSpec) {
-    return <ConversationKoduckFlowCanvas spec={flowSpec} storageKey={buildFlowStorageKey(flowSpec)} />;
+    return (
+      <ConversationKoduckFlowCanvas
+        spec={flowSpec}
+        sessionId={sessionId}
+        storageKey={buildFlowStorageKey(flowSpec)}
+        onMemoryEntryDeleted={onMemoryEntryDeleted}
+      />
+    );
   }
 
   return (
@@ -73,12 +87,16 @@ export function MarkdownMessage({
           code: ({ className, children }) => {
             const isBlock = Boolean(className);
             if (isBlock) {
-              const flowSpec = parseConversationFlowSpec(String(children));
+              const flowSpec = isConversationFlowCodeBlock(className) || allowImplicitFlow
+                ? parseConversationFlowSpec(String(children))
+                : null;
               if (flowSpec) {
                 return (
                   <ConversationKoduckFlowCanvas
                     spec={flowSpec}
+                    sessionId={sessionId}
                     storageKey={buildFlowStorageKey(flowSpec)}
+                    onMemoryEntryDeleted={onMemoryEntryDeleted}
                   />
                 );
               }
