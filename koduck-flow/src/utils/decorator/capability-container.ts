@@ -72,6 +72,15 @@ import type {
 } from "./types";
 import { getConfig } from "../../common/config/loader";
 import { logger } from "../../common/logger";
+import {
+  CAPABILITY_CACHE_ACCESS_TIME_RETAINED,
+  CAPABILITY_CACHE_ACCESS_TIME_WINDOW,
+  CAPABILITY_CACHE_DEFAULT_MAX_SIZE,
+  CAPABILITY_CACHE_DEFAULT_TTL_MS,
+  CAPABILITY_EXECUTION_DEFAULT_MAX_RETRIES,
+  CAPABILITY_EXECUTION_DEFAULT_TIMEOUT_MS,
+  createDefaultCapabilitySystemConfig,
+} from "./capability-system-defaults";
 
 /**
  * Default Capability Provider Implementation
@@ -522,8 +531,8 @@ export class DefaultCapabilityCache implements ICapabilityCache {
     this.accessTimes.push(performance.now() - startTime);
 
     // Keep access times array at reasonable size (sliding window)
-    if (this.accessTimes.length > 1000) {
-      this.accessTimes = this.accessTimes.slice(-500);
+    if (this.accessTimes.length > CAPABILITY_CACHE_ACCESS_TIME_WINDOW) {
+      this.accessTimes = this.accessTimes.slice(-CAPABILITY_CACHE_ACCESS_TIME_RETAINED);
     }
 
     return entry.capability;
@@ -1488,20 +1497,23 @@ export class CapabilityManager<T extends ICapability = ICapability>
    */
   constructor(config?: ICapabilitySystemConfig) {
     const defaultConfig = getConfig();
-    this.config = {
+    this.config = createDefaultCapabilitySystemConfig({
       cache: {
         enabled: true,
-        defaultTtlMs: defaultConfig.plugin.capabilityCache?.defaultTtlMs ?? 300000,
-        maxSize: defaultConfig.plugin.capabilityCache?.maxSize ?? 1000,
+        defaultTtlMs:
+          defaultConfig.plugin.capabilityCache?.defaultTtlMs ?? CAPABILITY_CACHE_DEFAULT_TTL_MS,
+        maxSize: defaultConfig.plugin.capabilityCache?.maxSize ?? CAPABILITY_CACHE_DEFAULT_MAX_SIZE,
       },
       execution: {
-        defaultTimeoutMs: defaultConfig.plugin.execution?.defaultTimeoutMs ?? 5000,
-        defaultMaxRetries: 3,
+        defaultTimeoutMs:
+          defaultConfig.plugin.execution?.defaultTimeoutMs ??
+          CAPABILITY_EXECUTION_DEFAULT_TIMEOUT_MS,
+        defaultMaxRetries: CAPABILITY_EXECUTION_DEFAULT_MAX_RETRIES,
         enablePerformanceTracking: true,
       },
       debug: { enabled: false, logLevel: "error" },
       ...config,
-    };
+    });
 
     this.cache = new DefaultCapabilityCache();
     this.provider = new DefaultCapabilityProvider<T>();
@@ -1614,7 +1626,8 @@ export class CapabilityManager<T extends ICapability = ICapability>
     ...args: unknown[]
   ): Promise<TResult | undefined> {
     const { timeout, retries, condition } = {
-      timeout: this.config.execution?.defaultTimeoutMs || 5000,
+      timeout:
+        this.config.execution?.defaultTimeoutMs || CAPABILITY_EXECUTION_DEFAULT_TIMEOUT_MS,
       retries: this.config.execution?.defaultMaxRetries || 3,
       ...options,
     };

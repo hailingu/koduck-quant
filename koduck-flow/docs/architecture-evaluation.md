@@ -77,11 +77,11 @@
 
 | # | 问题 | 位置 | 建议 |
 |---|------|------|------|
-| 1 | decorator/capability 子系统文件过大，认知成本高 | `src/utils/decorator/capability-container.ts` | 按 cache、executor、registry/manager、health/reporting 拆分，保留公共 API 稳定。 |
-| 2 | 部分 `any` 仍依赖 eslint disable | `runtime-container-manager.ts`、`worker-wrapper.ts`、`flow/operations/*` | 优先处理公共 API 和核心运行时路径，测试 mock 中的 `any` 可低优先级。 |
-| 3 | 大图 predecessor 查询仍是线性扫描 | `src/common/flow/operations/traversal-operations.ts` | 为图协调层或 traversal 层维护反向邻接索引，补大图基准测试。 |
-| 4 | 事件广播中的失败隔离需要明确语义 | `src/common/event/base-event.ts` | 对监听器 fan-out 场景评估 `allSettled` 或逐个捕获；对需要 fail-fast 的 batch 保持现状并补注释。 |
-| 5 | 文档缺少体系化架构入口 | `koduck-flow/docs/` | 建议补 `design-overview.md` 或 ADR 索引，说明 runtime、render、event、DI、worker、plugin 的关系。 |
+| 1 | decorator/capability 子系统文件过大，认知成本高 | `src/utils/decorator/capability-container.ts`、`capability-system-defaults.ts` | 已抽出默认配置常量并补充分层文档；后续可按 provider/cache/executor/manager 继续做兼容性拆分。 |
+| 2 | 部分 `any` 仍依赖 eslint disable | `runtime-container-manager.ts`、`worker-wrapper.ts`、`flow/operations/*` | 已清理核心运行时、Worker 包装层和 flow operations 的显式 `any`，并补正相关泛型边界。 |
+| 3 | 大图 predecessor 查询仍是线性扫描 | `src/common/flow/operations/traversal-operations.ts` | 已改为通过 `FlowGraphCoordinator.getParentNodeIds()` 使用图父索引查询。 |
+| 4 | 事件广播中的失败隔离需要明确语义 | `src/common/event/base-event.ts` | 并发分发已改为 `Promise.allSettled`，监听器失败被记录但不会中断其他监听器。 |
+| 5 | 文档缺少体系化架构入口 | `koduck-flow/docs/design-overview.md` | 已补 runtime、DI、event、render、worker、plugin、decorator/capability 的关系说明。 |
 
 ### 4.2 中低优先级改进
 

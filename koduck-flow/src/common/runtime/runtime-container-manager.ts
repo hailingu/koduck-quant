@@ -38,6 +38,10 @@ import type { RenderEventManager } from "../event/render-event-manager";
 import type { EntityEventManager } from "../event/entity-event-manager";
 import type { IEntity } from "../entity";
 
+type MutableCoreManagers = {
+  [K in keyof CoreManagers]: CoreManagers[K] | undefined;
+};
+
 /**
  * Core manager collection interface
  *
@@ -86,7 +90,7 @@ export class RuntimeContainerManager implements IDisposable {
   readonly container: IDependencyContainer;
 
   /** Core manager cache */
-  private readonly coreManagers: CoreManagers;
+  private readonly coreManagers: MutableCoreManagers;
 
   /** Flag indicating whether disposed */
   private disposed = false;
@@ -173,7 +177,14 @@ export class RuntimeContainerManager implements IDisposable {
    */
   getCoreManagers(): CoreManagers {
     this.ensureNotDisposed();
-    return this.coreManagers;
+    return {
+      entity: this.getRequiredCoreManager("entity"),
+      render: this.getRequiredCoreManager("render"),
+      registry: this.getRequiredCoreManager("registry"),
+      eventBus: this.getRequiredCoreManager("eventBus"),
+      renderEvents: this.getRequiredCoreManager("renderEvents"),
+      entityEvents: this.getRequiredCoreManager("entityEvents"),
+    };
   }
 
   /**
@@ -188,7 +199,7 @@ export class RuntimeContainerManager implements IDisposable {
    */
   getEntityManager(): EntityManager {
     this.ensureNotDisposed();
-    return this.coreManagers.entity;
+    return this.getRequiredCoreManager("entity");
   }
 
   /**
@@ -203,7 +214,7 @@ export class RuntimeContainerManager implements IDisposable {
    */
   getRenderManager(): RenderManager {
     this.ensureNotDisposed();
-    return this.coreManagers.render;
+    return this.getRequiredCoreManager("render");
   }
 
   /**
@@ -218,7 +229,7 @@ export class RuntimeContainerManager implements IDisposable {
    */
   getRegistryManager(): RegistryManager {
     this.ensureNotDisposed();
-    return this.coreManagers.registry;
+    return this.getRequiredCoreManager("registry");
   }
 
   /**
@@ -233,7 +244,7 @@ export class RuntimeContainerManager implements IDisposable {
    */
   getEventBus(): EventBus {
     this.ensureNotDisposed();
-    return this.coreManagers.eventBus;
+    return this.getRequiredCoreManager("eventBus");
   }
 
   /**
@@ -248,7 +259,7 @@ export class RuntimeContainerManager implements IDisposable {
    */
   getRenderEvents(): RenderEventManager {
     this.ensureNotDisposed();
-    return this.coreManagers.renderEvents;
+    return this.getRequiredCoreManager("renderEvents");
   }
 
   /**
@@ -263,7 +274,7 @@ export class RuntimeContainerManager implements IDisposable {
    */
   getEntityEvents(): EntityEventManager<IEntity> {
     this.ensureNotDisposed();
-    return this.coreManagers.entityEvents;
+    return this.getRequiredCoreManager("entityEvents");
   }
 
   /**
@@ -301,22 +312,23 @@ export class RuntimeContainerManager implements IDisposable {
       return;
     }
 
-    // Clean up cache references (help GC)
-    // Note: Do not dispose container, as it is managed by KoduckFlowRuntime
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (this.coreManagers as any).entity = null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (this.coreManagers as any).render = null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (this.coreManagers as any).registry = null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (this.coreManagers as any).eventBus = null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (this.coreManagers as any).renderEvents = null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (this.coreManagers as any).entityEvents = null;
+    // Clean up cache references (help GC). The container itself is owned by KoduckFlowRuntime.
+    this.coreManagers.entity = undefined;
+    this.coreManagers.render = undefined;
+    this.coreManagers.registry = undefined;
+    this.coreManagers.eventBus = undefined;
+    this.coreManagers.renderEvents = undefined;
+    this.coreManagers.entityEvents = undefined;
 
     this.disposed = true;
+  }
+
+  private getRequiredCoreManager<K extends keyof CoreManagers>(key: K): CoreManagers[K] {
+    const manager = this.coreManagers[key];
+    if (!manager) {
+      throw new Error(`Core manager '${String(key)}' is not available`);
+    }
+    return manager;
   }
 
   /**
@@ -349,8 +361,7 @@ export class RuntimeContainerManager implements IDisposable {
  * @remarks
  * This function was migrated from koduck-flow-runtime.ts for backward compatibility.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function registerRuntimeInstance(container: IDependencyContainer, runtime: any): void {
+export function registerRuntimeInstance(container: IDependencyContainer, runtime: unknown): void {
   container.registerInstance(TOKENS.runtime, runtime, {
     lifecycle: "singleton",
     replace: true,

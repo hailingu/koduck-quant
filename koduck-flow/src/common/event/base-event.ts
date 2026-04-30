@@ -360,7 +360,7 @@ export abstract class BaseEvent<T> {
     mode: ConcurrencyMode
   ): Promise<AsyncDispatchOutcome> {
     const outcome = this._createAsyncOutcome();
-    await Promise.all(
+    await Promise.allSettled(
       listeners.map(async (fn, index) => {
         try {
           await Promise.resolve(fn(eventData));
@@ -427,7 +427,7 @@ export abstract class BaseEvent<T> {
       );
     }
 
-    await Promise.all(workers);
+    await Promise.allSettled(workers);
     return outcome;
   }
 

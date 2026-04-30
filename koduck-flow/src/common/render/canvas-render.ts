@@ -73,7 +73,6 @@ import type {
 import { RegistryCapabilityUtils, RegistryManager } from "../registry";
 import { logger } from "../logger";
 import { BaseRenderer } from "./base-renderer";
-import { getConfig } from "../config/loader";
 import { RenderCacheManager } from "./cache-manager";
 
 /**
@@ -102,6 +101,11 @@ const canvasLogger = logger.withContext({
   metadata: { component: "CanvasRender" },
 });
 import type { ICapabilityAwareRegistry, IMeta } from "../registry/types";
+
+const DEFAULT_CANVAS_RENDER_CACHE_CONFIG = {
+  maxSize: 1000,
+  maxAge: 5 * 60 * 1000,
+} as const;
 
 /**
  * Canvas render operation interface
@@ -281,11 +285,10 @@ class CanvasRender extends BaseRenderer implements ICanvasRenderer {
   constructor(registryManager?: RegistryManager, config?: Partial<CanvasPerformanceOptimization>) {
     super("CanvasRender", "canvas", registryManager);
 
-    const defaultConfig = getConfig();
     // Use unified cache manager for rendered entity results
     this.cache = new RenderCacheManager<string, ImageData>("canvas", {
-      maxSize: defaultConfig.render.maxCacheSize,
-      maxAge: defaultConfig.render.cacheTTL,
+      maxSize: DEFAULT_CANVAS_RENDER_CACHE_CONFIG.maxSize,
+      maxAge: DEFAULT_CANVAS_RENDER_CACHE_CONFIG.maxAge,
       enableMetrics: true,
     });
 

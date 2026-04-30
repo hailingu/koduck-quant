@@ -82,6 +82,23 @@
 
 import type { WorkerPoolConfig } from "./types";
 
+type WorkerEventHandler = (event: { data: WorkerMessage }) => void;
+type WorkerErrorHandler = (event: { message: string }) => void;
+type WorkerLike = {
+  postMessage(message: MainThreadMessage, transfers?: Transferable[]): void;
+  terminate(): void | Promise<void>;
+  onmessage?: WorkerEventHandler | null;
+  onerror?: WorkerErrorHandler | null;
+};
+
+type NodeWorkerLike = WorkerLike & {
+  on(event: "message", handler: (message: WorkerMessage) => void): void;
+  on(event: "error", handler: (error: Error) => void): void;
+  on(event: "exit", handler: (code: number) => void): void;
+};
+
+type NodeWorkerConstructorLike = new (scriptUrl: string | URL) => NodeWorkerLike;
+
 /**
  * Worker message types that can be sent from worker to main thread
  */
@@ -152,8 +169,7 @@ export class WorkerWrapper {
   private readonly config: WorkerPoolConfig;
 
   /** Native worker instance (Worker or Worker Thread) */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private worker!: any;
+  private worker: WorkerLike | undefined;
 
   /** Message handlers */
   private readonly messageHandlers = new Set<MessageHandler>();
@@ -220,15 +236,16 @@ export class WorkerWrapper {
         ? new URL("./workers/default-worker.ts", import.meta.url).href
         : "./worker.js";
 
-      this.worker = new Worker(scriptUrl, { type: "module" });
+      const worker = new Worker(scriptUrl, { type: "module" });
+      this.worker = worker as unknown as WorkerLike;
 
       // Setup message handler
-      this.worker.onmessage = (event: MessageEvent<WorkerMessage>) => {
+      worker.onmessage = (event: MessageEvent<WorkerMessage>) => {
         this.handleMessage(event.data);
       };
 
       // Setup error handler
-      this.worker.onerror = (event: ErrorEvent) => {
+      worker.onerror = (event: ErrorEvent) => {
         const error = new Error(event.message);
         this.handleError(error);
       };
@@ -245,26 +262,27 @@ export class WorkerWrapper {
    */
   private initializeWorkerThread(): void {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { Worker } = require("node:worker_threads") as { Worker: typeof globalThis.Worker };
+    const { Worker } = require("node:worker_threads") as { Worker: NodeWorkerConstructorLike };
 
     const scriptUrl = this.config.handlers
       ? "./dist/common/worker-pool/workers/default-worker.js"
       : "./worker.js";
 
-    this.worker = new Worker(scriptUrl);
+    const worker = new Worker(scriptUrl);
+    this.worker = worker;
 
     // Setup message handler
-    this.worker.on("message", (message: WorkerMessage) => {
+    worker.on("message", (message: WorkerMessage) => {
       this.handleMessage(message);
     });
 
     // Setup error handler
-    this.worker.on("error", (error: Error) => {
+    worker.on("error", (error: Error) => {
       this.handleError(error);
     });
 
     // Setup exit handler
-    this.worker.on("exit", (code: number) => {
+    worker.on("exit", (code: number) => {
       if (code !== 0) {
         const error = new Error(`Worker thread exited with code ${code}`);
         this.handleError(error);
@@ -328,6 +346,10 @@ export class WorkerWrapper {
     this.lastActivityAt = Date.now();
 
     try {
+      if (!this.worker) {
+        throw new Error(`Worker ${this.workerId} is not initialized`);
+      }
+
       if (transfers && transfers.length > 0) {
         this.worker.postMessage(message, transfers);
       } else {
@@ -350,6 +372,9 @@ export class WorkerWrapper {
     while (this.messageQueue.length > 0 && this.ready) {
       const message = this.messageQueue.shift()!;
       try {
+        if (!this.worker) {
+          throw new Error(`Worker ${this.workerId} is not initialized`);
+        }
         this.worker.postMessage(message);
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));

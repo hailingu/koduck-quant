@@ -123,8 +123,9 @@ describe("RuntimeContainerManager", () => {
       const coreManagers1 = containerManager.getCoreManagers();
       const coreManagers2 = containerManager.getCoreManagers();
 
-      expect(coreManagers1).toBe(coreManagers2);
       expect(coreManagers1.entity).toBe(coreManagers2.entity);
+      expect(coreManagers1.render).toBe(coreManagers2.render);
+      expect(coreManagers1.registry).toBe(coreManagers2.registry);
     });
 
     it("getCoreManagers() should throw an error when container is disposed", () => {
@@ -256,15 +257,14 @@ describe("RuntimeContainerManager", () => {
 
     it("should clean up core manager cache", () => {
       const coreManagers = containerManager.getCoreManagers();
+      expect(coreManagers.entity).toBeDefined();
       containerManager.dispose();
 
-      // Cache should be cleared (set to null)
-      expect(coreManagers.entity).toBeNull();
-      expect(coreManagers.render).toBeNull();
-      expect(coreManagers.registry).toBeNull();
-      expect(coreManagers.eventBus).toBeNull();
-      expect(coreManagers.renderEvents).toBeNull();
-      expect(coreManagers.entityEvents).toBeNull();
+      // Returned snapshots stay stable, while the manager rejects access after disposal.
+      expect(coreManagers.entity).toBeDefined();
+      expect(() => containerManager.getCoreManagers()).toThrow(
+        "RuntimeContainerManager has been disposed"
+      );
     });
 
     it("should not throw when dispose() is called multiple times", () => {

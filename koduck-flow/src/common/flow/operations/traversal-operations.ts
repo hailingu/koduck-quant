@@ -63,17 +63,7 @@ export class TraversalOperations<
    * @returns Array of predecessor node IDs
    */
   getPredecessors(nodeId: string): string[] {
-    const allNodes = this.registry.listNodeEntities();
-    const predecessors: string[] = [];
-
-    for (const entity of allNodes) {
-      const children = this.graphCoordinator.getChildNodeIds(entity.id);
-      if (children.includes(nodeId)) {
-        predecessors.push(entity.id);
-      }
-    }
-
-    return predecessors;
+    return this.graphCoordinator.getParentNodeIds(nodeId);
   }
 
   /**

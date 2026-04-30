@@ -18,6 +18,7 @@ import type { FlowGraphCoordinator } from "../graph-coordinator";
 import type { HookAdapter } from "../orchestration/hook-adapter";
 import type { MetricsAdapter } from "../orchestration/metrics-adapter";
 import type {
+  FlowLinkMetadata,
   FlowNodeLinkOptions,
   IEdge,
   IFlowNodeEntity,
@@ -40,8 +41,8 @@ import type {
 export class NodeOperations<
   N extends INode<INodeBase> = INode<INodeBase>,
   E extends IEdge = IEdge,
-  NE extends IFlowNodeEntity = IFlowNodeEntity,
-  EE extends IFlowEdgeEntity = IFlowEdgeEntity,
+  NE extends IFlowNodeEntity<N> = IFlowNodeEntity<N>,
+  EE extends IFlowEdgeEntity<E> = IFlowEdgeEntity<E>,
 > {
   /**
    * Creates a new NodeOperations instance
@@ -52,9 +53,8 @@ export class NodeOperations<
    * @param metrics - Metrics adapter for performance tracking
    */
   constructor(
-    // @ts-expect-error - Type compatibility issue with generics
     private readonly registry: EntityRegistry<N, E, NE, EE>,
-    private readonly graphCoordinator: FlowGraphCoordinator<N, E>,
+    private readonly graphCoordinator: FlowGraphCoordinator<N, E, NE, EE>,
     private readonly hooks: HookAdapter<NE>,
     private readonly metrics: MetricsAdapter
   ) {}
@@ -89,8 +89,7 @@ export class NodeOperations<
     if (!entity) return;
 
     this.registry.addNodeEntity(entity);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    this.graphCoordinator.registerNode(entity as any);
+    this.graphCoordinator.registerNode(entity);
 
     const parentIds = options?.parentIds ?? [];
     if (!parentIds.length) {
@@ -102,8 +101,7 @@ export class NodeOperations<
       const parentEntity = this.registry.getNodeEntity(parentId);
       if (!parentEntity) continue;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      this.graphCoordinator.registerNode(parentEntity as any);
+      this.graphCoordinator.registerNode(parentEntity);
       const metadata =
         typeof options?.linkMetadata === "function"
           ? options.linkMetadata(parentId, entity.id)
@@ -191,17 +189,19 @@ export class NodeOperations<
       return false;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    this.graphCoordinator.registerNode(sourceEntity as any);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    this.graphCoordinator.registerNode(targetEntity as any);
+    this.graphCoordinator.registerNode(sourceEntity);
+    this.graphCoordinator.registerNode(targetEntity);
 
-    const linkMetadata = metadata?.linkMetadata ?? metadata;
+    const linkMetadata: FlowLinkMetadata | undefined =
+      metadata && "linkMetadata" in metadata
+        ? typeof metadata.linkMetadata === "function"
+          ? metadata.linkMetadata(sourceId, targetId)
+          : metadata.linkMetadata
+        : undefined;
     const { success, error } = this.graphCoordinator.linkNodes(
       sourceId,
       targetId,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      linkMetadata as any
+      linkMetadata
     );
     if (success) {
       this.metrics.recordGraphLinkSuccess("direct");

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { isValidElement, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { Maximize2, Minimize2, X } from "lucide-react";
 import {
   FlowEditorCanvas,
@@ -8,6 +8,23 @@ import {
   type IFlowNodeEntityData,
   type NodeRenderProps,
 } from "@koduck-flow";
+import {
+  clearConversationFlowRuntime,
+  createConversationFlowRuntimeEdge,
+  createConversationFlowRuntime,
+  deleteConversationFlowRuntimeEdge,
+  getConversationFlowRuntimeEntityId,
+  moveConversationFlowRuntimeNode,
+  syncConversationFlowRuntime,
+  type ConversationFlowRuntimeSnapshot,
+} from "./conversation-flow-runtime";
+import type { IEntity } from "@koduck-flow/common/entity/types";
+import type {
+  IRender,
+  IRenderConfig,
+  IRenderContext,
+  RenderPerformanceStats,
+} from "@koduck-flow/common/render/types";
 import type { ConversationFlowSpec, ConversationFlowStep, PlanNodeStatus } from "./types";
 
 type ConversationFlowNodePosition = { x: number; y: number };
@@ -34,6 +51,121 @@ interface ConversationFlowHistorySnapshot {
   manualNodePositions: Record<string, ConversationFlowNodePosition>;
   createdEdges: IFlowEdgeEntityData[];
   deletedEdgeIds: string[];
+}
+
+class ConversationFlowRuntimeRenderer implements IRender {
+  private readonly nodePropsBySourceId = new Map<string, NodeRenderProps>();
+  private readonly edgePropsBySourceId = new Map<string, EdgeRenderProps>();
+  private renderCount = 0;
+  private totalRenderTime = 0;
+
+  getName(): string {
+    return "koduck-ai-conversation-flow-react";
+  }
+
+  getType(): "react" {
+    return "react";
+  }
+
+  canRender(entity: IEntity): boolean {
+    return isConversationFlowRuntimeEntity(entity);
+  }
+
+  render(entity: IEntity): ReactElement | null {
+    const startTime = performance.now();
+    try {
+      const data = entity.data as
+        | (Partial<IFlowNodeEntityData & IFlowEdgeEntityData> & {
+            metadata?: Record<string, unknown>;
+          })
+        | undefined;
+      const sourceId = normalizeFlowString(data?.id) ?? normalizeFlowString(data?.metadata?.runtimeSourceId);
+      if (!data || !sourceId) {
+        return null;
+      }
+
+      if (typeof data.nodeType === "string") {
+        const props = this.nodePropsBySourceId.get(sourceId);
+        return (
+          <ConversationFlowNode
+            node={(props?.node ?? data) as IFlowNodeEntityData}
+            selected={props?.selected ?? Boolean(data.selected)}
+          />
+        );
+      }
+
+      if (typeof data.sourceNodeId === "string") {
+        const props = this.edgePropsBySourceId.get(sourceId);
+        return props ? <ConversationFlowEdge {...props} /> : null;
+      }
+
+      return null;
+    } finally {
+      this.renderCount += 1;
+      this.totalRenderTime += performance.now() - startTime;
+    }
+  }
+
+  setNodeRenderProps(sourceId: string, props: NodeRenderProps): void {
+    this.nodePropsBySourceId.set(sourceId, props);
+  }
+
+  setEdgeRenderProps(sourceId: string, props: EdgeRenderProps): void {
+    this.edgePropsBySourceId.set(sourceId, props);
+  }
+
+  batchRender(entities: IEntity[]): ReactElement[] {
+    return entities
+      .map((entity) => this.render(entity))
+      .filter((element): element is ReactElement => Boolean(element));
+  }
+
+  canHandle(context: IRenderContext): boolean {
+    return Boolean(context.nodes?.length || (context as { edges?: unknown[] }).edges?.length);
+  }
+
+  getPriority(): number {
+    return 200;
+  }
+
+  renderContext(): void {
+    return;
+  }
+
+  configure(_config: IRenderConfig): void {
+    return;
+  }
+
+  setRegistryManager(): void {
+    return;
+  }
+
+  getPerformanceStats(): RenderPerformanceStats {
+    return {
+      renderCount: this.renderCount,
+      totalRenderTime: this.totalRenderTime,
+      averageRenderTime: this.renderCount > 0 ? this.totalRenderTime / this.renderCount : 0,
+      type: "react",
+      name: this.getName(),
+    };
+  }
+
+  dispose(): void {
+    this.nodePropsBySourceId.clear();
+    this.edgePropsBySourceId.clear();
+  }
+}
+
+function isConversationFlowRuntimeEntity(entity: IEntity): boolean {
+  const data = entity.data as
+    | (Record<string, unknown> & {
+        metadata?: Record<string, unknown>;
+      })
+    | undefined;
+  return (
+    Boolean(data?.metadata?.runtimeSourceId) &&
+    (typeof data?.nodeType === "string" || typeof data?.sourceNodeId === "string")
+  );
 }
 
 function isEditableEventTarget(target: EventTarget | null): boolean {
@@ -326,6 +458,36 @@ function conversationFlowRelationLabel(kind: ConversationFlowRelationKind): stri
   return "输出作为输入";
 }
 
+function buildRuntimeConversationFlowEdge({
+  id,
+  sourceNodeId,
+  sourcePortId,
+  targetNodeId,
+  targetPortId,
+  label,
+  userCreated,
+}: {
+  id: string;
+  sourceNodeId: string;
+  sourcePortId: string;
+  targetNodeId: string;
+  targetPortId: string;
+  label: string;
+  userCreated: boolean;
+}): IFlowEdgeEntityData {
+  return {
+    id,
+    edgeType: "conversation-flow",
+    label,
+    sourceNodeId,
+    sourcePortId,
+    targetNodeId,
+    targetPortId,
+    animationState: "idle",
+    metadata: { relationKind: "dependency", userCreated },
+  } as unknown as IFlowEdgeEntityData;
+}
+
 const CONVERSATION_FLOW_NODE_WIDTH = 320;
 const CONVERSATION_FLOW_MIN_NODE_HEIGHT = 170;
 const CONVERSATION_FLOW_TEXT_UNITS_PER_LINE = 25;
@@ -502,6 +664,14 @@ export function ConversationKoduckFlowCanvas({
     () => new Set(initialPersistedState?.deletedEdgeIds ?? []),
   );
   const [fullscreen, setFullscreen] = useState(false);
+  const flowRuntimeRef = useRef<ReturnType<typeof createConversationFlowRuntime> | null>(null);
+  const flowRuntimeRendererRef = useRef<ConversationFlowRuntimeRenderer | null>(null);
+  const [runtimeSnapshot, setRuntimeSnapshot] = useState<ConversationFlowRuntimeSnapshot>({
+    entityCount: 0,
+    renderQueueSize: 0,
+    dirtyEntityCount: 0,
+    pendingFullRedraw: false,
+  });
   const fullscreenHistoryActiveRef = useRef(false);
   const undoStackRef = useRef<ConversationFlowHistorySnapshot[]>([]);
   const redoStackRef = useRef<ConversationFlowHistorySnapshot[]>([]);
@@ -616,9 +786,29 @@ export function ConversationKoduckFlowCanvas({
     () => () => {
       activeNodeDragUndoRef.current?.cleanup();
       activeNodeDragUndoRef.current = null;
+      if (flowRuntimeRef.current) {
+        clearConversationFlowRuntime(flowRuntimeRef.current);
+        flowRuntimeRef.current.dispose();
+        flowRuntimeRef.current = null;
+      }
+      flowRuntimeRendererRef.current = null;
     },
     [],
   );
+
+  useEffect(() => {
+    if (!flowRuntimeRef.current) {
+      const runtime = createConversationFlowRuntime();
+      const renderer = new ConversationFlowRuntimeRenderer();
+      runtime.RenderManager.unregisterRenderer("react");
+      runtime.RenderManager.registerRenderer("react", renderer);
+      runtime.RenderManager.defaultRenderer = "react";
+      flowRuntimeRef.current = runtime;
+      flowRuntimeRendererRef.current = renderer;
+    }
+
+    setRuntimeSnapshot(syncConversationFlowRuntime(flowRuntimeRef.current, nodes, edges));
+  }, [edges, nodes]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -755,6 +945,12 @@ export function ConversationKoduckFlowCanvas({
       window.addEventListener("pointercancel", cleanup);
     }
 
+    const runtimeMoveSnapshot = flowRuntimeRef.current
+      ? moveConversationFlowRuntimeNode(flowRuntimeRef.current, nodeId, position)
+      : undefined;
+    if (runtimeMoveSnapshot) {
+      setRuntimeSnapshot(runtimeMoveSnapshot);
+    }
     setManualNodePositions((prev) => ({
       ...prev,
       [nodeId]: position,
@@ -763,6 +959,12 @@ export function ConversationKoduckFlowCanvas({
 
   const handleEdgeDelete = (edgeId: string) => {
     pushUndoSnapshot();
+    const runtimeDeleteSnapshot = flowRuntimeRef.current
+      ? deleteConversationFlowRuntimeEdge(flowRuntimeRef.current, edgeId)
+      : undefined;
+    if (runtimeDeleteSnapshot) {
+      setRuntimeSnapshot(runtimeDeleteSnapshot);
+    }
     setDeletedEdgeIds((prev) => new Set(prev).add(edgeId));
     setSelectedEdgeId(null);
   };
@@ -784,6 +986,23 @@ export function ConversationKoduckFlowCanvas({
       flowSpec.steps[sourceStepIndex + 1]?.id === targetNodeId;
 
     if (isBaseGraphEdge) {
+      const restoredBaseEdge = buildRuntimeConversationFlowEdge({
+        id: baseEdgeId,
+        sourceNodeId,
+        sourcePortId,
+        targetNodeId,
+        targetPortId,
+        label: conversationFlowRelationLabel(
+          inferConversationFlowRelationKind(flowSpec.steps[sourceStepIndex + 1]),
+        ),
+        userCreated: false,
+      });
+      const runtimeRestoreSnapshot = flowRuntimeRef.current
+        ? createConversationFlowRuntimeEdge(flowRuntimeRef.current, restoredBaseEdge)
+        : undefined;
+      if (runtimeRestoreSnapshot) {
+        setRuntimeSnapshot(runtimeRestoreSnapshot);
+      }
       setDeletedEdgeIds((prev) => {
         if (!prev.has(baseEdgeId)) {
           return prev;
@@ -796,6 +1015,21 @@ export function ConversationKoduckFlowCanvas({
       return;
     }
 
+    const runtimeCreatedEdge = buildRuntimeConversationFlowEdge({
+      id: edgeId,
+      sourceNodeId,
+      sourcePortId,
+      targetNodeId,
+      targetPortId,
+      label: "自定义连接",
+      userCreated: true,
+    });
+    const runtimeCreateSnapshot = flowRuntimeRef.current
+      ? createConversationFlowRuntimeEdge(flowRuntimeRef.current, runtimeCreatedEdge)
+      : undefined;
+    if (runtimeCreateSnapshot) {
+      setRuntimeSnapshot(runtimeCreateSnapshot);
+    }
     setCreatedEdges((prev) => {
       if (prev.some((edge) => edge.id === edgeId)) {
         return prev;
@@ -803,17 +1037,7 @@ export function ConversationKoduckFlowCanvas({
 
       return [
         ...prev,
-        {
-          id: edgeId,
-          edgeType: "conversation-flow",
-          label: "自定义连接",
-          sourceNodeId,
-          sourcePortId,
-          targetNodeId,
-          targetPortId,
-          animationState: "idle",
-          metadata: { relationKind: "dependency", userCreated: true },
-        } as unknown as IFlowEdgeEntityData,
+        runtimeCreatedEdge,
       ];
     });
     setDeletedEdgeIds((prev) => {
@@ -827,18 +1051,58 @@ export function ConversationKoduckFlowCanvas({
     setSelectedEdgeId(edgeId);
   };
 
-  const renderFlowNode = (isEditor: boolean) => ({ node, selected }: NodeRenderProps) => (
-    <div
-      className="h-full w-full text-left outline-none transition hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-[#0d8b6d]"
-      onDoubleClick={() => {
-        if (isEditor) {
-          setEditingStepId(node.id);
-        }
-      }}
-    >
-      <ConversationFlowNode node={node} selected={selected} />
-    </div>
-  );
+  const renderFlowNode = (isEditor: boolean) => (props: NodeRenderProps) => {
+    const runtimeRenderedNode = renderNodeThroughRuntime(props);
+    return (
+      <div
+        className="h-full w-full text-left outline-none transition hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-[#0d8b6d]"
+        onDoubleClick={() => {
+          if (isEditor) {
+            setEditingStepId(props.node.id);
+          }
+        }}
+      >
+        {runtimeRenderedNode ?? <ConversationFlowNode node={props.node} selected={props.selected} />}
+      </div>
+    );
+  };
+
+  const renderNodeThroughRuntime = (props: NodeRenderProps): ReactElement | null => {
+    const runtime = flowRuntimeRef.current;
+    const renderer = flowRuntimeRendererRef.current;
+    if (!runtime || !renderer) {
+      return null;
+    }
+
+    renderer.setNodeRenderProps(props.node.id, props);
+    const entityId = getConversationFlowRuntimeEntityId(runtime, props.node.id);
+    if (!entityId) {
+      return null;
+    }
+
+    const element = runtime.RenderManager.render(entityId);
+    return isValidElement(element) ? element : null;
+  };
+
+  const renderEdgeThroughRuntime = (props: EdgeRenderProps): ReactElement | null => {
+    const runtime = flowRuntimeRef.current;
+    const renderer = flowRuntimeRendererRef.current;
+    if (!runtime || !renderer) {
+      return null;
+    }
+
+    renderer.setEdgeRenderProps(props.edge.id, props);
+    const entityId = getConversationFlowRuntimeEntityId(runtime, props.edge.id);
+    if (!entityId) {
+      return null;
+    }
+
+    const element = runtime.RenderManager.render(entityId);
+    return isValidElement(element) ? element : null;
+  };
+
+  const renderFlowEdge = (props: EdgeRenderProps) =>
+    renderEdgeThroughRuntime(props) ?? <ConversationFlowEdge {...props} />;
 
   const renderEditorCanvas = () => (
     <FlowEditorCanvas
@@ -867,7 +1131,7 @@ export function ConversationKoduckFlowCanvas({
       onEdgeCreate={handleEdgeCreate}
       onEdgeDelete={handleEdgeDelete}
       renderNode={renderFlowNode(true)}
-      renderEdge={(props) => <ConversationFlowEdge {...props} />}
+      renderEdge={renderFlowEdge}
     />
   );
 
@@ -875,6 +1139,11 @@ export function ConversationKoduckFlowCanvas({
     <section
       className="relative mb-4 w-full max-w-3xl overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
       data-layout-mode={layoutMode}
+      data-koduck-flow-runtime="active"
+      data-koduck-flow-runtime-entities={runtimeSnapshot.entityCount}
+      data-koduck-flow-render-queue={runtimeSnapshot.renderQueueSize}
+      data-koduck-flow-dirty-entities={runtimeSnapshot.dirtyEntityCount}
+      data-koduck-flow-pending-redraw={runtimeSnapshot.pendingFullRedraw ? "true" : "false"}
       style={{ width: 760, maxWidth: "100%" }}
     >
       <FlowEditorCanvas
@@ -903,7 +1172,7 @@ export function ConversationKoduckFlowCanvas({
         onEdgeCreate={handleEdgeCreate}
         onEdgeDelete={handleEdgeDelete}
         renderNode={renderFlowNode(false)}
-        renderEdge={(props) => <ConversationFlowEdge {...props} />}
+        renderEdge={renderFlowEdge}
         overlay={
           <button
             type="button"

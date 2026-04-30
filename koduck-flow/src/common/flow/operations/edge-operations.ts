@@ -33,8 +33,8 @@ import type { IEdge, IFlowEdgeEntity, IFlowNodeEntity, INode, INodeBase } from "
 export class EdgeOperations<
   N extends INode<INodeBase> = INode<INodeBase>,
   E extends IEdge = IEdge,
-  NE extends IFlowNodeEntity = IFlowNodeEntity,
-  EE extends IFlowEdgeEntity = IFlowEdgeEntity,
+  NE extends IFlowNodeEntity<N> = IFlowNodeEntity<N>,
+  EE extends IFlowEdgeEntity<E> = IFlowEdgeEntity<E>,
 > {
   /**
    * Creates a new EdgeOperations instance
@@ -45,9 +45,8 @@ export class EdgeOperations<
    * @param metrics - Metrics adapter for performance tracking
    */
   constructor(
-    // @ts-expect-error - Type compatibility issue with generics
     private readonly registry: EntityRegistry<N, E, NE, EE>,
-    private readonly graphCoordinator: FlowGraphCoordinator<N, E>,
+    private readonly graphCoordinator: FlowGraphCoordinator<N, E, NE, EE>,
 
     private readonly hooks: HookAdapter<NE>,
     private readonly metrics: MetricsAdapter
@@ -113,8 +112,7 @@ export class EdgeOperations<
     if (!entity) return false;
 
     this.registry.addEdgeEntity(entity);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    this.graphCoordinator.registerEdge(entity as any);
+    this.graphCoordinator.registerEdge(entity);
     this.metrics.recordGraphLinkSuccess("addEdge");
     return true;
   }
@@ -137,8 +135,7 @@ export class EdgeOperations<
 
     const start = performance.now();
     const { removed } = this.registry.removeEdgeEntity(id, (edge: EE) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      this.graphCoordinator.detachEdge(edge as any);
+      this.graphCoordinator.detachEdge(edge);
     });
     const dur = performance.now() - start;
 

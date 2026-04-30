@@ -235,6 +235,21 @@ describe("Flow graph APIs", () => {
     expect(parents).toEqual([altParent.id, parent.id].sort());
   });
 
+  it("reads predecessors from the graph parent index", () => {
+    const altParent = new FlowEntity(new BaseNode(), "alt-parent");
+    const multiChild = new FlowEntity(new BaseNode(), "multi-child");
+    manager.add(altParent);
+    manager.add(multiChild);
+
+    flow.addNode(parent);
+    flow.addNode(altParent);
+    flow.addNode(multiChild, { parentIds: [parent.id, altParent.id] });
+
+    expect(flow.getPredecessors(multiChild.id).sort()).toEqual(
+      [altParent.id, parent.id].sort()
+    );
+  });
+
   it("keeps AST and edge registry in sync when edges are added and removed", () => {
     const target = new FlowEntity(new BaseNode(), "target");
     manager.add(target);

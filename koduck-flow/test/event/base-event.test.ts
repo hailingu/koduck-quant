@@ -185,6 +185,24 @@ describe("BaseEvent", () => {
       expect(errorListener).toHaveBeenCalled();
       expect(normalListener).toHaveBeenCalled();
     });
+
+    it("should isolate async listener failures in parallel mode", async () => {
+      const parallelEvent = new TestEvent("ParallelEvent", {
+        concurrencyMode: "parallel",
+        enableDebugMode: true,
+      });
+      const errorListener = vi.fn(async () => {
+        throw new Error("Async listener error");
+      });
+      const normalListener = vi.fn();
+
+      parallelEvent.addEventListener(errorListener);
+      parallelEvent.addEventListener(normalListener);
+
+      await expect(parallelEvent.fireAsync("test")).resolves.toBeUndefined();
+      expect(errorListener).toHaveBeenCalledWith("test");
+      expect(normalListener).toHaveBeenCalledWith("test");
+    });
   });
 
   describe("Event configuration", () => {

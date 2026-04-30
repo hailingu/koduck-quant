@@ -626,6 +626,23 @@ export class FlowGraphCoordinator<
   }
 
   /**
+   * Get parent node IDs for a given child node.
+   *
+   * @param nodeId - The ID of the child node
+   * @returns Array of parent node IDs, empty array if node has no parents or graph doesn't exist
+   *
+   * @remarks
+   * This delegates to the graph's parent index instead of scanning every node. Traversal and
+   * connected-component queries call this path frequently in large graphs.
+   */
+  getParentNodeIds(nodeId: string): string[] {
+    if (!this.graph) {
+      return [];
+    }
+    return this.graph.getParents(nodeId);
+  }
+
+  /**
    * Traverse the graph starting from an entity using visitor pattern
    *
    * Performs depth-first traversal from the specified entity, calling visitor function
