@@ -1,5 +1,16 @@
-import { isValidElement, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
+import {
+  isValidElement,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactElement,
+} from "react";
 import { Maximize2, Minimize2, Trash2, X } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   FlowEditorCanvas,
   layoutFlowGraph,
@@ -27,8 +38,10 @@ import type {
   RenderPerformanceStats,
 } from "@koduck-flow/common/render/types";
 import type { ConversationFlowSpec, ConversationFlowStep, PlanNodeStatus } from "./types";
+import { normalizeMarkdownContent } from "./markdown-utils";
 
 type ConversationFlowNodePosition = { x: number; y: number };
+type ConversationFlowNodeSize = { width: number; height: number };
 type ConversationFlowLayoutMode = "auto" | "manual";
 
 interface PersistedConversationFlowState {
@@ -56,6 +69,10 @@ interface ConversationFlowHistorySnapshot {
 
 class ConversationFlowRuntimeRenderer implements IRender {
   private readonly nodePropsBySourceId = new Map<string, NodeRenderProps>();
+  private readonly nodeSizeCallbacksBySourceId = new Map<
+    string,
+    (nodeId: string, size: ConversationFlowNodeSize) => void
+  >();
   private readonly edgePropsBySourceId = new Map<string, EdgeRenderProps>();
   private renderCount = 0;
   private totalRenderTime = 0;
@@ -91,6 +108,7 @@ class ConversationFlowRuntimeRenderer implements IRender {
           <ConversationFlowNode
             node={(props?.node ?? data) as IFlowNodeEntityData}
             selected={props?.selected ?? Boolean(data.selected)}
+            onMeasuredSize={this.nodeSizeCallbacksBySourceId.get(sourceId)}
           />
         );
       }
@@ -109,6 +127,13 @@ class ConversationFlowRuntimeRenderer implements IRender {
 
   setNodeRenderProps(sourceId: string, props: NodeRenderProps): void {
     this.nodePropsBySourceId.set(sourceId, props);
+  }
+
+  setNodeSizeCallback(
+    sourceId: string,
+    callback: (nodeId: string, size: ConversationFlowNodeSize) => void,
+  ): void {
+    this.nodeSizeCallbacksBySourceId.set(sourceId, callback);
   }
 
   setEdgeRenderProps(sourceId: string, props: EdgeRenderProps): void {
@@ -153,6 +178,7 @@ class ConversationFlowRuntimeRenderer implements IRender {
 
   dispose(): void {
     this.nodePropsBySourceId.clear();
+    this.nodeSizeCallbacksBySourceId.clear();
     this.edgePropsBySourceId.clear();
   }
 }
@@ -553,9 +579,10 @@ function buildRuntimeConversationFlowEdge({
   } as unknown as IFlowEdgeEntityData;
 }
 
-const CONVERSATION_FLOW_NODE_WIDTH = 320;
+const CONVERSATION_FLOW_MIN_NODE_WIDTH = 280;
+const CONVERSATION_FLOW_MAX_NODE_WIDTH = 920;
 const CONVERSATION_FLOW_MIN_NODE_HEIGHT = 170;
-const CONVERSATION_FLOW_TEXT_UNITS_PER_LINE = 25;
+const CONVERSATION_FLOW_TEXT_UNITS_PER_LINE = 23;
 
 function estimateConversationFlowTextUnits(text: string): number {
   return Array.from(text).reduce((sum, char) => {
@@ -584,37 +611,122 @@ function estimateConversationFlowWrappedLines(text: string): number {
     );
 }
 
-function estimateConversationFlowNodeSize(step: ConversationFlowStep) {
-  const inputLines = step.input.reduce(
-    (sum, item) => sum + estimateConversationFlowWrappedLines(item),
-    0,
+function estimateConversationFlowMarkdownLines(markdown: string): number {
+  const normalized = normalizeMarkdownContent(markdown);
+  if (!normalized) {
+    return 0;
+  }
+
+  let inTable = false;
+  return normalized.split("\n").reduce((lines, rawLine) => {
+    const line = rawLine.trim();
+    if (!line) {
+      inTable = false;
+      return lines;
+    }
+
+    const pipeCount = (line.match(/\|/g) || []).length;
+    if (pipeCount >= 2) {
+      inTable = true;
+      return lines + 0.88;
+    }
+
+    if (inTable) {
+      inTable = false;
+      return lines + 0.15 + estimateConversationFlowWrappedLines(line);
+    }
+
+    if (/^#{1,6}\s+/.test(line)) {
+      return lines + estimateConversationFlowWrappedLines(line.replace(/^#{1,6}\s+/, "")) + 0.35;
+    }
+
+    if (/^[-*+]\s+/.test(line) || /^\d+\.\s+/.test(line)) {
+      return lines + estimateConversationFlowWrappedLines(line.replace(/^([-*+]|\d+\.)\s+/, "")) + 0.15;
+    }
+
+    if (/^>\s+/.test(line)) {
+      return lines + estimateConversationFlowWrappedLines(line.replace(/^>\s+/, "")) + 0.15;
+    }
+
+    if (/^```/.test(line)) {
+      return lines + 0.5;
+    }
+
+    return lines + estimateConversationFlowWrappedLines(line);
+  }, 0);
+}
+
+function estimateConversationFlowTableColumnCount(markdown: string): number {
+  const normalized = normalizeMarkdownContent(markdown);
+  return normalized.split("\n").reduce((maxColumns, rawLine) => {
+    const line = rawLine.trim();
+    const pipeCount = (line.match(/\|/g) || []).length;
+    if (pipeCount < 2) {
+      return maxColumns;
+    }
+
+    const columns = line
+      .split("|")
+      .map((cell) => cell.trim())
+      .filter(Boolean).length;
+    return Math.max(maxColumns, columns);
+  }, 0);
+}
+
+function clampConversationFlowNodeWidth(width: number): number {
+  return Math.max(
+    CONVERSATION_FLOW_MIN_NODE_WIDTH,
+    Math.min(CONVERSATION_FLOW_MAX_NODE_WIDTH, Math.ceil(width)),
   );
-  const outputLines = estimateConversationFlowWrappedLines(step.output ?? "");
+}
+
+function estimateConversationFlowNodeWidth(step: ConversationFlowStep): number {
+  const tableColumns = estimateConversationFlowTableColumnCount(step.output ?? "");
+  if (tableColumns > 0) {
+    return clampConversationFlowNodeWidth(180 + tableColumns * 86);
+  }
+
+  const longestOutputUnits = normalizeMarkdownContent(step.output ?? "")
+    .split("\n")
+    .reduce(
+      (maxUnits, line) => Math.max(maxUnits, estimateConversationFlowTextUnits(line)),
+      0,
+    );
+  const longestUnits = Math.max(estimateConversationFlowTextUnits(step.name), longestOutputUnits);
+  return clampConversationFlowNodeWidth(240 + longestUnits * 5.2);
+}
+
+function estimateConversationFlowNodeSize(step: ConversationFlowStep) {
+  const outputLines = estimateConversationFlowMarkdownLines(step.output ?? "");
   const titleLines = estimateConversationFlowWrappedLines(step.name);
-  const sectionCount = (inputLines > 0 ? 1 : 0) + (outputLines > 0 ? 1 : 0);
+  const sectionCount = outputLines > 0 ? 1 : 0;
   const estimatedHeight =
     42 +
     Math.max(34, titleLines * 20) +
     24 +
     sectionCount * 28 +
-    (inputLines + outputLines) * 20 +
+    outputLines * 18 +
     (step.editable ? 30 : 0);
 
   return {
-    width: CONVERSATION_FLOW_NODE_WIDTH,
+    width: estimateConversationFlowNodeWidth(step),
     height: Math.max(CONVERSATION_FLOW_MIN_NODE_HEIGHT, Math.ceil(estimatedHeight)),
   };
 }
 
-function buildConversationFlowGraph(spec: ConversationFlowSpec) {
+function buildConversationFlowGraph(
+  spec: ConversationFlowSpec,
+  measuredNodeSizes: Record<string, ConversationFlowNodeSize> = {},
+) {
   const nodes = spec.steps.map((step) => {
     const nodeSize = estimateConversationFlowNodeSize(step);
+    const measuredSize = measuredNodeSizes[step.id];
     return ({
       id: step.id,
       nodeType: step.name.includes("确认") ? "decision" : "research",
       label: step.name,
       position: { x: 0, y: 0 },
-      size: nodeSize,
+      size: measuredSize ?? nodeSize,
       executionState: flowExecutionStateFromPlanStatus(step.status),
       inputPorts: [
         {
@@ -679,7 +791,7 @@ function buildConversationFlowGraph(spec: ConversationFlowSpec) {
 
   const layout = layoutFlowGraph(nodes, edges, {
     strategy: "horizontal-dag",
-    nodeSize: { width: CONVERSATION_FLOW_NODE_WIDTH, height: CONVERSATION_FLOW_MIN_NODE_HEIGHT },
+    nodeSize: { width: CONVERSATION_FLOW_MIN_NODE_WIDTH, height: CONVERSATION_FLOW_MIN_NODE_HEIGHT },
     origin: { x: 48, y: 60 },
     horizontalGap: 180,
     verticalGap: 80,
@@ -715,7 +827,7 @@ export function ConversationKoduckFlowCanvas({
     () => readStoredConversationFlowState(storageKey, specSignature),
     [specSignature, storageKey],
   );
-  const [flowSpec, setFlowSpec] = useState(initialPersistedState?.flowSpec ?? spec);
+  const [flowSpec, setFlowSpec] = useState(spec);
   const [sourceSpecSignature, setSourceSpecSignature] = useState(specSignature);
   const [sourceStorageKey, setSourceStorageKey] = useState(storageKey);
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
@@ -740,6 +852,9 @@ export function ConversationKoduckFlowCanvas({
   const [deletedEdgeIds, setDeletedEdgeIds] = useState<Set<string>>(
     () => new Set(initialPersistedState?.deletedEdgeIds ?? []),
   );
+  const [measuredNodeSizes, setMeasuredNodeSizes] = useState<
+    Record<string, ConversationFlowNodeSize>
+  >({});
   const [fullscreen, setFullscreen] = useState(false);
   const [deletingStepId, setDeletingStepId] = useState<string | null>(null);
   const flowRuntimeRef = useRef<ReturnType<typeof createConversationFlowRuntime> | null>(null);
@@ -758,8 +873,28 @@ export function ConversationKoduckFlowCanvas({
     Object.keys(manualNodePositions).length > 0 || deletedEdgeIds.size > 0 || createdEdges.length > 0
       ? "manual"
       : "auto";
+  const handleNodeMeasuredSize = useCallback(
+    (nodeId: string, size: ConversationFlowNodeSize) => {
+      setMeasuredNodeSizes((prev) => {
+        const current = prev[nodeId];
+        if (
+          current &&
+          Math.abs(current.width - size.width) < 2 &&
+          Math.abs(current.height - size.height) < 2
+        ) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          [nodeId]: size,
+        };
+      });
+    },
+    [],
+  );
   const { nodes, edges } = useMemo(() => {
-    const graph = buildConversationFlowGraph(flowSpec);
+    const graph = buildConversationFlowGraph(flowSpec, measuredNodeSizes);
     const graphEdgeKeys = new Set(
       graph.edges.map(
         (edge) =>
@@ -787,7 +922,7 @@ export function ConversationKoduckFlowCanvas({
       nodes: positionedNodes,
       edges: mergedEdges.filter((edge) => !deletedEdgeIds.has(edge.id)),
     };
-  }, [createdEdges, deletedEdgeIds, flowSpec, manualNodePositions]);
+  }, [createdEdges, deletedEdgeIds, flowSpec, manualNodePositions, measuredNodeSizes]);
   const selectedStep =
     flowSpec.steps.find((step) => step.id === editingStepId) ?? null;
 
@@ -840,7 +975,8 @@ export function ConversationKoduckFlowCanvas({
     const persistedState = readStoredConversationFlowState(storageKey, specSignature);
     setSourceSpecSignature(specSignature);
     setSourceStorageKey(storageKey);
-    setFlowSpec(persistedState?.flowSpec ?? spec);
+    setFlowSpec(spec);
+    setMeasuredNodeSizes({});
     setManualNodePositions(persistedState?.manualNodePositions ?? {});
     setCreatedEdges(
       (persistedState?.createdEdges ?? []).map(
@@ -1304,7 +1440,13 @@ export function ConversationKoduckFlowCanvas({
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         ) : null}
-        {runtimeRenderedNode ?? <ConversationFlowNode node={props.node} selected={props.selected} />}
+        {runtimeRenderedNode ?? (
+          <ConversationFlowNode
+            node={props.node}
+            selected={props.selected}
+            onMeasuredSize={handleNodeMeasuredSize}
+          />
+        )}
       </div>
     );
   };
@@ -1317,6 +1459,7 @@ export function ConversationKoduckFlowCanvas({
     }
 
     renderer.setNodeRenderProps(props.node.id, props);
+    renderer.setNodeSizeCallback(props.node.id, handleNodeMeasuredSize);
     const entityId = getConversationFlowRuntimeEntityId(runtime, props.node.id);
     if (!entityId) {
       return null;
@@ -1358,7 +1501,7 @@ export function ConversationKoduckFlowCanvas({
       fitPadding={80}
       minZoom={0.2}
       fallbackNodeSize={{
-        width: CONVERSATION_FLOW_NODE_WIDTH,
+        width: CONVERSATION_FLOW_MIN_NODE_WIDTH,
         height: CONVERSATION_FLOW_MIN_NODE_HEIGHT,
       }}
       showGrid
@@ -1401,7 +1544,7 @@ export function ConversationKoduckFlowCanvas({
         minZoom={0.2}
         maxZoom={1.5}
         fallbackNodeSize={{
-          width: CONVERSATION_FLOW_NODE_WIDTH,
+          width: CONVERSATION_FLOW_MIN_NODE_WIDTH,
           height: CONVERSATION_FLOW_MIN_NODE_HEIGHT,
         }}
         className="relative overflow-hidden bg-gray-50"
@@ -1520,14 +1663,65 @@ export function ConversationKoduckFlowCanvas({
   );
 }
 
-function ConversationFlowNode({ node, selected }: NodeRenderProps) {
+function ConversationFlowNode({
+  node,
+  selected,
+  onMeasuredSize,
+}: NodeRenderProps & {
+  onMeasuredSize?: (nodeId: string, size: ConversationFlowNodeSize) => void;
+}) {
   const config = (node.config ?? {}) as Record<string, unknown>;
-  const input = normalizeFlowStringList(config.input);
   const output = normalizeFlowString(config.output);
   const editable = config.editable !== false;
   const status = normalizeFlowString(config.status) ?? node.executionState;
   const showInputPort = config.showInputPort === true;
   const showOutputPort = config.showOutputPort === true;
+  const headerRef = useRef<HTMLDivElement | null>(null);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+
+  useLayoutEffect(() => {
+    if (!onMeasuredSize) {
+      return undefined;
+    }
+
+    const measure = () => {
+      const header = headerRef.current;
+      const body = bodyRef.current;
+      if (!header || !body) {
+        return;
+      }
+
+      const measuredHeight = Math.ceil(header.offsetHeight + body.offsetHeight + 2);
+      const measuredWidth = Math.ceil(
+        Math.max(
+          node.size?.width ?? CONVERSATION_FLOW_MIN_NODE_WIDTH,
+          header.scrollWidth,
+          body.scrollWidth,
+        ),
+      );
+      onMeasuredSize(node.id, {
+        width: clampConversationFlowNodeWidth(measuredWidth),
+        height: Math.max(CONVERSATION_FLOW_MIN_NODE_HEIGHT, measuredHeight),
+      });
+    };
+
+    measure();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", measure);
+      return () => window.removeEventListener("resize", measure);
+    }
+
+    const observer = new ResizeObserver(measure);
+    if (headerRef.current) {
+      observer.observe(headerRef.current);
+    }
+    if (bodyRef.current) {
+      observer.observe(bodyRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [node.id, node.size?.width, onMeasuredSize]);
 
   return (
     <article
@@ -1547,7 +1741,10 @@ function ConversationFlowNode({ node, selected }: NodeRenderProps) {
           title="Output port"
         />
       ) : null}
-      <div className="flex items-start justify-between gap-3 border-b border-gray-100 px-4 py-3">
+      <div
+        ref={headerRef}
+        className="flex items-start justify-between gap-3 border-b border-gray-100 px-4 py-3"
+      >
         <div className="min-w-0">
           <h3 className="break-words text-sm font-semibold leading-5 text-gray-950">{node.label}</h3>
           <p className="mt-0.5 text-xs text-gray-500">{node.nodeType}</p>
@@ -1556,17 +1753,10 @@ function ConversationFlowNode({ node, selected }: NodeRenderProps) {
           {status}
         </span>
       </div>
-      <div className="space-y-2 px-4 py-3 text-xs leading-5 text-gray-700">
-        {input.length > 0 ? (
-          <div>
-            <div className="font-medium text-gray-950">Input</div>
-            <div className="whitespace-pre-wrap break-words">{input.join("\n")}</div>
-          </div>
-        ) : null}
+      <div ref={bodyRef} className="space-y-2 px-4 py-3 text-xs leading-5 text-gray-700">
         {output ? (
           <div>
-            <div className="font-medium text-gray-950">Output</div>
-            <div className="whitespace-pre-wrap break-words">{output}</div>
+            <ConversationFlowMarkdown content={output} />
           </div>
         ) : null}
         {editable ? (
@@ -1576,6 +1766,93 @@ function ConversationFlowNode({ node, selected }: NodeRenderProps) {
         ) : null}
       </div>
     </article>
+  );
+}
+
+function ConversationFlowMarkdown({ content }: { content: string }) {
+  return (
+    <div className="max-w-none break-words text-xs leading-5 text-gray-700">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          h1: ({ children }) => (
+            <h1 className="mb-2 mt-3 text-sm font-semibold leading-5 text-gray-950 first:mt-0">
+              {children}
+            </h1>
+          ),
+          h2: ({ children }) => (
+            <h2 className="mb-2 mt-3 text-[13px] font-semibold leading-5 text-gray-950 first:mt-0">
+              {children}
+            </h2>
+          ),
+          h3: ({ children }) => (
+            <h3 className="mb-1.5 mt-2 text-xs font-semibold leading-5 text-gray-950 first:mt-0">
+              {children}
+            </h3>
+          ),
+          p: ({ children }) => (
+            <p className="mb-2 whitespace-pre-wrap leading-5 last:mb-0">{children}</p>
+          ),
+          ul: ({ children }) => <ul className="mb-2 list-disc pl-4 last:mb-0">{children}</ul>,
+          ol: ({ children }) => <ol className="mb-2 list-decimal pl-4 last:mb-0">{children}</ol>,
+          li: ({ children }) => <li className="mb-0.5 pl-0.5">{children}</li>,
+          blockquote: ({ children }) => (
+            <blockquote className="mb-2 border-l-2 border-gray-300 pl-2 text-gray-600 last:mb-0">
+              {children}
+            </blockquote>
+          ),
+          a: ({ href, children }) => (
+            <a
+              href={href}
+              target="_blank"
+              rel="noreferrer"
+              className="text-[#0d8b6d] underline underline-offset-2"
+            >
+              {children}
+            </a>
+          ),
+          code: ({ className, children }) => {
+            const codeContent = String(children).replace(/\n$/, "");
+            const isBlock = Boolean(className) || codeContent.includes("\n");
+            if (isBlock) {
+              return (
+                <code className="mb-2 block overflow-x-auto rounded-md bg-gray-100 px-2 py-1.5 font-mono text-[11px] leading-4 text-gray-900 last:mb-0">
+                  {codeContent}
+                </code>
+              );
+            }
+            return (
+              <code className="rounded bg-gray-100 px-1 py-0.5 font-mono text-[11px] text-gray-900">
+                {children}
+              </code>
+            );
+          },
+          pre: ({ children }) => <>{children}</>,
+          table: ({ children }) => (
+            <div className="mb-2 max-w-full overflow-x-auto rounded-md border border-gray-200 last:mb-0">
+              <table className="min-w-full border-collapse text-[11px] leading-4">{children}</table>
+            </div>
+          ),
+          thead: ({ children }) => <thead className="bg-gray-50">{children}</thead>,
+          th: ({ children }) => (
+            <th className="border-b border-r border-gray-200 px-2 py-1 text-left font-semibold text-gray-950 last:border-r-0">
+              {children}
+            </th>
+          ),
+          td: ({ children }) => (
+            <td className="border-b border-r border-gray-200 px-2 py-1 align-top last:border-r-0">
+              {children}
+            </td>
+          ),
+          hr: () => <hr className="my-2 border-gray-200" />,
+          strong: ({ children }) => (
+            <strong className="font-semibold text-gray-950">{children}</strong>
+          ),
+        }}
+      >
+        {normalizeMarkdownContent(content)}
+      </ReactMarkdown>
+    </div>
   );
 }
 

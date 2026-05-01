@@ -1,5 +1,8 @@
 export function normalizeMarkdownContent(content: string): string {
-  const source = content.replace(/\r\n/g, "\n").trim();
+  const source = content
+    .replace(/\r\n/g, "\n")
+    .replace(/\|\s*\|(?=\s*(?:[-:]{3,}|[^|\n]+?\s*\|))/g, "|\n|")
+    .trim();
   const rawLines = source.split("\n");
 
   const isTableLike = (line: string): boolean => {
@@ -38,6 +41,29 @@ export function normalizeMarkdownContent(content: string): string {
     bucket.push(...expanded.split("\n"));
   };
 
+  const splitTablePrefix = (line: string): { prefix: string; table: string } => {
+    const firstPipeIndex = line.indexOf("|");
+    if (firstPipeIndex <= 0) {
+      return { prefix: "", table: line };
+    }
+
+    const prefix = line.slice(0, firstPipeIndex).trim();
+    const table = line.slice(firstPipeIndex).trim();
+    const tablePipeCount = (table.match(/\|/g) || []).length;
+    if (!prefix || tablePipeCount < 2) {
+      return { prefix: "", table: line };
+    }
+
+    return { prefix, table };
+  };
+
+  const expandCompactTableRows = (line: string): string[] =>
+    line
+      .replace(/\|\s*\|(?=\s*(?:[-:]{3,}|[^|\n]+?\s*\|))/g, "|\n|")
+      .split("\n")
+      .map((item) => item.trim())
+      .filter(Boolean);
+
   const mergedLines: string[] = [];
   for (let i = 0; i < rawLines.length; i += 1) {
     const current = rawLines[i].trim();
@@ -74,37 +100,47 @@ export function normalizeMarkdownContent(content: string): string {
     }
 
     if (isTableLike(trimmed)) {
-      const tableLine = sanitizeTableLine(trimmed);
-      if (!tableLine) {
-        continue;
+      const { prefix, table } = splitTablePrefix(trimmed);
+      if (prefix) {
+        appendExpandedText(normalizedLines, prefix);
+        if (normalizedLines.at(-1) !== "") {
+          normalizedLines.push("");
+        }
       }
 
-      const isSeparatorLike = /^[\s|:-]+$/.test(tableLine);
-      const cellCount = tableLine
-        .split("|")
-        .map((part) => part.trim())
-        .filter(Boolean).length;
+      for (const tableRow of expandCompactTableRows(table)) {
+        const tableLine = sanitizeTableLine(tableRow);
+        if (!tableLine) {
+          continue;
+        }
 
-      if (!inTableBlock) {
-        inTableBlock = true;
-        tableHeaderColumns = cellCount;
-        separatorInserted = false;
+        const isSeparatorLike = /^[\s|:-]+$/.test(tableLine);
+        const cellCount = tableLine
+          .split("|")
+          .map((part) => part.trim())
+          .filter(Boolean).length;
+
+        if (!inTableBlock) {
+          inTableBlock = true;
+          tableHeaderColumns = cellCount;
+          separatorInserted = false;
+          normalizedLines.push(tableLine);
+          continue;
+        }
+
+        if (!separatorInserted && !isSeparatorLike && tableHeaderColumns > 0) {
+          normalizedLines.push(
+            `| ${Array.from({ length: tableHeaderColumns }, () => "---").join(" | ")} |`,
+          );
+          separatorInserted = true;
+        }
+
+        if (isSeparatorLike) {
+          separatorInserted = true;
+        }
+
         normalizedLines.push(tableLine);
-        continue;
       }
-
-      if (!separatorInserted && !isSeparatorLike && tableHeaderColumns > 0) {
-        normalizedLines.push(
-          `| ${Array.from({ length: tableHeaderColumns }, () => "---").join(" | ")} |`,
-        );
-        separatorInserted = true;
-      }
-
-      if (isSeparatorLike) {
-        separatorInserted = true;
-      }
-
-      normalizedLines.push(tableLine);
       continue;
     }
 

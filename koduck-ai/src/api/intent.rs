@@ -7,10 +7,11 @@ use crate::{
         ChatMessage as ProviderChatMessage, GenerateRequest as ProviderGenerateRequest,
         RequestContext,
     },
-    reliability::error::AppError,
+    reliability::error::{AppError, ErrorCode, UpstreamService},
 };
 
 use super::ChatRequest;
+use tracing::info;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum ActionIntent {
@@ -33,7 +34,7 @@ impl ActionIntent {
     }
 
     fn from_str(value: &str) -> Self {
-        match value.trim() {
+        match enum_token(value).as_str() {
             "query" => Self::Query,
             "research" => Self::Research,
             "plan" => Self::Plan,
@@ -62,7 +63,7 @@ impl TargetIntent {
     }
 
     fn from_str(value: &str) -> Self {
-        match value.trim() {
+        match enum_token(value).as_str() {
             "knowledge" => Self::Knowledge,
             "memory" => Self::Memory,
             "conversation" => Self::Conversation,
@@ -90,7 +91,7 @@ impl PresentationIntent {
     }
 
     fn from_str(value: &str) -> Self {
-        match value.trim() {
+        match enum_token(value).as_str() {
             "table" => Self::Table,
             "flow_canvas" => Self::FlowCanvas,
             "json" => Self::Json,
@@ -99,11 +100,12 @@ impl PresentationIntent {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub(super) struct ExecutionIntent {
     pub(super) action: ActionIntent,
     pub(super) target: TargetIntent,
     pub(super) presentation: PresentationIntent,
+    pub(super) confidence: f64,
 }
 
 impl Default for ExecutionIntent {
@@ -112,6 +114,7 @@ impl Default for ExecutionIntent {
             action: ActionIntent::Answer,
             target: TargetIntent::None,
             presentation: PresentationIntent::Text,
+            confidence: 0.0,
         }
     }
 }
@@ -150,6 +153,10 @@ pub(super) fn request_execution_intent(request: &ChatRequest) -> ExecutionIntent
             .and_then(|value| value.as_str())
             .map(PresentationIntent::from_str)
             .unwrap_or(PresentationIntent::Text),
+        confidence: metadata
+            .get("confidence")
+            .and_then(json_number_or_string)
+            .unwrap_or(0.0),
     }
 }
 
@@ -179,49 +186,113 @@ pub(super) fn request_with_execution_intent(
         "presentationIntent".to_string(),
         serde_json::Value::String(intent.presentation.as_str().to_string()),
     );
+    metadata.insert(
+        "confidence".to_string(),
+        serde_json::Value::from(intent.confidence),
+    );
     request.metadata = Some(metadata);
     request
 }
 
-pub(super) fn parse_execution_intent_response(content: &str) -> ExecutionIntent {
-    let trimmed = content.trim();
-    let json_text = if trimmed.starts_with('{') {
-        trimmed
-    } else if let (Some(start), Some(end)) = (trimmed.find('{'), trimmed.rfind('}')) {
-        &trimmed[start..=end]
-    } else {
-        return ExecutionIntent::default();
-    };
+fn json_number_or_string(value: &serde_json::Value) -> Option<f64> {
+    value
+        .as_f64()
+        .or_else(|| value.as_str().and_then(|value| value.parse::<f64>().ok()))
+}
 
-    serde_json::from_str::<serde_json::Value>(json_text)
-        .ok()
-        .map(|value| {
-            let action = value
-                .get("actionIntent")
-                .or_else(|| value.get("action"))
-                .and_then(|intent| intent.as_str())
-                .map(ActionIntent::from_str)
-                .unwrap_or(ActionIntent::Answer);
-            let target = value
-                .get("targetIntent")
-                .or_else(|| value.get("target"))
-                .and_then(|intent| intent.as_str())
-                .map(TargetIntent::from_str)
-                .unwrap_or(TargetIntent::None);
-            let presentation = value
-                .get("presentationIntent")
-                .or_else(|| value.get("presentation"))
-                .and_then(|intent| intent.as_str())
-                .map(PresentationIntent::from_str)
-                .unwrap_or(PresentationIntent::Text);
-
-            ExecutionIntent {
-                action,
-                target,
-                presentation,
-            }
+fn enum_token(value: &str) -> String {
+    value
+        .trim()
+        .trim_matches(|ch| ch == '"' || ch == '\'' || ch == ',' || ch == '`')
+        .split(|ch: char| {
+            ch.is_whitespace()
+                || matches!(ch, '(' | ')' | '[' | ']' | '{' | '}' | ':' | ';' | ',')
         })
+        .next()
         .unwrap_or_default()
+        .trim()
+        .to_ascii_lowercase()
+}
+
+pub(super) fn parse_execution_intent_response(content: &str) -> Option<ExecutionIntent> {
+    extract_json_objects(content)
+        .into_iter()
+        .rev()
+        .find_map(|value| execution_intent_from_json(&value))
+}
+
+fn execution_intent_from_json(value: &serde_json::Value) -> Option<ExecutionIntent> {
+    if !value.is_object() {
+        return None;
+    }
+
+    let action = parse_action_intent(value
+        .get("actionIntent")
+        .or_else(|| value.get("action"))
+        .and_then(|intent| intent.as_str())?)?;
+    let target = parse_target_intent(value
+        .get("targetIntent")
+        .or_else(|| value.get("target"))
+        .and_then(|intent| intent.as_str())?)?;
+    let presentation = parse_presentation_intent(value
+        .get("presentationIntent")
+        .or_else(|| value.get("presentation"))
+        .and_then(|intent| intent.as_str())?)?;
+    let confidence = value
+        .get("confidence")
+        .and_then(json_number_or_string)
+        .unwrap_or(0.0);
+
+    Some(ExecutionIntent {
+        action,
+        target,
+        presentation,
+        confidence,
+    })
+}
+
+fn parse_action_intent(value: &str) -> Option<ActionIntent> {
+    match enum_token(value).as_str() {
+        "answer" => Some(ActionIntent::Answer),
+        "query" => Some(ActionIntent::Query),
+        "research" => Some(ActionIntent::Research),
+        "plan" => Some(ActionIntent::Plan),
+        "summarize" => Some(ActionIntent::Summarize),
+        _ => None,
+    }
+}
+
+fn parse_target_intent(value: &str) -> Option<TargetIntent> {
+    match enum_token(value).as_str() {
+        "none" => Some(TargetIntent::None),
+        "knowledge" => Some(TargetIntent::Knowledge),
+        "memory" => Some(TargetIntent::Memory),
+        "conversation" => Some(TargetIntent::Conversation),
+        _ => None,
+    }
+}
+
+fn parse_presentation_intent(value: &str) -> Option<PresentationIntent> {
+    match enum_token(value).as_str() {
+        "text" => Some(PresentationIntent::Text),
+        "table" => Some(PresentationIntent::Table),
+        "flow_canvas" => Some(PresentationIntent::FlowCanvas),
+        "json" => Some(PresentationIntent::Json),
+        _ => None,
+    }
+}
+
+fn extract_json_objects(content: &str) -> Vec<serde_json::Value> {
+    let mut values = Vec::new();
+    for (start_index, _) in content.match_indices('{') {
+        let candidate = &content[start_index..];
+        let mut stream =
+            serde_json::Deserializer::from_str(candidate).into_iter::<serde_json::Value>();
+        if let Some(Ok(value)) = stream.next() {
+            values.push(value);
+        }
+    }
+    values
 }
 
 pub(super) async fn classify_execution_intent(
@@ -233,10 +304,22 @@ pub(super) async fn classify_execution_intent(
     trace_id: &str,
 ) -> Result<ExecutionIntent, AppError> {
     if !plan_canvas_enabled(request) {
+        info!(
+            request_id = %request_id,
+            session_id = %session_id,
+            reason = "plan_canvas_disabled",
+            "execution intent classification skipped"
+        );
         return Ok(ExecutionIntent::default());
     }
 
     if request_has_execution_intent(request) {
+        info!(
+            request_id = %request_id,
+            session_id = %session_id,
+            source = "request_metadata",
+            "execution intent loaded from request metadata"
+        );
         return Ok(request_execution_intent(request));
     }
 
@@ -266,7 +349,8 @@ pub(super) async fn classify_execution_intent(
             ProviderChatMessage {
                 role: "system".to_string(),
                 content: r#"你是 koduck-ai 的 execution intent router。你的任务是把当前用户请求拆成三个独立维度：动作、目标、表现形式。
-只输出 JSON 对象，不要输出解释。JSON schema:
+你可以在内部推理，但最终回答必须只输出一个严格 JSON 对象，不能把解释、分析、Markdown、列表、代码块、前后缀或自然语言写入最终 content。
+JSON schema:
 {"actionIntent":"answer|query|research|plan|summarize","targetIntent":"none|knowledge|memory|conversation","presentationIntent":"text|table|flow_canvas|json","confidence":0.0}
 
 判定标准:
@@ -277,39 +361,60 @@ pub(super) async fn classify_execution_intent(
 - actionIntent=summarize: 总结已有内容。
 - targetIntent=memory: 目标是 memory entry、记忆条目、当前会话记忆、聊天 memory。
 - targetIntent=knowledge: 目标是知识库、领域知识、资料。
-- targetIntent=conversation: 目标是当前对话、聊天记录、上下文。
+- targetIntent=conversation: 目标是当前对话、聊天记录、当前 session 内容、当前会话上下文。
 - targetIntent=none: 没有明确外部目标。
 - presentationIntent=flow_canvas: 仅当“当前用户最后一条消息”明确要求用 flow/canvas/flow diagram/流程图/节点图展示、表达、生成可编辑流程或节点化计划时使用。
 - 如果用户只是说“根据该 flow”“基于这个 flow”“参考上面的 flow”，这是引用上下文，不是展示形式请求，presentationIntent 必须为 text。
 - presentationIntent=table: 用户明确要求表格。
 - presentationIntent=json: 用户明确要求 JSON。
-- presentationIntent=text: 默认文本表达。
+- presentationIntent=text: 默认表现形式；当用户没有明确指定表格、JSON、flow/canvas、流程图或节点图时使用。这里的 text 表示“最终回答使用 Markdown 文本”，不是让你用 Markdown 输出本分类结果。
 
 示例:
 - "解释一下夏普比率的含义" => {"actionIntent":"answer","targetIntent":"none","presentationIntent":"text","confidence":0.9}
+- "火箭队姚明的每年数据" => {"actionIntent":"query","targetIntent":"knowledge","presentationIntent":"text","confidence":0.9}
 - "把当前策略回测结果按指标整理成表格" => {"actionIntent":"summarize","targetIntent":"conversation","presentationIntent":"table","confidence":0.9}
 - "查询知识库里关于动量因子的资料，并用 JSON 返回" => {"actionIntent":"query","targetIntent":"knowledge","presentationIntent":"json","confidence":0.9}
 - "以 flow 的模式显示现在的我们聊天的 memory entry" => {"actionIntent":"query","targetIntent":"memory","presentationIntent":"flow_canvas","confidence":0.9}
+- "使用flow的形式展示当前session的内容" => {"actionIntent":"summarize","targetIntent":"conversation","presentationIntent":"flow_canvas","confidence":0.9}
 "#.to_string(),
                 name: String::new(),
                 metadata: HashMap::new(),
             },
             ProviderChatMessage {
                 role: "user".to_string(),
-                content: user_context,
+                content: user_context.clone(),
                 name: String::new(),
                 metadata: HashMap::new(),
             },
         ],
         temperature: 0.0,
         top_p: 1.0,
-        max_tokens: 80,
+        max_tokens: 256,
         tools: Vec::new(),
         response_format: "json_object".to_string(),
     };
 
     match state.llm_provider.generate(classifier_request).await {
-        Ok(response) => Ok(parse_execution_intent_response(&response.message.content)),
+        Ok(response) => {
+            info!(
+                request_id = %request_id,
+                session_id = %session_id,
+                raw_response = %response.message.content,
+                "execution intent classifier raw response"
+            );
+            parse_execution_intent_response(&response.message.content).ok_or_else(|| {
+                info!(
+                    request_id = %request_id,
+                    session_id = %session_id,
+                    "execution intent classifier returned no strict JSON; rejecting request"
+                );
+                AppError::new(
+                    ErrorCode::DependencyFailed,
+                    "execution intent classifier returned no strict JSON",
+                )
+                .with_upstream(UpstreamService::Llm)
+            })
+        }
         Err(err) => Err(err),
     }
 }

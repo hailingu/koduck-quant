@@ -1,15 +1,20 @@
-import type { Message } from "./types";
+import type { Message, PendingChatStream } from "./types";
 
 export const MAX_HISTORY_MESSAGES = 20;
 const MAX_PROMPT_HISTORY_ENTRIES = 100;
 const ACTIVE_SESSION_STORAGE_KEY = "koduck.ai.activeSessionId";
 const SESSION_MESSAGES_STORAGE_PREFIX = "koduck.ai.sessionMessages";
+const PENDING_CHAT_STREAM_STORAGE_PREFIX = "koduck.ai.pendingChatStream";
 const PROMPT_HISTORY_STORAGE_KEY = "koduck.ai.promptHistory";
 const CONVERSATION_FLOW_STATE_STORAGE_PREFIX = "koduck.ai.conversationFlowState.v1";
 const URL_SESSION_PARAM = "session_id";
 
 function buildSessionMessagesStorageKey(sessionId: string): string {
   return `${SESSION_MESSAGES_STORAGE_PREFIX}.${sessionId}`;
+}
+
+function buildPendingChatStreamStorageKey(sessionId: string): string {
+  return `${PENDING_CHAT_STREAM_STORAGE_PREFIX}.${sessionId}`;
 }
 
 function hashStorageKeyPart(value: string): string {
@@ -95,6 +100,75 @@ export function clearStoredMessages(sessionId: string | null) {
   }
 
   window.localStorage.removeItem(buildSessionMessagesStorageKey(sessionId));
+}
+
+export function readPendingChatStream(sessionId: string | null): PendingChatStream | null {
+  if (typeof window === "undefined" || !sessionId) {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(buildPendingChatStreamStorageKey(sessionId));
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw) as Partial<PendingChatStream>;
+    if (
+      parsed.sessionId !== sessionId ||
+      typeof parsed.assistantMessageId !== "string" ||
+      typeof parsed.prompt !== "string" ||
+      typeof parsed.provider !== "string" ||
+      typeof parsed.model !== "string" ||
+      !Array.isArray(parsed.history) ||
+      !parsed.userMessage ||
+      !parsed.assistantMessage ||
+      typeof parsed.lastSequenceNum !== "number" ||
+      typeof parsed.streamedText !== "string" ||
+      typeof parsed.updatedAt !== "number"
+    ) {
+      return null;
+    }
+
+    return {
+      sessionId,
+      assistantMessageId: parsed.assistantMessageId,
+      userMessage: parsed.userMessage,
+      assistantMessage: {
+        ...parsed.assistantMessage,
+        streaming: true,
+      },
+      prompt: parsed.prompt,
+      provider: parsed.provider,
+      model: parsed.model,
+      history: parsed.history,
+      metadata: parsed.metadata ?? {},
+      lastSequenceNum: parsed.lastSequenceNum,
+      streamedText: parsed.streamedText,
+      updatedAt: parsed.updatedAt,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function persistPendingChatStream(stream: PendingChatStream) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(
+    buildPendingChatStreamStorageKey(stream.sessionId),
+    JSON.stringify({ ...stream, updatedAt: Date.now() }),
+  );
+}
+
+export function clearPendingChatStream(sessionId: string | null) {
+  if (typeof window === "undefined" || !sessionId) {
+    return;
+  }
+
+  window.localStorage.removeItem(buildPendingChatStreamStorageKey(sessionId));
 }
 
 export function readStoredMessages(sessionId: string | null): Message[] {

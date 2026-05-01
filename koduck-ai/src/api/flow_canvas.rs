@@ -72,7 +72,8 @@ fn find_quoted_dependency(
         })
 }
 
-pub(super) fn build_memory_entry_flow_json(
+fn build_entry_flow_json(
+    title: &str,
     entries: Vec<(String, String, String, i64, i64, HashMap<String, String>)>,
 ) -> String {
     let mut previous_id: Option<String> = None;
@@ -121,7 +122,7 @@ pub(super) fn build_memory_entry_flow_json(
         .collect::<Vec<_>>();
 
     let payload = json!({
-        "title": "当前聊天 memory entries",
+        "title": title,
         "version": "1.0",
         "steps": steps,
     });
@@ -132,36 +133,20 @@ pub(super) fn build_memory_entry_flow_json(
     )
 }
 
-pub(super) async fn build_current_memory_entries_flow_answer(
-    state: &Arc<AppState>,
-    ctx: &MemoryRequestContext,
-    request: &ChatRequest,
-    execution_intent: ExecutionIntent,
-) -> Option<String> {
-    if execution_intent.presentation != PresentationIntent::FlowCanvas
-        || execution_intent.target != TargetIntent::Memory
-    {
-        return None;
-    }
+pub(super) fn build_memory_entry_flow_json(
+    entries: Vec<(String, String, String, i64, i64, HashMap<String, String>)>,
+) -> String {
+    build_entry_flow_json("当前聊天 memory entries", entries)
+}
 
-    if let Ok(entries) = memory::get_session_transcript(state, ctx).await {
-        let transcript_entries = entries
-            .into_iter()
-            .map(|entry| {
-                (
-                    entry.entry_id,
-                    entry.role,
-                    entry.content,
-                    entry.timestamp,
-                    entry.sequence_num,
-                    entry.metadata,
-                )
-            })
-            .collect::<Vec<_>>();
-        return Some(build_memory_entry_flow_json(transcript_entries));
-    }
+fn build_conversation_flow_json(
+    entries: Vec<(String, String, String, i64, i64, HashMap<String, String>)>,
+) -> String {
+    build_entry_flow_json("当前 session 对话流程", entries)
+}
 
-    let history_entries = request
+fn history_entries(request: &ChatRequest) -> Vec<(String, String, String, i64, i64, HashMap<String, String>)> {
+    request
         .history
         .as_ref()
         .map(|history| {
@@ -180,7 +165,61 @@ pub(super) async fn build_current_memory_entries_flow_answer(
                 })
                 .collect::<Vec<_>>()
         })
-        .unwrap_or_default();
+        .unwrap_or_default()
+}
 
-    Some(build_memory_entry_flow_json(history_entries))
+fn transcript_entries(
+    entries: Vec<memory::SessionTranscriptEntry>,
+) -> Vec<(String, String, String, i64, i64, HashMap<String, String>)> {
+    entries
+        .into_iter()
+        .map(|entry| {
+            (
+                entry.entry_id,
+                entry.role,
+                entry.content,
+                entry.timestamp,
+                entry.sequence_num,
+                entry.metadata,
+            )
+        })
+        .collect::<Vec<_>>()
+}
+
+pub(super) async fn build_current_memory_entries_flow_answer(
+    state: &Arc<AppState>,
+    ctx: &MemoryRequestContext,
+    request: &ChatRequest,
+    execution_intent: ExecutionIntent,
+) -> Option<String> {
+    if execution_intent.presentation != PresentationIntent::FlowCanvas
+        || execution_intent.target != TargetIntent::Memory
+    {
+        return None;
+    }
+
+    if let Ok(entries) = memory::get_session_transcript(state, ctx).await {
+        return Some(build_memory_entry_flow_json(transcript_entries(entries)));
+    }
+
+    Some(build_memory_entry_flow_json(history_entries(request)))
+}
+
+pub(super) async fn build_current_conversation_flow_answer(
+    state: &Arc<AppState>,
+    ctx: &MemoryRequestContext,
+    request: &ChatRequest,
+    execution_intent: ExecutionIntent,
+) -> Option<String> {
+    if execution_intent.presentation != PresentationIntent::FlowCanvas
+        || execution_intent.target != TargetIntent::Conversation
+    {
+        return None;
+    }
+
+    if let Ok(entries) = memory::get_session_transcript(state, ctx).await {
+        return Some(build_conversation_flow_json(transcript_entries(entries)));
+    }
+
+    Some(build_conversation_flow_json(history_entries(request)))
 }

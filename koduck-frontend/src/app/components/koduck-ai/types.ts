@@ -38,6 +38,21 @@ export interface ChatHistoryMessage {
   memoryEntryId?: string;
 }
 
+export interface PendingChatStream {
+  sessionId: string;
+  assistantMessageId: string;
+  userMessage: Message;
+  assistantMessage: Message;
+  prompt: string;
+  provider: string;
+  model: string;
+  history: ChatHistoryMessage[];
+  metadata: Record<string, unknown>;
+  lastSequenceNum: number;
+  streamedText: string;
+  updatedAt: number;
+}
+
 export type LlmProvider = string;
 
 export interface LlmModelOption {

@@ -6,15 +6,18 @@ import { KoduckAiComposer } from "./koduck-ai/KoduckAiComposer";
 import { MessageList } from "./koduck-ai/MessageList";
 import {
   MAX_HISTORY_MESSAGES,
+  clearPendingChatStream,
   clearStoredMessages,
   isCursorOnFirstLine,
   isCursorOnLastLine,
   persistActiveSessionId,
+  persistPendingChatStream,
   persistPromptHistory,
   persistSessionIdToUrl,
   persistSessionMessages,
   pushPromptHistoryEntry,
   readActiveSessionId,
+  readPendingChatStream,
   readPromptHistory,
   readSessionIdFromUrl,
   readStoredMessages,
@@ -35,6 +38,7 @@ import type {
   LlmOptionsConfig,
   LlmProvider,
   Message,
+  PendingChatStream,
   StreamEventData,
   UploadedFile,
 } from "./koduck-ai/types";
@@ -70,6 +74,7 @@ export function KoduckAi() {
   const copyFeedbackTimeoutRef = useRef<number | null>(null);
   const currentSessionIdRef = useRef<string | null>(currentSessionId);
   const activeChatAbortControllerRef = useRef<AbortController | null>(null);
+  const resumedPendingSessionIdsRef = useRef<Set<string>>(new Set());
   const skipNextSessionRestoreRef = useRef(false);
   const draftBeforePromptHistoryRef = useRef("");
   const pendingQuoteRef = useRef<Message["quote"] | null>(null);
@@ -238,13 +243,19 @@ export function KoduckAi() {
       }
 
       if (exists === false) {
-        clearStoredMessages(initialSessionId);
-        if (readActiveSessionId() === initialSessionId) {
-          persistActiveSessionId(null);
-        }
-        if (currentSessionIdRef.current === initialSessionId) {
-          activateSession(null);
-          setMessages([]);
+        const pendingStream = readPendingChatStream(initialSessionId);
+        if (pendingStream) {
+          skipNextSessionRestoreRef.current = true;
+          restorePendingStreamMessages(pendingStream);
+        } else {
+          clearStoredMessages(initialSessionId);
+          if (readActiveSessionId() === initialSessionId) {
+            persistActiveSessionId(null);
+          }
+          if (currentSessionIdRef.current === initialSessionId) {
+            activateSession(null);
+            setMessages([]);
+          }
         }
       } else {
         const transcriptMessages = await fetchSessionTranscript(
@@ -282,6 +293,24 @@ export function KoduckAi() {
   }, [currentSessionId, initialSessionId, messages, sessionHydrated]);
 
   useEffect(() => {
+    if (!sessionHydrated || !currentSessionId) {
+      return;
+    }
+
+    if (resumedPendingSessionIdsRef.current.has(currentSessionId)) {
+      return;
+    }
+
+    const pendingStream = readPendingChatStream(currentSessionId);
+    if (!pendingStream) {
+      return;
+    }
+
+    resumedPendingSessionIdsRef.current.add(currentSessionId);
+    void resumePendingChatStream(pendingStream);
+  }, [currentSessionId, sessionHydrated]);
+
+  useEffect(() => {
     if (!llmOptions.providerOptions.some((provider) => provider.value === selectedProvider)) {
       setSelectedProvider(llmOptions.defaultProvider);
       return;
@@ -314,6 +343,25 @@ export function KoduckAi() {
       setMessages(transcriptMessages);
     }
     return transcriptMessages;
+  };
+
+  const restorePendingStreamMessages = (pendingStream: PendingChatStream) => {
+    setMessages((prev) => {
+      const withoutPending = prev.filter(
+        (message) =>
+          message.id !== pendingStream.userMessage.id &&
+          message.id !== pendingStream.assistantMessageId,
+      );
+      return [
+        ...withoutPending,
+        pendingStream.userMessage,
+        {
+          ...pendingStream.assistantMessage,
+          content: pendingStream.streamedText || pendingStream.assistantMessage.content,
+          streaming: true,
+        },
+      ];
+    });
   };
 
   const deleteMemoryEntryById = async (sessionId: string, entryId: string) => {
@@ -508,6 +556,7 @@ export function KoduckAi() {
       }
     }
     clearStoredMessages(sessionId);
+    clearPendingChatStream(sessionId);
     activateSession(null, { skipRestore: true });
     setMessages([]);
     setPromptHistoryIndex(null);
@@ -737,6 +786,221 @@ export function KoduckAi() {
       );
     });
 
+  const resumePendingChatStream = async (pendingStream: PendingChatStream) => {
+    if (sending || activeChatAbortControllerRef.current) {
+      return;
+    }
+
+    restorePendingStreamMessages(pendingStream);
+    setSending(true);
+
+    const localRequestId = `web-resume-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const abortController = new AbortController();
+    activeChatAbortControllerRef.current = abortController;
+    let shouldAbortRequest = true;
+    const requestTimeoutId = window.setTimeout(() => {
+      abortController.abort("chat stream request timeout");
+    }, STREAM_REQUEST_TIMEOUT_MS);
+    let streamedText = pendingStream.streamedText;
+    let streamErrorMessage = "";
+    let upstreamRequestId: string | null = null;
+    let lastSequenceNum = pendingStream.lastSequenceNum;
+    let streamEstablished = false;
+
+    logStreamTrace(localRequestId, "resume_start", {
+      sessionId: pendingStream.sessionId,
+      assistantMessageId: pendingStream.assistantMessageId,
+      fromSequenceNum: pendingStream.lastSequenceNum,
+      restoredLength: streamedText.length,
+    });
+
+    try {
+      const token = localStorage.getItem("koduck.auth.token");
+      const response = await fetch("/api/v1/ai/chat/stream", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        signal: abortController.signal,
+        body: JSON.stringify({
+          message: pendingStream.prompt,
+          session_id: pendingStream.sessionId,
+          provider: pendingStream.provider,
+          model: pendingStream.model,
+          history: pendingStream.history,
+          metadata: pendingStream.metadata,
+          from_sequence_num: pendingStream.lastSequenceNum,
+        }),
+      });
+
+      if (!response.ok || !response.body) {
+        window.clearTimeout(requestTimeoutId);
+        throw new Error(await extractApiErrorMessage(response));
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let streamCompleted = false;
+
+      while (!streamCompleted) {
+        const idleTimeoutMs = streamedText.trim()
+          ? STREAM_POST_CONTENT_IDLE_TIMEOUT_MS
+          : STREAM_INITIAL_IDLE_TIMEOUT_MS;
+        const { done, value } = await readStreamChunkWithTimeout(reader, idleTimeoutMs);
+        if (done) {
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+        const parsed = parseSseBlocks(buffer);
+        buffer = parsed.remainder;
+
+        for (const block of parsed.blocks) {
+          streamEstablished = true;
+
+          if (block.data === "heartbeat") {
+            continue;
+          }
+
+          let eventData: StreamEventData | null = null;
+          try {
+            eventData = JSON.parse(block.data) as StreamEventData;
+          } catch {
+            continue;
+          }
+
+          upstreamRequestId = eventData.request_id ?? upstreamRequestId;
+          lastSequenceNum =
+            typeof eventData.sequence_num === "number"
+              ? eventData.sequence_num
+              : lastSequenceNum;
+
+          if (block.event === "message" && eventData.payload?.text) {
+            streamedText += eventData.payload.text;
+            const nextAssistantMessage: Message = {
+              ...pendingStream.assistantMessage,
+              content: streamedText,
+              timestamp: pendingStream.assistantMessage.timestamp || Date.now(),
+              streaming: true,
+              type: "text",
+            };
+            updateAssistantMessage(pendingStream.assistantMessageId, () => nextAssistantMessage);
+            persistPendingChatStream({
+              ...pendingStream,
+              assistantMessage: nextAssistantMessage,
+              lastSequenceNum,
+              streamedText,
+              updatedAt: Date.now(),
+            });
+          }
+
+          if (block.event === "done") {
+            updateAssistantMessage(pendingStream.assistantMessageId, (prev) => ({
+              ...prev,
+              content: streamedText || prev.content || "回答已完成。",
+              timestamp: prev.timestamp || Date.now(),
+              streaming: false,
+            }));
+            streamCompleted = true;
+            clearPendingChatStream(pendingStream.sessionId);
+            await reader.cancel();
+            break;
+          }
+
+          if (block.event === "error") {
+            streamErrorMessage =
+              eventData.payload?.message?.trim() || "生成过程中发生异常，请稍后重试。";
+            updateAssistantMessage(pendingStream.assistantMessageId, (prev) => ({
+              ...prev,
+              content:
+                streamedText ||
+                prev.content ||
+                `生成过程中断：${streamErrorMessage}`,
+              timestamp: prev.timestamp || Date.now(),
+              streaming: false,
+              type: "text",
+            }));
+            streamCompleted = true;
+            clearPendingChatStream(pendingStream.sessionId);
+            await reader.cancel();
+            break;
+          }
+        }
+      }
+
+      window.clearTimeout(requestTimeoutId);
+
+      if (!streamCompleted && streamedText.trim()) {
+        updateAssistantMessage(pendingStream.assistantMessageId, (prev) => ({
+          ...prev,
+          content:
+            streamedText +
+            (streamErrorMessage
+              ? `\n\n回答提前结束：${streamErrorMessage}`
+              : "\n\n回答提前结束：刷新后重连中断，请重试一次。"),
+          timestamp: prev.timestamp || Date.now(),
+          streaming: false,
+          type: "text",
+        }));
+        clearPendingChatStream(pendingStream.sessionId);
+      }
+
+      if (streamCompleted) {
+        await syncSessionMessagesFromMemory(pendingStream.sessionId);
+      }
+      shouldAbortRequest = false;
+    } catch (error) {
+      if (abortController.signal.aborted) {
+        const stoppedByUser = abortController.signal.reason === "chat stream user stopped";
+        updateAssistantMessage(pendingStream.assistantMessageId, (prev) => ({
+          ...prev,
+          content: streamedText.trim()
+            ? `${streamedText}\n\n${stoppedByUser ? "已终止生成。" : "刷新后生成连接已中断，请重试一次。"}`
+            : stoppedByUser
+              ? "已终止本轮请求。"
+              : "刷新后生成连接已中断，请重试一次。",
+          timestamp: prev.timestamp || Date.now(),
+          streaming: false,
+          type: "text",
+        }));
+        clearPendingChatStream(pendingStream.sessionId);
+        shouldAbortRequest = false;
+        return;
+      }
+
+      logStreamTrace(localRequestId, "resume_error", {
+        sessionId: pendingStream.sessionId,
+        upstreamRequestId,
+        sequenceNum: lastSequenceNum,
+        streamEstablished,
+        totalLength: streamedText.length,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      updateAssistantMessage(pendingStream.assistantMessageId, (prev) => ({
+        ...prev,
+        content: streamedText.trim()
+          ? `${streamedText}\n\n刷新后未能继续连接生成流，请重试一次。`
+          : "刷新后未能继续连接生成流，请重试一次。",
+        timestamp: prev.timestamp || Date.now(),
+        streaming: false,
+        type: "text",
+      }));
+      clearPendingChatStream(pendingStream.sessionId);
+      shouldAbortRequest = false;
+    } finally {
+      window.clearTimeout(requestTimeoutId);
+      if (shouldAbortRequest && !abortController.signal.aborted) {
+        abortController.abort("chat stream resume cleanup");
+      }
+      if (activeChatAbortControllerRef.current === abortController) {
+        activeChatAbortControllerRef.current = null;
+      }
+      setSending(false);
+    }
+  };
+
   const handleSendMessage = async () => {
     const content = chatMessage.trim();
     if (!content || sending) {
@@ -766,11 +1030,42 @@ export function KoduckAi() {
       timestamp: 0,
       streaming: true,
     };
+    const historyMessages = buildHistoryMessages();
+    const requestMetadata = {
+      enablePlanCanvas: true,
+      planMode: "collaborative",
+      ...(quotedMessage?.messageId
+        ? { quoted_message_id: quotedMessage.messageId }
+        : {}),
+      ...(quotedMessage?.memoryEntryId
+        ? { quoted_memory_entry_id: quotedMessage.memoryEntryId }
+        : {}),
+      ...(quotedMessage
+        ? {
+            quoted_role: quotedMessage.role,
+            quoted_content: quotedMessage.content,
+          }
+        : {}),
+    };
     setPromptHistory((prev) => pushPromptHistoryEntry(prev, content));
     setPromptHistoryIndex(null);
     draftBeforePromptHistoryRef.current = "";
     pendingQuoteRef.current = null;
     setMessages((prev) => [...prev, userMessage, assistantPlaceholder]);
+    persistPendingChatStream({
+      sessionId,
+      assistantMessageId,
+      userMessage,
+      assistantMessage: assistantPlaceholder,
+      prompt: content,
+      provider: selectedProvider,
+      model: selectedModel,
+      history: historyMessages,
+      metadata: requestMetadata,
+      lastSequenceNum: 0,
+      streamedText: "",
+      updatedAt: Date.now(),
+    });
     setChatMessage("");
     setSending(true);
     const localRequestId = `web-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -808,23 +1103,8 @@ export function KoduckAi() {
           session_id: sessionId,
           provider: selectedProvider,
           model: selectedModel,
-          history: buildHistoryMessages(),
-          metadata: {
-            enablePlanCanvas: true,
-            planMode: "collaborative",
-            ...(quotedMessage?.messageId
-              ? { quoted_message_id: quotedMessage.messageId }
-              : {}),
-            ...(quotedMessage?.memoryEntryId
-              ? { quoted_memory_entry_id: quotedMessage.memoryEntryId }
-              : {}),
-            ...(quotedMessage
-              ? {
-                  quoted_role: quotedMessage.role,
-                  quoted_content: quotedMessage.content,
-                }
-              : {}),
-          },
+          history: historyMessages,
+          metadata: requestMetadata,
         }),
       });
 
@@ -907,6 +1187,25 @@ export function KoduckAi() {
               streaming: true,
               type: "text",
             }));
+            persistPendingChatStream({
+              sessionId,
+              assistantMessageId,
+              userMessage,
+              assistantMessage: {
+                ...assistantPlaceholder,
+                content: nextText,
+                timestamp: Date.now(),
+                streaming: true,
+              },
+              prompt: content,
+              provider: selectedProvider,
+              model: selectedModel,
+              history: historyMessages,
+              metadata: requestMetadata,
+              lastSequenceNum: lastSequenceNum ?? 0,
+              streamedText: nextText,
+              updatedAt: Date.now(),
+            });
           }
 
           if (block.event === "done") {
@@ -923,6 +1222,7 @@ export function KoduckAi() {
               timestamp: prev.timestamp || Date.now(),
               streaming: false,
             }));
+            clearPendingChatStream(sessionId);
             streamCompleted = true;
             await reader.cancel();
             break;
@@ -949,6 +1249,7 @@ export function KoduckAi() {
               streaming: false,
               type: "text",
             }));
+            clearPendingChatStream(sessionId);
             streamCompleted = true;
             await reader.cancel();
             break;
@@ -977,7 +1278,20 @@ export function KoduckAi() {
           streaming: false,
           type: "text",
         }));
+        clearPendingChatStream(sessionId);
         streamCompleted = true;
+      }
+
+      if (streamCompleted && !streamedText.trim()) {
+        logStreamTrace(localRequestId, "request_complete", {
+          sessionId,
+          upstreamRequestId,
+          sequenceNum: lastSequenceNum,
+          totalLength: streamedText.length,
+          streamCompleted,
+        });
+        shouldAbortRequest = false;
+        return;
       }
 
       if (!streamedText.trim()) {
@@ -1022,6 +1336,7 @@ export function KoduckAi() {
           streaming: false,
           type: "text",
         }));
+        clearPendingChatStream(sessionId);
         shouldAbortRequest = false;
         return;
       }
@@ -1034,6 +1349,7 @@ export function KoduckAi() {
           streaming: false,
           type: "text",
         }));
+        clearPendingChatStream(sessionId);
         shouldAbortRequest = false;
         return;
       }
@@ -1057,6 +1373,7 @@ export function KoduckAi() {
           streaming: false,
           type: "text",
         }));
+        clearPendingChatStream(sessionId);
         shouldAbortRequest = false;
         return;
       }
@@ -1073,6 +1390,7 @@ export function KoduckAi() {
           streaming: false,
           type: "text",
         }));
+        clearPendingChatStream(sessionId);
         shouldAbortRequest = false;
         return;
       }
@@ -1086,6 +1404,7 @@ export function KoduckAi() {
         type: shouldReturnCard(content) ? "card" : "text",
         cardData: shouldReturnCard(content) ? generateCardData(content) : undefined,
       }));
+      clearPendingChatStream(sessionId);
     } finally {
       logStreamTrace(localRequestId, "request_finally", {
         sessionId,

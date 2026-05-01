@@ -40,11 +40,13 @@ function userRequestedFlowVisualization(content: string): boolean {
 function MessageBody({
   message,
   currentSessionId,
+  availableMemoryEntryIds,
   allowImplicitFlow,
   onMemoryEntryDeleted,
 }: {
   message: Message;
   currentSessionId: string | null;
+  availableMemoryEntryIds: ReadonlySet<string>;
   allowImplicitFlow: boolean;
   onMemoryEntryDeleted: (entryId: string | null, step: ConversationFlowStep) => void | Promise<void>;
 }) {
@@ -96,6 +98,7 @@ function MessageBody({
       messageId={message.id}
       sessionId={currentSessionId}
       onMemoryEntryDeleted={onMemoryEntryDeleted}
+      availableMemoryEntryIds={availableMemoryEntryIds}
       allowImplicitFlow={allowImplicitFlow}
     />
   );
@@ -112,6 +115,12 @@ export function MessageList({
   onDelete,
   onMemoryEntryDeleted,
 }: MessageListProps) {
+  const availableMemoryEntryIds = new Set(
+    messages
+      .map((message) => message.memoryEntryId)
+      .filter((entryId): entryId is string => Boolean(entryId)),
+  );
+
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6 pb-8">
       {messages.map((message, index) => {
@@ -136,6 +145,7 @@ export function MessageList({
                   <MessageBody
                     message={message}
                     currentSessionId={currentSessionId}
+                    availableMemoryEntryIds={availableMemoryEntryIds}
                     allowImplicitFlow={allowImplicitFlow}
                     onMemoryEntryDeleted={onMemoryEntryDeleted}
                   />

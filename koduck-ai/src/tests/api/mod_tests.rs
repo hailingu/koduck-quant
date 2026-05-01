@@ -171,7 +171,8 @@ fn classifier_metadata_is_source_even_if_message_mentions_flow_diagram() {
 fn parse_execution_intent_response_maps_flow_canvas_presentation() {
     let intent = parse_execution_intent_response(
         r#"{"actionIntent":"summarize","targetIntent":"conversation","presentationIntent":"flow_canvas","confidence":0.9}"#,
-    );
+    )
+    .expect("strict json should parse");
 
     let request = ChatRequest {
         session_id: None,
@@ -201,6 +202,69 @@ fn parse_execution_intent_response_maps_flow_canvas_presentation() {
     assert_eq!(parsed_intent.action.as_str(), "summarize");
     assert_eq!(parsed_intent.target.as_str(), "conversation");
     assert_eq!(parsed_intent.presentation.as_str(), "flow_canvas");
+}
+
+#[test]
+fn parse_execution_intent_response_uses_final_json_after_reasoning_text() {
+    let intent = parse_execution_intent_response(
+        r#"The user wants historical Yao Ming data, so this is a knowledge query.
+{"actionIntent":"query","targetIntent":"knowledge","presentationIntent":"text","confidence":0.9}"#,
+    )
+    .expect("final json object should parse");
+
+    assert_eq!(intent.action.as_str(), "query");
+    assert_eq!(intent.target.as_str(), "knowledge");
+    assert_eq!(intent.presentation.as_str(), "text");
+    assert_eq!(intent.confidence, 0.9);
+}
+
+#[test]
+fn parse_execution_intent_response_prefers_last_json_object() {
+    let intent = parse_execution_intent_response(
+        r#"Example: {"actionIntent":"answer","targetIntent":"none","presentationIntent":"text","confidence":0.1}
+Final: {"actionIntent":"query","targetIntent":"knowledge","presentationIntent":"json","confidence":0.95}"#,
+    )
+    .expect("last json object should parse");
+
+    assert_eq!(intent.action.as_str(), "query");
+    assert_eq!(intent.target.as_str(), "knowledge");
+    assert_eq!(intent.presentation.as_str(), "json");
+    assert_eq!(intent.confidence, 0.95);
+}
+
+#[test]
+fn parse_execution_intent_response_rejects_labeled_text() {
+    let intent = parse_execution_intent_response(
+        r#"The user wants a flow view.
+- actionIntent: query
+- targetIntent: conversation
+- presentationIntent: flow_canvas
+- confidence: 0.95"#,
+    );
+
+    assert!(intent.is_none());
+}
+
+#[test]
+fn parse_execution_intent_response_rejects_labeled_values_with_explanations() {
+    let intent = parse_execution_intent_response(
+        r#"The user asks for sports knowledge.
+- actionIntent: answer (direct answer)
+- targetIntent: knowledge (established facts)
+- presentationIntent: text (default)
+- confidence: 0.9"#,
+    );
+
+    assert!(intent.is_none());
+}
+
+#[test]
+fn parse_execution_intent_response_rejects_natural_language_inference() {
+    let intent = parse_execution_intent_response(
+        "The user wants to use flow to analyze our conversation in this session.",
+    );
+
+    assert!(intent.is_none());
 }
 
 #[test]

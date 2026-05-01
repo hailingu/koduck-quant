@@ -17,17 +17,22 @@ export function MarkdownMessage({
   messageId,
   sessionId,
   onMemoryEntryDeleted,
+  availableMemoryEntryIds,
   allowImplicitFlow = false,
 }: {
   content: string;
   messageId: string;
   sessionId: string | null;
   onMemoryEntryDeleted?: (entryId: string | null, step: ConversationFlowStep) => void | Promise<void>;
+  availableMemoryEntryIds?: ReadonlySet<string>;
   allowImplicitFlow?: boolean;
 }) {
-  const flowSpec = extractConversationFlowSpecFromContent(content, {
+  const parsedFlowSpec = extractConversationFlowSpecFromContent(content, {
     allowImplicit: allowImplicitFlow,
   });
+  const flowSpec = parsedFlowSpec
+    ? filterConversationFlowSpecByMemoryEntries(parsedFlowSpec, availableMemoryEntryIds)
+    : null;
   const buildFlowStorageKey = (spec: ConversationFlowSpec) =>
     buildConversationFlowStateStorageKey(
       sessionId,
@@ -101,12 +106,15 @@ export function MarkdownMessage({
               const flowSpec = isConversationFlowCodeBlock(className) || allowImplicitFlow
                 ? parseConversationFlowSpec(codeContent)
                 : null;
-              if (flowSpec) {
+              const visibleFlowSpec = flowSpec
+                ? filterConversationFlowSpecByMemoryEntries(flowSpec, availableMemoryEntryIds)
+                : null;
+              if (visibleFlowSpec) {
                 return (
                   <ConversationKoduckFlowCanvas
-                    spec={flowSpec}
+                    spec={visibleFlowSpec}
                     sessionId={sessionId}
-                    storageKey={buildFlowStorageKey(flowSpec)}
+                    storageKey={buildFlowStorageKey(visibleFlowSpec)}
                     onMemoryEntryDeleted={onMemoryEntryDeleted}
                   />
                 );
@@ -147,4 +155,43 @@ export function MarkdownMessage({
       </ReactMarkdown>
     </div>
   );
+}
+
+function filterConversationFlowSpecByMemoryEntries(
+  spec: ConversationFlowSpec,
+  availableMemoryEntryIds: ReadonlySet<string> | undefined,
+): ConversationFlowSpec | null {
+  if (!availableMemoryEntryIds || availableMemoryEntryIds.size === 0) {
+    return spec;
+  }
+
+  const visibleSteps = spec.steps.filter((step) => {
+    const entryId = extractMemoryEntryIdFromFlowStep(step);
+    return !entryId || availableMemoryEntryIds.has(entryId);
+  });
+  if (visibleSteps.length === 0) {
+    return null;
+  }
+
+  const visibleStepIds = new Set(visibleSteps.map((step) => step.id));
+  return {
+    ...spec,
+    steps: visibleSteps.map((step) => ({
+      ...step,
+      dependsOn: step.dependsOn.filter((dependencyId) => visibleStepIds.has(dependencyId)),
+    })),
+  };
+}
+
+function extractMemoryEntryIdFromFlowStep(step: ConversationFlowStep): string | null {
+  const entryInput = step.input.find((item) => item.startsWith("entry_id="));
+  const entryId = entryInput?.slice("entry_id=".length).trim();
+  if (entryId) {
+    return entryId;
+  }
+
+  const idMatch = /^entry_([0-9a-f]{8})_([0-9a-f]{4})_([0-9a-f]{4})_([0-9a-f]{4})_([0-9a-f]{12})$/i.exec(
+    step.id,
+  );
+  return idMatch ? idMatch.slice(1).join("-") : null;
 }

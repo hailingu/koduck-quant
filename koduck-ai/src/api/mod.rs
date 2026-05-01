@@ -23,7 +23,9 @@ use serde_json::json;
 use tracing::{info, warn};
 use uuid::Uuid;
 
-use self::flow_canvas::build_current_memory_entries_flow_answer;
+use self::flow_canvas::{
+    build_current_conversation_flow_answer, build_current_memory_entries_flow_answer,
+};
 use self::intent::{
     classify_execution_intent, request_with_execution_intent, ExecutionIntent, PresentationIntent,
     TargetIntent,
@@ -71,6 +73,18 @@ const MEMORY_QUERY_TOP_K: i32 = 5;
 const MAX_HISTORY_MESSAGES: usize = 20;
 const MEMORY_PROMPT_TAIL: &str =
     "请结合下面历史命中与当前问题，自行判断哪些内容相关，再决定是否在回答中引用这些历史记忆。";
+
+fn log_execution_intent(request_id: &str, session_id: &str, execution_intent: ExecutionIntent) {
+    info!(
+        request_id = %request_id,
+        session_id = %session_id,
+        action_intent = %execution_intent.action.as_str(),
+        target_intent = %execution_intent.target.as_str(),
+        presentation_intent = %execution_intent.presentation.as_str(),
+        confidence = execution_intent.confidence,
+        "execution intent classified"
+    );
+}
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ChatHistoryMessage {
@@ -326,12 +340,21 @@ pub async fn chat(
         Ok(intent) => intent,
         Err(err) => return api_error_response(err, request_id),
     };
+    log_execution_intent(&request_id, &session_id, execution_intent);
     let request = request_with_execution_intent(&request, execution_intent);
 
-    let response = if let Some(answer) =
-        build_current_memory_entries_flow_answer(&state, &memory_ctx, &request, execution_intent)
-            .await
-    {
+    let direct_flow_answer =
+        if let Some(answer) =
+            build_current_memory_entries_flow_answer(&state, &memory_ctx, &request, execution_intent)
+                .await
+        {
+            Some(answer)
+        } else {
+            build_current_conversation_flow_answer(&state, &memory_ctx, &request, execution_intent)
+                .await
+        };
+
+    let response = if let Some(answer) = direct_flow_answer {
         ChatResponse {
             request_id: request_id.clone(),
             session_id: session_id.clone(),
@@ -480,12 +503,62 @@ pub async fn chat_stream(
         .await
         {
             Ok(intent) => intent,
-            Err(err) => return api_error_response(err, request_id),
+            Err(err) => {
+                let err = err.with_request_id(request_id.clone());
+                let generation_guard = session.request_guard().await;
+                if let Err(enqueue_err) = session
+                    .enqueue_event_if_current(
+                        &generation_guard,
+                        build_stream_error_event(&err, &request_id, &session_id),
+                    )
+                    .await
+                {
+                    warn!(
+                        request_id = %request_id,
+                        session_id = %session_id,
+                        error = %enqueue_err,
+                        "failed to enqueue execution intent classifier error event"
+                    );
+                }
+                let high_watermark = resume_cursor.high_watermark(Some(&session));
+                return stream_sse_response_with_watermark(session, request_id, high_watermark)
+                    .await;
+            }
         };
+        log_execution_intent(&request_id, &session_id, execution_intent);
         let chat_request = request_with_execution_intent(&request.chat, execution_intent);
         let generation_guard = session.request_guard().await;
+        if let Some(answer) = build_current_conversation_flow_answer(
+            &state,
+            &memory_ctx,
+            &chat_request,
+            execution_intent,
+        )
+        .await
+        {
+            append_chat_turn_best_effort(
+                &state,
+                DegradeRoute::ChatStream,
+                &memory_ctx,
+                &chat_request,
+                &answer,
+                chat_request.model.as_deref().unwrap_or_default(),
+                "append_memory failed after conversation flow response; continuing",
+            )
+            .await;
+            spawn_generated_stream(
+                Arc::clone(&session),
+                generation_guard,
+                Duration::from_millis(state.config.stream.max_duration_ms),
+                answer,
+            );
+            let high_watermark = resume_cursor.high_watermark(Some(&session));
+            return stream_sse_response_with_watermark(session, request_id, high_watermark).await;
+        }
+
         let plan_completion = if execution_intent.presentation == PresentationIntent::FlowCanvas
             && execution_intent.target != TargetIntent::Memory
+            && execution_intent.target != TargetIntent::Conversation
         {
             let orchestrator = PlanOrchestrator::new(
                 auth_ctx.tenant_id.clone(),

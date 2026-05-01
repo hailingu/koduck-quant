@@ -4,26 +4,26 @@
 
 @keyframes koduck-stop-breathe {
   0% {
-    border-radius: 0.25rem;
-    inset: 0.625rem;
-    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.28);
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(0.82);
   }
 
   50% {
-    border-radius: 9999px;
-    inset: 0.125rem;
+    box-shadow: 0 0 0 0.28rem rgba(220, 38, 38, 0);
     opacity: 1;
+    transform: translate(-50%, -50%) scale(1.08);
   }
 
   100% {
-    border-radius: 0.25rem;
-    inset: 0.625rem;
-    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(0.82);
   }
 }
 
 .koduck-stop-button {
-  border: 2px solid #dc2626;
+  border: 0;
   background: transparent;
   overflow: hidden;
   position: relative;
@@ -36,17 +36,23 @@
 }
 
 .koduck-stop-button::before {
-  animation: koduck-stop-breathe 1.8s ease-in-out infinite;
-  background: #dc2626;
+  animation: koduck-stop-breathe 1.35s ease-in-out infinite;
+  border: 2px solid #dc2626;
+  border-radius: 9999px;
   content: "";
+  height: 1.125rem;
+  left: 50%;
   position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 1.125rem;
 }
 
 .koduck-stop-button__square {
-  border: 2px solid #dc2626;
-  border-radius: 0.2rem;
-  height: 0.7rem;
+  background: #dc2626;
+  border-radius: 0.12rem;
+  height: 0.45rem;
   position: relative;
-  width: 0.7rem;
+  width: 0.45rem;
   z-index: 1;
 }

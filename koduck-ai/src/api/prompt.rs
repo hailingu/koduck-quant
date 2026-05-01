@@ -157,8 +157,8 @@ pub(super) fn build_provider_generate_request(
         KODUCK_BASE_LANGUAGE_PROMPT
     );
 
-    if execution_intent.presentation == PresentationIntent::FlowCanvas {
-        system_content.push_str(
+    match execution_intent.presentation {
+        PresentationIntent::FlowCanvas => system_content.push_str(
             r#"
 
 Koduck Flow Canvas 输出契约：
@@ -189,7 +189,36 @@ Koduck Flow Canvas 输出契约：
 }
 ```
 "#,
-        );
+        ),
+        PresentationIntent::Json => system_content.push_str(
+            r#"
+
+Koduck JSON 输出契约：
+- 仅当当前用户最后一条消息明确要求 JSON 时，才使用 JSON 输出。
+- 你必须只输出一个合法 JSON 对象，不要输出 Markdown 标题、说明文字、代码块围栏或 JSON 之外的任何文本。
+- JSON 内容必须直接回答当前用户最后一条消息，不要因为历史消息里出现过 flow/canvas JSON 就改成 flow canvas schema。
+"#,
+        ),
+        PresentationIntent::Table => system_content.push_str(
+            r#"
+
+Koduck Table 输出契约：
+- 仅当当前用户最后一条消息明确要求表格时，才使用 Markdown 表格。
+- 不要输出 JSON 对象、JSON 数组、Mermaid、ASCII 图或 flow canvas schema。
+- 表格之外只保留必要的一两句中文说明。
+"#,
+        ),
+        PresentationIntent::Text => system_content.push_str(
+            r#"
+
+Koduck Text 输出契约：
+- 当前用户最后一条消息没有明确要求 JSON、表格、flow/canvas、流程图或节点图时，必须使用 Markdown 文本回答。
+- Markdown 文本可以使用简短标题、普通段落、项目符号和加粗重点；除非用户明确要求表格，不要使用 Markdown 表格。
+- 不要输出 JSON 对象、JSON 数组、代码块、Mermaid、ASCII 图、flow canvas schema 或机器可读结构。
+- 历史消息中的 JSON、flow canvas、表格或 schema 只作为上下文，不要模仿其输出格式。
+- 如需列举信息，使用简短段落或普通项目符号；除非用户明确要求，不要改成结构化 JSON 或专用可视化格式。
+"#,
+        ),
     }
 
     if let Some(memory_prompt) =

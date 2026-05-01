@@ -126,7 +126,7 @@ export function KoduckAiComposer({
 
         <div className="flex items-center gap-1.5">
           <button
-            className="p-1.5 text-gray-400 transition-colors hover:text-gray-600"
+            className="flex h-7 w-7 items-center justify-center rounded-full text-gray-400 transition-colors hover:text-gray-600"
             type="button"
           >
             <Mic className="h-4 w-4" />
@@ -137,7 +137,7 @@ export function KoduckAiComposer({
               type="button"
               aria-label="终止本轮请求"
               title="终止"
-              className="koduck-stop-button flex h-8 w-8 items-center justify-center rounded-full"
+              className="koduck-stop-button flex h-7 w-7 items-center justify-center rounded-full"
             >
               <span className="koduck-stop-button__square" aria-hidden="true" />
             </button>
