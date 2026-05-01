@@ -1166,7 +1166,7 @@ async fn append_memory_materializes_generic_memory_units() {
 
     assert_eq!(units.len(), 2);
     assert!(units.iter().all(|unit| unit.memory_kind == MemoryUnitKind::GenericConversation));
-    assert!(units.iter().all(|unit| unit.summary_state.summary_status == "pending"));
+    assert!(units.iter().all(|unit| unit.summary_state.summary_status == "raw"));
     assert_eq!(units[0].entry_range_start, 1);
     assert_eq!(units[0].entry_range_end, 1);
     assert_eq!(units[1].entry_range_start, 2);
@@ -1530,7 +1530,9 @@ async fn summarize_memory_materializes_summary_and_fact_units() {
         .collect::<Vec<_>>();
     assert_eq!(fact_units.len(), facts.len());
     assert!(fact_units.iter().all(|unit| unit.entry_range_start == 1 && unit.entry_range_end == 2));
-    assert!(fact_units.iter().all(|unit| unit.summary_state.summary_status == "pending"));
+    assert!(fact_units.iter().all(|unit| {
+        unit.summary_state.summary_status == "not_applicable"
+    }));
     assert!(fact_units.iter().all(|unit| {
         unit.domain_class_primary.as_deref() == Some(stored_summary.domain_class.as_str())
     }));

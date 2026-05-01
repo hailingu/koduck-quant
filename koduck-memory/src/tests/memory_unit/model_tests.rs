@@ -16,9 +16,29 @@ fn ready_summary_requires_payload() {
 }
 
 #[test]
-fn pending_summary_rejects_payload_on_read() {
+fn raw_summary_rejects_payload_on_read() {
+    let state = MemoryUnitSummaryState {
+        summary_status: "raw".to_string(),
+        summary: Some("unexpected".to_string()),
+    };
+
+    assert!(state.payload().is_err());
+}
+
+#[test]
+fn legacy_pending_summary_rejects_payload_on_read() {
     let state = MemoryUnitSummaryState {
         summary_status: "pending".to_string(),
+        summary: Some("unexpected".to_string()),
+    };
+
+    assert!(state.payload().is_err());
+}
+
+#[test]
+fn not_applicable_summary_rejects_payload_on_read() {
+    let state = MemoryUnitSummaryState {
+        summary_status: "not_applicable".to_string(),
         summary: Some("unexpected".to_string()),
     };
 

@@ -148,7 +148,7 @@ kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s
 1. 为 `memory_units` 建立 model / repository
 2. 为 `memory_unit_anchors` 建立 model / repository
 3. 对 repository 层字段约束做静态表达：
-   - `summary_status = pending` 时允许 `summary = NULL`
+   - `summary_status = raw | not_applicable | pending` 时允许 `summary = NULL`，其中 `pending` 仅为旧数据兼容
    - `summary_status = ready` 时要求 `summary` 非空
    - `memory_kind = NULL` 统一解释为 `generic conversation unit`
 
@@ -416,7 +416,7 @@ kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s
 ### 主路径验收
 
 - [ ] `QueryMemory` 在不修改当前 `memory.v1` 主路径契约的前提下，可通过 anchor path 返回 `MemoryHit`
-- [ ] recent memory 在 `summary_status = pending` 时仍可通过 anchors 被命中
+- [ ] recent memory 在 `summary_status = raw` 时仍可通过 anchors 被命中
 - [ ] `domain_class_primary` 投影规则在回填、重算、迁移中保持一致
 - [ ] `match_reasons` 与闭集定义一致，不出现开放集漂移
 

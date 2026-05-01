@@ -124,6 +124,7 @@ export interface ApiErrorEnvelope {
 
 export interface SessionLookupData {
   exists?: boolean;
+  title?: string;
 }
 
 export interface SessionLookupEnvelope {

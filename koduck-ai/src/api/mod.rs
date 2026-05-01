@@ -146,6 +146,18 @@ pub struct ApiResponse<T> {
     pub error: Option<crate::reliability::error::ErrorResponse>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct UpdateSessionRequest {
+    pub title: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SessionPayload {
+    pub session_id: String,
+    pub exists: bool,
+    pub title: String,
+}
+
 #[derive(Debug, Serialize)]
 pub struct SessionTranscriptPayload {
     pub session_id: String,
@@ -1379,9 +1391,9 @@ pub async fn session_exists(
         &auth_ctx,
     );
 
-    let exists = match memory::get_session(&state, &memory_ctx).await {
-        Ok(_) => true,
-        Err(err) if err.code == ErrorCode::ResourceNotFound => false,
+    let (exists, title) = match memory::get_session(&state, &memory_ctx).await {
+        Ok(session) => (true, session.title),
+        Err(err) if err.code == ErrorCode::ResourceNotFound => (false, String::new()),
         Err(err) => return api_error_response(err, request_id),
     };
 
@@ -1391,10 +1403,106 @@ pub async fn session_exists(
             success: true,
             code: ErrorCode::Ok.to_string(),
             message: "success".to_string(),
-            data: Some(json!({
-                "session_id": session_id,
-                "exists": exists
-            })),
+            data: Some(SessionPayload {
+                session_id,
+                exists,
+                title,
+            }),
+            error: None,
+        }),
+    )
+        .into_response()
+}
+
+pub async fn update_session(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Path(raw_session_id): Path<String>,
+    Json(request): Json<UpdateSessionRequest>,
+) -> Response {
+    let request_id = extract_or_create_request_id(&headers);
+    let auth_ctx = match crate::auth::authenticate_bearer(&headers, &state).await {
+        Ok(ctx) => ctx,
+        Err(err) => return api_error_response(err.with_request_id(request_id.clone()), request_id),
+    };
+
+    let Some(session_id) = normalize_session_id(&raw_session_id) else {
+        return api_error_response(
+            AppError::new(ErrorCode::InvalidArgument, "session_id is invalid")
+                .with_request_id(request_id.clone()),
+            request_id,
+        );
+    };
+    let title = request.title.trim();
+    if title.is_empty() {
+        return api_error_response(
+            AppError::new(ErrorCode::InvalidArgument, "session title cannot be empty")
+                .with_request_id(request_id.clone()),
+            request_id,
+        );
+    }
+    if title.chars().count() > 80 {
+        return api_error_response(
+            AppError::new(ErrorCode::InvalidArgument, "session title cannot exceed 80 characters")
+                .with_request_id(request_id.clone()),
+            request_id,
+        );
+    }
+
+    let trace_id = extract_trace_id(&headers);
+    let memory_ctx = MemoryRequestContext::from_auth(
+        request_id.clone(),
+        session_id.clone(),
+        trace_id,
+        state.config.llm.timeout_ms,
+        &auth_ctx,
+    );
+    let existing = match memory::get_session(&state, &memory_ctx).await {
+        Ok(session) => Some(session),
+        Err(err) if err.code == ErrorCode::ResourceNotFound => None,
+        Err(err) => return api_error_response(err, request_id),
+    };
+
+    let input = memory::SessionUpsertInput {
+        title: title.to_string(),
+        status: existing
+            .as_ref()
+            .map(|session| session.status.clone())
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or_else(|| "active".to_string()),
+        extra: existing
+            .as_ref()
+            .map(|session| session.extra.clone())
+            .unwrap_or_default(),
+        parent_session_id: existing
+            .as_ref()
+            .map(|session| session.parent_session_id.clone())
+            .unwrap_or_default(),
+        forked_from_session_id: existing
+            .as_ref()
+            .map(|session| session.forked_from_session_id.clone())
+            .unwrap_or_default(),
+        last_message_at: existing
+            .as_ref()
+            .map(|session| session.last_message_at)
+            .unwrap_or_else(|| Utc::now().timestamp_millis()),
+    };
+
+    if let Err(err) = memory::upsert_session_meta(&state, &memory_ctx, input).await {
+        return api_error_response(err, request_id);
+    }
+
+    (
+        StatusCode::OK,
+        Json(ApiResponse {
+            success: true,
+            code: ErrorCode::Ok.to_string(),
+            message: "success".to_string(),
+            data: Some(SessionPayload {
+                session_id,
+                exists: true,
+                title: title.to_string(),
+            }),
             error: None,
         }),
     )

@@ -100,7 +100,7 @@
 - `summary`（可空；当 `summary_status = ready` 时必须满足质量约束）
 - `snippet`（检索展示文本；可由写入链路同步生成，或由 L0/summary 派生）
 - `source_uri`（主回溯 URI；当 unit 覆盖多条 entry 时，只表示主锚点对象）
-- `summary_status`（pending / ready / failed）
+- `summary_status`（raw / ready / failed / not_applicable；pending 仅作旧数据兼容）
 - `salience_score`
 - `time_bucket`（如 `2026-04` 或阶段标签）
 - `created_at` / `updated_at`
@@ -112,7 +112,7 @@
 - `source_uri` 仅作为主回溯入口，不应被理解为 unit 全部原始材料的完整枚举
 - 如后续需要更精细追溯，可新增 `memory_unit_sources` 子表，但 V1 可先依赖 `entry range + source_uri` 组合表达
 - `source_uri` 在单 entry 与多 entry unit 场景下都应必填，用作主回溯入口
-- `summary_status = pending` 时允许 `summary = NULL`
+- `summary_status = raw | not_applicable | pending` 时允许 `summary = NULL`，其中 `pending` 仅作旧数据兼容
 - `summary_status = ready` 时要求 `summary` 非空且通过质量校验
 - `snippet` 不是检索真值字段，允许由写入链路或读路径派生，但对外返回时必须稳定可用
 - 普通会话片段不强制设置 `memory_kind`；仅当物化为现有分类时才写 `summary` 或 `fact`

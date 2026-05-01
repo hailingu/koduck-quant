@@ -49,7 +49,7 @@ Task 2.1 明确要求：
 
 - 数据库中的 `memory_kind = NULL` 统一映射到 `MemoryUnitKind::GenericConversation`
 - `summary_status = ready` 时必须带非空 summary
-- `summary_status = pending` 时不允许携带 summary payload
+- `summary_status = raw | not_applicable | pending` 时不允许携带 summary payload，其中 `pending` 仅作旧数据兼容
 
 这使 repository 的输入和输出都不再直接暴露“可随意拼接”的状态组合。
 

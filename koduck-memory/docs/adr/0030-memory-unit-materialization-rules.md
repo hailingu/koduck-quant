@@ -40,7 +40,7 @@ Task 2.2 明确要求我们把这些规则落成可复现实现。
 - `memory_unit_id = entry_id`
 - `entry_range_start = entry_range_end = sequence_num`
 - `memory_kind = NULL`（映射为 generic conversation unit）
-- `summary_status = pending`
+- `summary_status = raw`
 - `source_uri = l0_uri`
 - `time_bucket = message_ts(%Y-%m)`
 
@@ -65,7 +65,7 @@ Task 2.2 明确要求我们把这些规则落成可复现实现。
 
 - `memory_unit_id = fact.id`
 - `memory_kind = fact`
-- `summary_status = pending`
+- `summary_status = not_applicable`
 - `source_uri = memory-fact://...`
 - `entry_range = [first_sequence_num, last_sequence_num]`
 

@@ -162,7 +162,7 @@ impl MemoryUnitMaterializer {
             )?
             .with_memory_unit_id(input.fact.id)
             .with_memory_kind(MemoryUnitKind::Fact)
-            .with_summary_state(MemoryUnitSummaryState::pending())
+            .with_summary_state(MemoryUnitSummaryState::not_applicable())
             .with_time_bucket(input.time_bucket.clone());
 
             let unit = self.unit_repo.insert(&insert).await?;

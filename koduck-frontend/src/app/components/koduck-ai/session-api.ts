@@ -1,4 +1,4 @@
-import type { Message, SessionLookupEnvelope, SessionTranscriptEntry, SessionTranscriptEnvelope } from "./types";
+import type { Message, SessionLookupData, SessionLookupEnvelope, SessionTranscriptEntry, SessionTranscriptEnvelope } from "./types";
 import { handleAuthExpired } from "../../auth";
 
 const SESSION_LOOKUP_RETRY_DELAYS_MS = [150, 400];
@@ -37,6 +37,14 @@ export async function fetchSessionExists(
   sessionId: string,
   signal: AbortSignal,
 ): Promise<boolean | null> {
+  const lookup = await fetchSessionLookup(sessionId, signal);
+  return lookup?.exists ?? null;
+}
+
+export async function fetchSessionLookup(
+  sessionId: string,
+  signal: AbortSignal,
+): Promise<SessionLookupData | null> {
   const token = window.localStorage.getItem("koduck.auth.token");
 
   for (let attempt = 0; attempt <= SESSION_LOOKUP_RETRY_DELAYS_MS.length; attempt += 1) {
@@ -56,7 +64,7 @@ export async function fetchSessionExists(
           return null;
         }
 
-        return body.data?.exists === true;
+        return body.data ?? null;
       }
 
       if (response.status === 401) {

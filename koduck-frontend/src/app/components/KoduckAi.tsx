@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Plus, Trash2, Upload } from "lucide-react";
+import { Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { isAuthExpiredError, throwAuthExpired } from "../auth";
 import { FALLBACK_LLM_OPTIONS, RUNTIME_CONFIG_URL, normalizeLlmOptions } from "./koduck-ai/llm-config";
 import { KoduckAiComposer } from "./koduck-ai/KoduckAiComposer";
@@ -22,7 +22,7 @@ import {
   readSessionIdFromUrl,
   readStoredMessages,
 } from "./koduck-ai/storage";
-import { fetchSessionExists, fetchSessionTranscript } from "./koduck-ai/session-api";
+import { fetchSessionLookup, fetchSessionTranscript } from "./koduck-ai/session-api";
 import {
   STREAM_INITIAL_IDLE_TIMEOUT_MS,
   STREAM_POST_CONTENT_IDLE_TIMEOUT_MS,
@@ -51,6 +51,10 @@ export function KoduckAi() {
   const [promptHistory, setPromptHistory] = useState<string[]>(() => readPromptHistory());
   const [promptHistoryIndex, setPromptHistoryIndex] = useState<number | null>(null);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(initialSessionId);
+  const [sessionTitle, setSessionTitle] = useState("");
+  const [renameDraft, setRenameDraft] = useState("");
+  const [isRenamingSession, setIsRenamingSession] = useState(false);
+  const [isSavingSessionTitle, setIsSavingSessionTitle] = useState(false);
   const [llmOptions, setLlmOptions] = useState<LlmOptionsConfig>(FALLBACK_LLM_OPTIONS);
   const [selectedProvider, setSelectedProvider] = useState<LlmProvider>(
     FALLBACK_LLM_OPTIONS.defaultProvider,
@@ -70,6 +74,7 @@ export function KoduckAi() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
+  const renameInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
   const copyFeedbackTimeoutRef = useRef<number | null>(null);
   const currentSessionIdRef = useRef<string | null>(currentSessionId);
@@ -79,6 +84,10 @@ export function KoduckAi() {
   const draftBeforePromptHistoryRef = useRef("");
   const pendingQuoteRef = useRef<Message["quote"] | null>(null);
   const createSessionId = () => crypto.randomUUID();
+  const normalizeSessionTitle = (title: string | undefined | null) => {
+    const normalized = title?.trim() ?? "";
+    return normalized.toLowerCase() === "untitled" ? "" : normalized;
+  };
   const activateSession = (
     sessionId: string | null,
     options?: { skipRestore?: boolean },
@@ -213,6 +222,9 @@ export function KoduckAi() {
     if (!currentSessionId) {
       skipNextSessionRestoreRef.current = false;
       setMessages([]);
+      setSessionTitle("");
+      setRenameDraft("");
+      setIsRenamingSession(false);
       return;
     }
 
@@ -229,6 +241,17 @@ export function KoduckAi() {
   }, [currentSessionId, initialSessionId, sessionHydrated]);
 
   useEffect(() => {
+    if (!isRenamingSession) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      renameInputRef.current?.focus();
+      renameInputRef.current?.select();
+    });
+  }, [isRenamingSession]);
+
+  useEffect(() => {
     if (!initialSessionId) {
       setSessionHydrated(true);
       return;
@@ -237,10 +260,11 @@ export function KoduckAi() {
     const controller = new AbortController();
 
     const hydrateSession = async () => {
-      const exists = await fetchSessionExists(initialSessionId, controller.signal);
+      const lookup = await fetchSessionLookup(initialSessionId, controller.signal);
       if (controller.signal.aborted) {
         return;
       }
+      const exists = lookup?.exists ?? null;
 
       if (exists === false) {
         const pendingStream = readPendingChatStream(initialSessionId);
@@ -258,6 +282,7 @@ export function KoduckAi() {
           }
         }
       } else {
+        setSessionTitle(normalizeSessionTitle(lookup?.title));
         const transcriptMessages = await fetchSessionTranscript(
           initialSessionId,
           controller.signal,
@@ -534,6 +559,9 @@ export function KoduckAi() {
     draftBeforePromptHistoryRef.current = "";
     setChatMessage("");
     setUploadedFiles([]);
+    setSessionTitle("");
+    setRenameDraft("");
+    setIsRenamingSession(false);
   };
 
   const handleDeleteCurrentSession = async () => {
@@ -563,6 +591,61 @@ export function KoduckAi() {
     draftBeforePromptHistoryRef.current = "";
     setChatMessage("");
     setUploadedFiles([]);
+    setSessionTitle("");
+    setRenameDraft("");
+    setIsRenamingSession(false);
+  };
+
+  const startRenameSession = () => {
+    if (!currentSessionIdRef.current) {
+      const sessionId = createSessionId();
+      activateSession(sessionId, { skipRestore: true });
+    }
+    setRenameDraft(sessionTitle.trim());
+    setIsRenamingSession(true);
+  };
+
+  const cancelRenameSession = () => {
+    setRenameDraft(sessionTitle);
+    setIsRenamingSession(false);
+  };
+
+  const saveSessionTitle = async () => {
+    const sessionId = currentSessionIdRef.current;
+    const title = renameDraft.trim();
+    const persistedTitle = title || "untitled";
+    if (!sessionId) {
+      return;
+    }
+    if (normalizeSessionTitle(persistedTitle) === sessionTitle.trim()) {
+      setIsRenamingSession(false);
+      return;
+    }
+
+    setIsSavingSessionTitle(true);
+    try {
+      const token = window.localStorage.getItem("koduck.auth.token");
+      const response = await fetch(`/api/v1/ai/sessions/${encodeURIComponent(sessionId)}`, {
+        method: "PATCH",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ title: persistedTitle }),
+      });
+
+      if (!response.ok) {
+        throw new Error(await extractApiErrorMessage(response));
+      }
+
+      setSessionTitle(normalizeSessionTitle(persistedTitle));
+      setIsRenamingSession(false);
+    } catch (error) {
+      console.error("failed to rename session:", error);
+    } finally {
+      setIsSavingSessionTitle(false);
+    }
   };
 
   const handleFileSelect = (files: FileList | null) => {
@@ -1603,6 +1686,43 @@ export function KoduckAi() {
         >
           <Trash2 className="w-5 h-5" strokeWidth={1.5} />
         </button>
+        {isRenamingSession ? (
+          <input
+            ref={renameInputRef}
+            value={renameDraft}
+            onChange={(event) => setRenameDraft(event.target.value)}
+            onBlur={() => {
+              void saveSessionTitle();
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                void saveSessionTitle();
+              }
+              if (event.key === "Escape") {
+                event.preventDefault();
+                cancelRenameSession();
+              }
+            }}
+            disabled={isSavingSessionTitle}
+            className="h-8 w-44 rounded-md border border-gray-200 bg-white px-2 text-sm text-gray-700 shadow-sm outline-none transition-colors focus:border-gray-300 disabled:opacity-60"
+            placeholder="会话名称"
+            maxLength={80}
+          />
+        ) : (
+          <button
+            onClick={startRenameSession}
+            className="flex h-8 max-w-56 items-center gap-1.5 rounded-md px-1.5 text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700"
+            type="button"
+            title="重命名会话"
+          >
+            {sessionTitle ? (
+              <span className="truncate text-sm text-gray-600">{sessionTitle}</span>
+            ) : (
+              <Pencil className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+            )}
+          </button>
+        )}
       </div>
       <div
         ref={scrollContainerRef}

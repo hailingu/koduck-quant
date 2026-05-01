@@ -31,9 +31,11 @@ impl MemoryUnitKind {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SummaryPayload {
-    Pending,
+    Raw,
     Ready(String),
     Failed(Option<String>),
+    NotApplicable,
+    LegacyPending,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -43,11 +45,15 @@ pub struct MemoryUnitSummaryState {
 }
 
 impl MemoryUnitSummaryState {
-    pub fn pending() -> Self {
+    pub fn raw() -> Self {
         Self {
-            summary_status: "pending".to_string(),
+            summary_status: "raw".to_string(),
             summary: None,
         }
+    }
+
+    pub fn pending() -> Self {
+        Self::raw()
     }
 
     pub fn ready(summary: impl Into<String>) -> Result<Self> {
@@ -69,13 +75,26 @@ impl MemoryUnitSummaryState {
         }
     }
 
+    pub fn not_applicable() -> Self {
+        Self {
+            summary_status: "not_applicable".to_string(),
+            summary: None,
+        }
+    }
+
     pub fn payload(&self) -> Result<SummaryPayload> {
         match self.summary_status.as_str() {
+            "raw" => {
+                if self.summary.is_some() {
+                    bail!("summary_status=raw must not carry a summary payload");
+                }
+                Ok(SummaryPayload::Raw)
+            }
             "pending" => {
                 if self.summary.is_some() {
                     bail!("summary_status=pending must not carry a summary payload");
                 }
-                Ok(SummaryPayload::Pending)
+                Ok(SummaryPayload::LegacyPending)
             }
             "ready" => {
                 let summary = self
@@ -88,6 +107,12 @@ impl MemoryUnitSummaryState {
                 Ok(SummaryPayload::Ready(summary))
             }
             "failed" => Ok(SummaryPayload::Failed(self.summary.clone())),
+            "not_applicable" => {
+                if self.summary.is_some() {
+                    bail!("summary_status=not_applicable must not carry a summary payload");
+                }
+                Ok(SummaryPayload::NotApplicable)
+            }
             other => bail!("unsupported summary_status: {other}"),
         }
     }
@@ -204,7 +229,7 @@ impl InsertMemoryUnit {
             entry_range_end,
             memory_kind: MemoryUnitKind::GenericConversation,
             domain_class_primary: None,
-            summary_state: MemoryUnitSummaryState::pending(),
+            summary_state: MemoryUnitSummaryState::raw(),
             source_uri,
             salience_score: None,
             time_bucket: None,
