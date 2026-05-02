@@ -1,5 +1,19 @@
+const INTERNAL_ENTITY_ID_SEGMENT_PATTERN =
+  /\s*[（(]\s*(?:tool_)?entity[_\s-]?id\s*[:=]\s*\d+\s*[)）]\s*/gi;
+const INTERNAL_ENTITY_ID_TOKEN_PATTERN =
+  /\b(?:tool_)?entity[_\s-]?id\s*[:=]\s*\d+\b/gi;
+
+export function sanitizeAssistantDisplayContent(content: string): string {
+  return content
+    .replace(INTERNAL_ENTITY_ID_SEGMENT_PATTERN, " ")
+    .replace(INTERNAL_ENTITY_ID_TOKEN_PATTERN, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n[ \t]+\n/g, "\n\n")
+    .trim();
+}
+
 export function normalizeMarkdownContent(content: string): string {
-  const source = content
+  const source = sanitizeAssistantDisplayContent(content)
     .replace(/\r\n/g, "\n")
     .replace(/\|\s*\|(?=\s*(?:[-:]{3,}|[^|\n]+?\s*\|))/g, "|\n|")
     .trim();

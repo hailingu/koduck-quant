@@ -62,6 +62,50 @@ pub struct ProfileDetailView {
     pub is_current: bool,
     pub blob_uri: String,
     pub loaded_at: String,
+    pub valid_from: Option<String>,
+    pub valid_to: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileVersionView {
+    pub entity_id: i64,
+    pub entry_code: String,
+    pub version: i32,
+    pub is_current: bool,
+    pub blob_uri: String,
+    pub loaded_at: String,
+    pub valid_from: Option<String>,
+    pub valid_to: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TemporalCoverageSpanView {
+    pub span_id: i64,
+    pub span_from: Option<String>,
+    pub span_to: Option<String>,
+    pub summary: Option<String>,
+    pub granularity: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TemporalCoverageMatchView {
+    pub entity_id: i64,
+    pub profile_id: i64,
+    pub entry_code: String,
+    pub blob_uri: String,
+    pub matched_spans: Vec<TemporalCoverageSpanView>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PageView<T> {
+    pub items: Vec<T>,
+    pub page: i32,
+    pub size: i32,
+    pub total: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -137,10 +181,46 @@ pub async fn get_profile_detail(
     request_id: &str,
     entity_id: i64,
     entry_code: &str,
+    at: Option<&str>,
 ) -> Result<ProfileDetailView, AppError> {
     let client = build_http_client(request_id)?;
     let base_url = resolve_knowledge_base_url(state, request_id).await?;
-    get_profile_detail_by_entry(&client, &base_url, request_id, entity_id, entry_code).await
+    get_profile_detail_by_entry(&client, &base_url, request_id, entity_id, entry_code, at).await
+}
+
+pub async fn get_profile_history(
+    state: &Arc<AppState>,
+    request_id: &str,
+    entity_id: i64,
+    entry_code: &str,
+    from: Option<&str>,
+    to: Option<&str>,
+    page: Option<i32>,
+    size: Option<i32>,
+) -> Result<PageView<ProfileVersionView>, AppError> {
+    let client = build_http_client(request_id)?;
+    let base_url = resolve_knowledge_base_url(state, request_id).await?;
+    get_profile_history_by_entry(
+        &client, &base_url, request_id, entity_id, entry_code, from, to, page, size,
+    )
+    .await
+}
+
+pub async fn get_temporal_coverage(
+    state: &Arc<AppState>,
+    request_id: &str,
+    entity_id: i64,
+    from: Option<&str>,
+    to: Option<&str>,
+    page: Option<i32>,
+    size: Option<i32>,
+) -> Result<PageView<TemporalCoverageMatchView>, AppError> {
+    let client = build_http_client(request_id)?;
+    let base_url = resolve_knowledge_base_url(state, request_id).await?;
+    get_temporal_coverage_by_entity(
+        &client, &base_url, request_id, entity_id, from, to, page, size,
+    )
+    .await
 }
 
 fn build_http_client(request_id: &str) -> Result<reqwest::Client, AppError> {
@@ -276,17 +356,109 @@ async fn get_profile_detail_by_entry(
     request_id: &str,
     entity_id: i64,
     entry_code: &str,
+    at: Option<&str>,
 ) -> Result<ProfileDetailView, AppError> {
-    let response = client
+    let mut request = client
         .get(format!(
             "{base_url}/api/v1/entities/{entity_id}/profiles/{entry_code}"
         ))
-        .header("x-request-id", request_id)
+        .header("x-request-id", request_id);
+    if let Some(at) = at.filter(|value| !value.trim().is_empty()) {
+        request = request.query(&[("at", at)]);
+    }
+    let response = request
         .send()
         .await
         .map_err(|err| transport_error(request_id, "fetch knowledge profile detail", err))?;
 
     decode_json_response(response, request_id, "fetch knowledge profile detail").await
+}
+
+async fn get_profile_history_by_entry(
+    client: &reqwest::Client,
+    base_url: &str,
+    request_id: &str,
+    entity_id: i64,
+    entry_code: &str,
+    from: Option<&str>,
+    to: Option<&str>,
+    page: Option<i32>,
+    size: Option<i32>,
+) -> Result<PageView<ProfileVersionView>, AppError> {
+    let mut query = Vec::new();
+    if let Some(from) = from.filter(|value| !value.trim().is_empty()) {
+        query.push(("from", from));
+    }
+    if let Some(to) = to.filter(|value| !value.trim().is_empty()) {
+        query.push(("to", to));
+    }
+    let page_string = page.map(|value| value.to_string());
+    if let Some(page) = page_string.as_deref() {
+        query.push(("page", page));
+    }
+    let size_string = size.map(|value| value.to_string());
+    if let Some(size) = size_string.as_deref() {
+        query.push(("size", size));
+    }
+
+    let mut request = client
+        .get(format!(
+            "{base_url}/api/v1/entities/{entity_id}/profiles/{entry_code}/history"
+        ))
+        .header("x-request-id", request_id);
+    if !query.is_empty() {
+        request = request.query(&query);
+    }
+
+    let response = request
+        .send()
+        .await
+        .map_err(|err| transport_error(request_id, "fetch knowledge profile history", err))?;
+
+    decode_json_response(response, request_id, "fetch knowledge profile history").await
+}
+
+async fn get_temporal_coverage_by_entity(
+    client: &reqwest::Client,
+    base_url: &str,
+    request_id: &str,
+    entity_id: i64,
+    from: Option<&str>,
+    to: Option<&str>,
+    page: Option<i32>,
+    size: Option<i32>,
+) -> Result<PageView<TemporalCoverageMatchView>, AppError> {
+    let mut query = Vec::new();
+    if let Some(from) = from.filter(|value| !value.trim().is_empty()) {
+        query.push(("from", from));
+    }
+    if let Some(to) = to.filter(|value| !value.trim().is_empty()) {
+        query.push(("to", to));
+    }
+    let page_string = page.map(|value| value.to_string());
+    if let Some(page) = page_string.as_deref() {
+        query.push(("page", page));
+    }
+    let size_string = size.map(|value| value.to_string());
+    if let Some(size) = size_string.as_deref() {
+        query.push(("size", size));
+    }
+
+    let mut request = client
+        .get(format!(
+            "{base_url}/api/v1/entities/{entity_id}/temporal-coverage"
+        ))
+        .header("x-request-id", request_id);
+    if !query.is_empty() {
+        request = request.query(&query);
+    }
+
+    let response = request
+        .send()
+        .await
+        .map_err(|err| transport_error(request_id, "fetch knowledge temporal coverage", err))?;
+
+    decode_json_response(response, request_id, "fetch knowledge temporal coverage").await
 }
 
 async fn decode_json_response<T: for<'de> Deserialize<'de>>(

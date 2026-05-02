@@ -32,6 +32,12 @@ public class EntityProfileEntity {
     @Column(name = "loaded_at", nullable = false)
     private OffsetDateTime loadedAt;
 
+    @Column(name = "valid_from")
+    private OffsetDateTime validFrom;
+
+    @Column(name = "valid_to")
+    private OffsetDateTime validTo;
+
     public Long getProfileId() {
         return profileId;
     }
@@ -86,5 +92,21 @@ public class EntityProfileEntity {
 
     public void setLoadedAt(final OffsetDateTime loadedAt) {
         this.loadedAt = loadedAt;
+    }
+
+    public OffsetDateTime getValidFrom() {
+        return validFrom;
+    }
+
+    public void setValidFrom(final OffsetDateTime validFrom) {
+        this.validFrom = validFrom;
+    }
+
+    public OffsetDateTime getValidTo() {
+        return validTo;
+    }
+
+    public void setValidTo(final OffsetDateTime validTo) {
+        this.validTo = validTo;
     }
 }

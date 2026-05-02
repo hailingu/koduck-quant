@@ -8,6 +8,7 @@ import com.koduck.knowledge.dto.PageView;
 import com.koduck.knowledge.dto.ProfileDetailView;
 import com.koduck.knowledge.dto.ProfileVersionView;
 import com.koduck.knowledge.dto.SearchHit;
+import com.koduck.knowledge.dto.TemporalCoverageMatchView;
 import com.koduck.knowledge.service.EntityKnowledgeQueryService;
 import com.koduck.knowledge.service.EntitySearchService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -67,8 +68,9 @@ public class EntityKnowledgeController {
     @GetMapping("/{id}/profiles/{entry_code}")
     public ProfileDetailView getProfileDetail(
             @PathVariable("id") final long id,
-            @PathVariable("entry_code") final String entryCode) {
-        return entityKnowledgeQueryService.getProfileDetail(id, entryCode);
+            @PathVariable("entry_code") final String entryCode,
+            @RequestParam(value = "at", required = false) final OffsetDateTime at) {
+        return entityKnowledgeQueryService.getProfileDetail(id, entryCode, at);
     }
 
     @Operation(summary = "Get basic profile history")
@@ -86,8 +88,21 @@ public class EntityKnowledgeController {
     public PageView<ProfileVersionView> getProfileHistory(
             @PathVariable("id") final long id,
             @PathVariable("entry_code") final String entryCode,
+            @RequestParam(value = "from", required = false) final OffsetDateTime from,
+            @RequestParam(value = "to", required = false) final OffsetDateTime to,
             @RequestParam(value = "page", defaultValue = "1") final int page,
             @RequestParam(value = "size", defaultValue = "20") final int size) {
-        return entityKnowledgeQueryService.getProfileHistory(id, entryCode, page, size);
+        return entityKnowledgeQueryService.getProfileHistory(id, entryCode, from, to, page, size);
+    }
+
+    @Operation(summary = "Get temporal coverage matches grouped by blob")
+    @GetMapping("/{id}/temporal-coverage")
+    public PageView<TemporalCoverageMatchView> getTemporalCoverage(
+            @PathVariable("id") final long id,
+            @RequestParam(value = "from", required = false) final OffsetDateTime from,
+            @RequestParam(value = "to", required = false) final OffsetDateTime to,
+            @RequestParam(value = "page", defaultValue = "1") final int page,
+            @RequestParam(value = "size", defaultValue = "20") final int size) {
+        return entityKnowledgeQueryService.getTemporalCoverage(id, from, to, page, size);
     }
 }

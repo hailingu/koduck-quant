@@ -2,9 +2,10 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 
 use super::{
-    build_memory_entry_flow_json, extract_entity_like_query, parse_execution_intent_response,
-    request_execution_intent, resolve_knowledge_query, ChatHistoryMessage, ChatRequest,
-    QueryKnowledgeToolArgs,
+    build_memory_entry_flow_json, extract_entity_like_query, fallback_execution_intent,
+    normalize_temporal_argument, parse_execution_intent_response, request_execution_intent,
+    resolve_knowledge_query,
+    ChatHistoryMessage, ChatRequest, QueryKnowledgeToolArgs,
 };
 
 #[test]
@@ -53,6 +54,70 @@ fn resolve_knowledge_query_falls_back_to_recent_history_entity() {
     assert_eq!(
         resolve_knowledge_query(&request, &QueryKnowledgeToolArgs::default()),
         Some("威廉".to_string())
+    );
+}
+
+#[test]
+fn normalize_temporal_argument_expands_date_only_lower_bound() {
+    assert_eq!(
+        normalize_temporal_argument(Some("2014-01-01"), false),
+        Some("2014-01-01T00:00:00+00:00".to_string())
+    );
+}
+
+#[test]
+fn normalize_temporal_argument_expands_date_only_upper_bound_to_next_day() {
+    assert_eq!(
+        normalize_temporal_argument(Some("2025-12-31"), true),
+        Some("2026-01-01T00:00:00+00:00".to_string())
+    );
+}
+
+#[test]
+fn normalize_temporal_argument_expands_year_and_month_bounds() {
+    assert_eq!(
+        normalize_temporal_argument(Some("2012"), false),
+        Some("2012-01-01T00:00:00+00:00".to_string())
+    );
+    assert_eq!(
+        normalize_temporal_argument(Some("2012"), true),
+        Some("2013-01-01T00:00:00+00:00".to_string())
+    );
+    assert_eq!(
+        normalize_temporal_argument(Some("2012-07"), false),
+        Some("2012-07-01T00:00:00+00:00".to_string())
+    );
+    assert_eq!(
+        normalize_temporal_argument(Some("2012-07"), true),
+        Some("2012-08-01T00:00:00+00:00".to_string())
+    );
+}
+
+#[test]
+fn normalize_temporal_argument_supports_localized_year_month_day() {
+    assert_eq!(
+        normalize_temporal_argument(Some("2012年"), true),
+        Some("2013-01-01T00:00:00+00:00".to_string())
+    );
+    assert_eq!(
+        normalize_temporal_argument(Some("2012年7月"), false),
+        Some("2012-07-01T00:00:00+00:00".to_string())
+    );
+    assert_eq!(
+        normalize_temporal_argument(Some("2012年7月20日"), false),
+        Some("2012-07-20T00:00:00+00:00".to_string())
+    );
+}
+
+#[test]
+fn normalize_temporal_argument_keeps_rfc3339_and_assumes_utc_for_naive_datetime() {
+    assert_eq!(
+        normalize_temporal_argument(Some("2018-01-01T00:00:00Z"), false),
+        Some("2018-01-01T00:00:00Z".to_string())
+    );
+    assert_eq!(
+        normalize_temporal_argument(Some("2018-01-01T08:30"), false),
+        Some("2018-01-01T08:30:00+00:00".to_string())
     );
 }
 
@@ -265,6 +330,28 @@ fn parse_execution_intent_response_rejects_natural_language_inference() {
     );
 
     assert!(intent.is_none());
+}
+
+#[test]
+fn fallback_execution_intent_handles_classifier_reasoning_leak() {
+    let request = ChatRequest {
+        session_id: None,
+        message: "我们有关于姚明的详细资料吗".to_string(),
+        history: None,
+        provider: None,
+        model: None,
+        temperature: None,
+        max_tokens: None,
+        retrieve_policy: None,
+        metadata: None,
+    };
+
+    let intent = fallback_execution_intent(&request);
+
+    assert_eq!(intent.action.as_str(), "query");
+    assert_eq!(intent.target.as_str(), "knowledge");
+    assert_eq!(intent.presentation.as_str(), "text");
+    assert_eq!(intent.confidence, 0.4);
 }
 
 #[test]

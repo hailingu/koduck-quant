@@ -63,20 +63,20 @@ fn build_knowledge_prompt(
         .enumerate()
         .map(|(index, hit)| {
             format!(
-                "{}. entity_id={} domain_class={} canonical_name={} entity_name={} match_type={} valid_window=[{} ~ {}] basic_profile_s3_uri={}",
+                "{}. canonical_name={} entity_name={} domain_class={} match_type={} valid_window=[{} ~ {}] basic_profile_s3_uri={} tool_entity_id={}",
                 index + 1,
-                hit.entity_id,
+                hit.canonical_name,
+                hit.entity_name,
                 if hit.domain_class.trim().is_empty() {
                     "-"
                 } else {
                     hit.domain_class.as_str()
                 },
-                hit.canonical_name,
-                hit.entity_name,
                 hit.match_type,
                 hit.valid_from.as_deref().unwrap_or("-"),
                 hit.valid_to.as_deref().unwrap_or("-"),
                 hit.basic_profile_s3_uri.as_deref().unwrap_or("-"),
+                hit.entity_id,
             )
         })
         .collect::<Vec<_>>()
@@ -88,14 +88,14 @@ fn build_knowledge_prompt(
         .as_ref()
         .map(|profile| {
             format!(
-                "主命中 basic profile:\nentity_id={} canonical_name={} entity_name={} domain_class={} valid_window=[{} ~ {}] basic_profile_s3_uri={}",
-                profile.entity_id,
+                "主命中 basic profile:\ncanonical_name={} entity_name={} domain_class={} valid_window=[{} ~ {}] basic_profile_s3_uri={} tool_entity_id={}",
                 profile.canonical_name,
                 profile.entity_name,
                 profile.domain_class,
                 profile.valid_from.as_deref().unwrap_or("-"),
                 profile.valid_to.as_deref().unwrap_or("-"),
                 profile.basic_profile_s3_uri.as_deref().unwrap_or("-"),
+                profile.entity_id,
             )
         })
         .unwrap_or_else(|| "主命中 basic profile: 无".to_string());
@@ -105,20 +105,111 @@ fn build_knowledge_prompt(
         .as_ref()
         .map(|detail| {
             format!(
-                "已读取当前 profile detail:\nentity_id={} entry_code={} version={} is_current={} blob_uri={} loaded_at={}",
-                detail.result.entity_id,
+                "已读取 profile detail:\nentry_code={} version={} is_current={} valid_window=[{} ~ {}] blob_uri={} loaded_at={} tool_entity_id={}",
                 detail.result.entry_code,
                 detail.result.version,
                 detail.result.is_current,
+                detail.result.valid_from.as_deref().unwrap_or("-"),
+                detail.result.valid_to.as_deref().unwrap_or("-"),
                 detail.result.blob_uri,
                 detail.result.loaded_at,
+                detail.result.entity_id,
             )
         })
         .unwrap_or_else(|| "当前未读取非 BASIC profile detail。".to_string());
 
+    let history = snapshot
+        .knowledge_profile_history
+        .as_ref()
+        .map(|history| {
+            if history.result.items.is_empty() {
+                return "已读取 profile history: 无命中版本。".to_string();
+            }
+            let entry_code = history
+                .result
+                .items
+                .first()
+                .map(|item| item.entry_code.as_str())
+                .unwrap_or("-");
+            let tool_entity_id = history
+                .result
+                .items
+                .first()
+                .map(|item| item.entity_id)
+                .unwrap_or_default();
+            let items = history
+                .result
+                .items
+                .iter()
+                .take(5)
+                .map(|item| {
+                    format!(
+                        "version={} is_current={} valid_window=[{} ~ {}] blob_uri={}",
+                        item.version,
+                        item.is_current,
+                        item.valid_from.as_deref().unwrap_or("-"),
+                        item.valid_to.as_deref().unwrap_or("-"),
+                        item.blob_uri,
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+            format!(
+                "已读取 profile history:\nentry_code={} page={} size={} total={} tool_entity_id={}\n{}",
+                entry_code,
+                history.result.page,
+                history.result.size,
+                history.result.total,
+                tool_entity_id,
+                items
+            )
+        })
+        .unwrap_or_else(|| "当前未读取非 BASIC profile history。".to_string());
+
+    let temporal_coverage = snapshot
+        .knowledge_temporal_coverage
+        .as_ref()
+        .map(|coverage| {
+            if coverage.result.items.is_empty() {
+                return "已读取 temporal coverage: 无命中 blob。".to_string();
+            }
+            let items = coverage
+                .result
+                .items
+                .iter()
+                .take(5)
+                .map(|item| {
+                    let spans = item
+                        .matched_spans
+                        .iter()
+                        .map(|span| {
+                            format!(
+                                "[{} ~ {}] granularity={} summary={}",
+                                span.span_from.as_deref().unwrap_or("-"),
+                                span.span_to.as_deref().unwrap_or("-"),
+                                span.granularity,
+                                span.summary.as_deref().unwrap_or("-"),
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                        .join("; ");
+                    format!(
+                        "entry_code={} blob_uri={} tool_profile_id={} matched_spans={}",
+                        item.entry_code, item.blob_uri, item.profile_id, spans
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+            format!(
+                "已读取 temporal coverage:\npage={} size={} total={}\n{}",
+                coverage.result.page, coverage.result.size, coverage.result.total, items
+            )
+        })
+        .unwrap_or_else(|| "当前未读取 temporal coverage。".to_string());
+
     if knowledge.domain_class.trim().is_empty() {
         return Some(format!(
-            "以下内容来自 koduck-knowledge 的跨 domain 候选实体搜索结果。当前尚未解析出 domain_class，因此还不能读取 basic profile 或 profile detail。\n你现在不要直接回答实体事实；请仅基于候选实体列表，引导用户回复想继续查看的 entity_id，或回复候选中的 canonical_name + domain_class 组合，以便下一轮继续查询。\n知识查询: query={} domain_class=<unresolved>\n\n候选实体:\n{}\n\n当前用户问题（请把它作为最终相关性判断依据）:\n{}\n如果候选实体为空，请明确说明知识库暂未命中，不要补造事实。",
+            "以下内容来自 koduck-knowledge 的跨 domain 候选实体搜索结果。当前尚未解析出 domain_class，因此还不能读取 basic profile 或 profile detail。\n所有 tool_entity_id、blob_uri、basic_profile_s3_uri、canonical_name 等字段都属于内部检索上下文：可以用于下一步工具调用和实体对齐，但绝不能在最终回答中直接暴露给用户。\n你现在不要直接回答实体事实；请仅基于候选实体列表，引导用户回复想继续查看的实体名称，或回复实体名称 + 领域方向组合，以便下一轮继续查询。\n知识查询: query={} domain_class=<unresolved>\n\n候选实体:\n{}\n\n当前用户问题（请把它作为最终相关性判断依据）:\n{}\n如果候选实体为空，请明确说明知识库暂未命中，不要补造事实。",
             knowledge.query,
             candidates,
             user_message.trim()
@@ -126,12 +217,14 @@ fn build_knowledge_prompt(
     }
 
     Some(format!(
-        "以下内容来自 koduck-knowledge 的结构化实体检索结果，主要用于实体对齐与只读知识引用，不等于完整正文。\nquery_knowledge 只提供候选实体和 basic profile；如果这些信息仍不足以回答问题，你可以继续调用 get_knowledge_profile_detail 读取当前非 BASIC profile 的详情元信息。\n知识查询: query={} domain_class={}\n\n候选实体:\n{}\n\n{}\n\n{}\n\n当前用户问题（请把它作为最终相关性判断依据）:\n{}\n如果这些结果不足以支撑结论，请明确说明知识库未提供足够细节，不要补造事实。",
+        "以下内容来自 koduck-knowledge 的结构化实体检索结果，主要用于实体对齐与只读知识引用，不等于完整正文。\n所有 tool_entity_id、tool_profile_id、blob_uri、basic_profile_s3_uri、canonical_name 等字段都属于内部检索上下文：可以用于下一步工具调用和实体对齐，但绝不能在最终回答中直接暴露给用户。\nquery_knowledge 只提供候选实体和 basic profile；如果这些信息仍不足以回答问题，你可以继续调用 get_knowledge_profile_detail 读取单个时点的非 BASIC profile 详情元信息，调用 get_knowledge_profile_history 读取单个 entry_code 的版本时间线，或优先调用 get_knowledge_temporal_coverage 读取跨 entry_code 的时间覆盖命中。\n如果用户在问“某年以后”“某段期间”“某时间范围内有哪些资料/事件/经历”，优先使用 get_knowledge_temporal_coverage。不要只查一个 entry_code 就草率下结论。\n填写 from / to 时，请保持用户原始时间粒度，不要手动把包含式上界预展开成下一天、下一月或下一年。例如“到 2012 年”为止应传 to=\"2012\"，“到 2012-07”为止应传 to=\"2012-07\"，“到 2012-07-20”为止应传 to=\"2012-07-20\"，交给工具侧统一归一化。\n知识查询: query={} domain_class={}\n\n候选实体:\n{}\n\n{}\n\n{}\n\n{}\n\n{}\n\n当前用户问题（请把它作为最终相关性判断依据）:\n{}\n如果这些结果不足以支撑结论，请明确说明知识库未提供足够细节，不要补造事实。",
         knowledge.query,
         knowledge.domain_class,
         candidates,
         profile,
         detail,
+        history,
+        temporal_coverage,
         user_message.trim()
     ))
 }

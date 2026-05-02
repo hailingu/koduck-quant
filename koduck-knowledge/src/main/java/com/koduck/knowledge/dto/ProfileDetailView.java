@@ -8,5 +8,7 @@ public record ProfileDetailView(
         int version,
         boolean isCurrent,
         String blobUri,
-        OffsetDateTime loadedAt) {
+        OffsetDateTime loadedAt,
+        OffsetDateTime validFrom,
+        OffsetDateTime validTo) {
 }

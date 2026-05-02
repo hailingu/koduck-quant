@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { isAuthExpiredError, throwAuthExpired } from "../auth";
 import { FALLBACK_LLM_OPTIONS, RUNTIME_CONFIG_URL, normalizeLlmOptions } from "./koduck-ai/llm-config";
+import { sanitizeAssistantDisplayContent } from "./koduck-ai/markdown-utils";
 import { KoduckAiComposer } from "./koduck-ai/KoduckAiComposer";
 import { MessageList } from "./koduck-ai/MessageList";
 import {
@@ -283,6 +284,7 @@ export function KoduckAi() {
         }
       } else {
         setSessionTitle(normalizeSessionTitle(lookup?.title));
+        const storedMessages = readStoredMessages(initialSessionId);
         const transcriptMessages = await fetchSessionTranscript(
           initialSessionId,
           controller.signal,
@@ -291,8 +293,14 @@ export function KoduckAi() {
           return;
         }
         skipNextSessionRestoreRef.current = true;
-        if (transcriptMessages) {
+        if (transcriptMessages && transcriptMessages.length > 0) {
           setMessages(transcriptMessages);
+        } else if (storedMessages.length > 0) {
+          console.warn("[koduck-ai][session-hydrate][using-stored-messages]", {
+            sessionId: initialSessionId,
+            storedMessageCount: storedMessages.length,
+          });
+          setMessages(storedMessages);
         } else {
           clearStoredMessages(initialSessionId);
           setMessages([]);
@@ -365,7 +373,21 @@ export function KoduckAi() {
       return null;
     }
     if (transcriptMessages) {
-      setMessages(transcriptMessages);
+      setMessages((prev) => {
+        if (transcriptMessages.length > 0 || prev.length === 0) {
+          return transcriptMessages;
+        }
+
+        if (currentSessionIdRef.current === sessionId) {
+          console.warn("[koduck-ai][session-sync][preserve-visible-messages]", {
+            sessionId,
+            visibleMessageCount: prev.length,
+          });
+          return prev;
+        }
+
+        return transcriptMessages;
+      });
     }
     return transcriptMessages;
   };
@@ -724,7 +746,7 @@ export function KoduckAi() {
   };
 
   const normalizeCopyContent = (raw: string): string =>
-    raw
+    sanitizeAssistantDisplayContent(raw)
       .replace(/\u001B\][^\u0007]*(?:\u0007|\u001B\\)/g, "")
       .replace(/\u001B\[[0-9;?]*[ -/]*[@-~]/g, "")
       .replace(/\r\n/g, "\n")

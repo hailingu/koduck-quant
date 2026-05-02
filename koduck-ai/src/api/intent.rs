@@ -7,7 +7,7 @@ use crate::{
         ChatMessage as ProviderChatMessage, GenerateRequest as ProviderGenerateRequest,
         RequestContext,
     },
-    reliability::error::{AppError, ErrorCode, UpstreamService},
+    reliability::error::AppError,
 };
 
 use super::ChatRequest;
@@ -282,6 +282,87 @@ fn parse_presentation_intent(value: &str) -> Option<PresentationIntent> {
     }
 }
 
+fn contains_any(value: &str, needles: &[&str]) -> bool {
+    needles.iter().any(|needle| value.contains(needle))
+}
+
+pub(super) fn fallback_execution_intent(request: &ChatRequest) -> ExecutionIntent {
+    let message = request.message.trim().to_ascii_lowercase();
+    let original = request.message.trim();
+
+    let presentation = if contains_any(
+        &message,
+        &["flow", "canvas", "flow diagram", "流程图", "节点图"],
+    ) {
+        PresentationIntent::FlowCanvas
+    } else if contains_any(&message, &["json"]) {
+        PresentationIntent::Json
+    } else if contains_any(&message, &["table", "表格"]) {
+        PresentationIntent::Table
+    } else {
+        PresentationIntent::Text
+    };
+
+    let target = if contains_any(
+        original,
+        &[
+            "当前对话",
+            "聊天记录",
+            "当前 session",
+            "当前session",
+            "之前聊",
+            "我们聊",
+        ],
+    ) {
+        TargetIntent::Conversation
+    } else if contains_any(
+        original,
+        &["memory", "记忆", "memory entry", "记忆条目", "聊天 memory"],
+    ) {
+        TargetIntent::Memory
+    } else if contains_any(original, &["知识库", "资料", "信息", "关于"]) {
+        TargetIntent::Knowledge
+    } else {
+        TargetIntent::None
+    };
+
+    let action = if contains_any(original, &["计划", "步骤", "方案", "工作流"]) {
+        ActionIntent::Plan
+    } else if contains_any(original, &["总结", "概括", "梳理"]) {
+        ActionIntent::Summarize
+    } else if contains_any(original, &["分析", "研究", "综合判断"]) {
+        ActionIntent::Research
+    } else if contains_any(
+        original,
+        &["查询", "查", "有没有", "是否有", "哪些", "资料", "之前"],
+    ) {
+        ActionIntent::Query
+    } else {
+        ActionIntent::Answer
+    };
+
+    ExecutionIntent {
+        action,
+        target,
+        presentation,
+        confidence: 0.4,
+    }
+}
+
+fn intent_response_log_preview(content: &str) -> String {
+    if parse_execution_intent_response(content).is_some() {
+        return "valid_execution_intent_json".to_string();
+    }
+
+    content
+        .trim()
+        .chars()
+        .take(160)
+        .collect::<String>()
+        .replace('\n', "\\n")
+        .replace('\r', "\\r")
+}
+
 fn extract_json_objects(content: &str) -> Vec<serde_json::Value> {
     let mut values = Vec::new();
     for (start_index, _) in content.match_indices('{') {
@@ -396,24 +477,28 @@ JSON schema:
 
     match state.llm_provider.generate(classifier_request).await {
         Ok(response) => {
+            let raw_response_preview = intent_response_log_preview(&response.message.content);
             info!(
                 request_id = %request_id,
                 session_id = %session_id,
-                raw_response = %response.message.content,
+                raw_response_preview = %raw_response_preview,
+                raw_response_chars = response.message.content.chars().count(),
                 "execution intent classifier raw response"
             );
-            parse_execution_intent_response(&response.message.content).ok_or_else(|| {
-                info!(
-                    request_id = %request_id,
-                    session_id = %session_id,
-                    "execution intent classifier returned no strict JSON; rejecting request"
-                );
-                AppError::new(
-                    ErrorCode::DependencyFailed,
-                    "execution intent classifier returned no strict JSON",
-                )
-                .with_upstream(UpstreamService::Llm)
-            })
+            if let Some(intent) = parse_execution_intent_response(&response.message.content) {
+                return Ok(intent);
+            }
+
+            let fallback_intent = fallback_execution_intent(request);
+            info!(
+                request_id = %request_id,
+                session_id = %session_id,
+                action_intent = %fallback_intent.action.as_str(),
+                target_intent = %fallback_intent.target.as_str(),
+                presentation_intent = %fallback_intent.presentation.as_str(),
+                "execution intent classifier returned no strict JSON; using local fallback"
+            );
+            Ok(fallback_intent)
         }
         Err(err) => Err(err),
     }

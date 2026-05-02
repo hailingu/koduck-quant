@@ -53,6 +53,7 @@ class KnowledgeQueryApiIT extends AbstractKnowledgeIT {
                                 {
                                   "entityIds": [100],
                                   "domainClass": "finance",
+                                  "at": "2024-06-01T00:00:00Z",
                                   "profileEntryCodes": ["BIO", "HONOR"]
                                 }
                                 """))
@@ -60,6 +61,7 @@ class KnowledgeQueryApiIT extends AbstractKnowledgeIT {
                 .andExpect(jsonPath("$.length()").value(3))
                 .andExpect(jsonPath("$[0].basicProfileS3Uri").exists())
                 .andExpect(jsonPath("$[1].profileEntryCode").value("BIO"))
+                .andExpect(jsonPath("$[1].blobUri").value("s3://knowledge/profile/100/BIO/1.json"))
                 .andExpect(jsonPath("$[2].profileEntryCode").value("HONOR"));
     }
 
@@ -84,6 +86,62 @@ class KnowledgeQueryApiIT extends AbstractKnowledgeIT {
                         .param("size", "20"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items.length()").value(2))
+                .andExpect(jsonPath("$.items[0].version").value(2))
+                .andExpect(jsonPath("$.items[0].validFrom").value("2025-01-01T00:00:00Z"));
+    }
+
+    @Test
+    void shouldReturnTemporalProfileHistoryByWindow() throws Exception {
+        mockMvc.perform(get("/api/v1/entities/100/profiles/BIO/history")
+                        .param("from", "2024-06-01T00:00:00Z")
+                        .param("to", "2024-12-31T23:59:59Z")
+                        .param("page", "1")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].version").value(1))
+                .andExpect(jsonPath("$.items[0].validTo").value("2025-01-01T00:00:00Z"));
+
+        mockMvc.perform(get("/api/v1/entities/100/profiles/BIO/history")
+                        .param("from", "2025-01-01T00:00:00Z")
+                        .param("page", "1")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
                 .andExpect(jsonPath("$.items[0].version").value(2));
+    }
+
+    @Test
+    void shouldReturnTemporalProfileDetailByAt() throws Exception {
+        mockMvc.perform(get("/api/v1/entities/100/profiles/BIO")
+                        .param("at", "2024-06-01T00:00:00Z"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.version").value(1))
+                .andExpect(jsonPath("$.blobUri").value("s3://knowledge/profile/100/BIO/1.json"))
+                .andExpect(jsonPath("$.validFrom").value("2024-01-01T00:00:00Z"))
+                .andExpect(jsonPath("$.validTo").value("2025-01-01T00:00:00Z"));
+
+        mockMvc.perform(get("/api/v1/entities/100/profiles/BIO")
+                        .param("at", "2025-06-01T00:00:00Z"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.version").value(2))
+                .andExpect(jsonPath("$.blobUri").value("s3://knowledge/profile/100/BIO/2.json"))
+                .andExpect(jsonPath("$.validFrom").value("2025-01-01T00:00:00Z"));
+    }
+
+    @Test
+    void shouldReturnTemporalCoverageGroupedByBlob() throws Exception {
+        mockMvc.perform(get("/api/v1/entities/100/temporal-coverage")
+                        .param("from", "2024-06-15T00:00:00Z")
+                        .param("to", "2024-09-15T00:00:00Z")
+                        .param("page", "1")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(2))
+                .andExpect(jsonPath("$.total").value(2))
+                .andExpect(jsonPath("$.items[0].entryCode").value("BIO"))
+                .andExpect(jsonPath("$.items[0].matchedSpans.length()").value(1))
+                .andExpect(jsonPath("$.items[1].entryCode").value("HONOR"))
+                .andExpect(jsonPath("$.items[1].matchedSpans.length()").value(2));
     }
 }

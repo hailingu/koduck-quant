@@ -43,10 +43,13 @@ use self::streaming::{
 #[cfg(test)]
 pub(super) use self::flow_canvas::build_memory_entry_flow_json;
 #[cfg(test)]
-pub(super) use self::intent::{parse_execution_intent_response, request_execution_intent};
+pub(super) use self::intent::{
+    fallback_execution_intent, parse_execution_intent_response, request_execution_intent,
+};
 #[cfg(test)]
 pub(super) use self::tool_resolution::{
-    extract_entity_like_query, resolve_knowledge_query, QueryKnowledgeToolArgs,
+    extract_entity_like_query, normalize_temporal_argument, resolve_knowledge_query,
+    QueryKnowledgeToolArgs,
 };
 
 use crate::{
@@ -73,6 +76,10 @@ const MEMORY_QUERY_TOP_K: i32 = 5;
 const MAX_HISTORY_MESSAGES: usize = 20;
 const MEMORY_PROMPT_TAIL: &str =
     "请结合下面历史命中与当前问题，自行判断哪些内容相关，再决定是否在回答中引用这些历史记忆。";
+const STREAM_APPEND_BEFORE_DONE_FAILURE: &str =
+    "failed to persist streamed conversation into memory before done event";
+const STREAM_APPEND_BEFORE_SYNTHETIC_DONE_FAILURE: &str =
+    "failed to persist streamed conversation into memory before synthetic done event";
 
 fn log_execution_intent(request_id: &str, session_id: &str, execution_intent: ExecutionIntent) {
     info!(
@@ -226,11 +233,23 @@ struct KnowledgeProfileDetailSnapshot {
     result: knowledge::ProfileDetailView,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+struct KnowledgeProfileHistorySnapshot {
+    result: knowledge::PageView<knowledge::ProfileVersionView>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct KnowledgeTemporalCoverageSnapshot {
+    result: knowledge::PageView<knowledge::TemporalCoverageMatchView>,
+}
+
 #[derive(Debug, Clone, Default, PartialEq)]
 struct ConversationContextSnapshot {
     hits: Vec<MemoryHit>,
     knowledge: Option<KnowledgeContextSnapshot>,
     knowledge_profile_detail: Option<KnowledgeProfileDetailSnapshot>,
+    knowledge_profile_history: Option<KnowledgeProfileHistorySnapshot>,
+    knowledge_temporal_coverage: Option<KnowledgeTemporalCoverageSnapshot>,
 }
 
 struct PreparedChatContext {
@@ -244,7 +263,11 @@ struct PreparedChatContext {
 fn is_first_class_tool(name: &str) -> bool {
     matches!(
         name,
-        "query_memory" | "query_knowledge" | "get_knowledge_profile_detail"
+        "query_memory"
+            | "query_knowledge"
+            | "get_knowledge_profile_detail"
+            | "get_knowledge_profile_history"
+            | "get_knowledge_temporal_coverage"
     )
 }
 
@@ -707,6 +730,7 @@ pub async fn chat_stream(
                         let producer = async {
                             let mut upstream = upstream;
                             let mut full_answer = String::new();
+                            let mut chat_turn_persisted = false;
                             while let Some(next) = upstream.next().await {
                                 match next {
                                     Ok(ev) => {
@@ -721,6 +745,23 @@ pub async fn chat_stream(
                                             "forwarding llm stream event to sse session"
                                         );
                                         if !ev.finish_reason.trim().is_empty() {
+                                            if !chat_turn_persisted {
+                                                append_chat_turn_best_effort(
+                                                    &append_state,
+                                                    DegradeRoute::ChatStream,
+                                                    &append_ctx,
+                                                    &append_request,
+                                                    &full_answer,
+                                                    append_request
+                                                        .model
+                                                        .as_deref()
+                                                        .unwrap_or_default(),
+                                                    STREAM_APPEND_BEFORE_DONE_FAILURE,
+                                                )
+                                                .await;
+                                                chat_turn_persisted = true;
+                                            }
+
                                             if let Some((orchestrator, plan, node)) =
                                                 plan_completion.take()
                                             {
@@ -855,6 +896,19 @@ pub async fn chat_stream(
                                         .await;
                                     });
                                 }
+                                if !chat_turn_persisted {
+                                    append_chat_turn_best_effort(
+                                        &append_state,
+                                        DegradeRoute::ChatStream,
+                                        &append_ctx,
+                                        &append_request,
+                                        &full_answer,
+                                        append_request.model.as_deref().unwrap_or_default(),
+                                        STREAM_APPEND_BEFORE_SYNTHETIC_DONE_FAILURE,
+                                    )
+                                    .await;
+                                    chat_turn_persisted = true;
+                                }
                                 let _ = stream_session
                                     .enqueue_event_if_current(
                                         &producer_guard,
@@ -867,16 +921,18 @@ pub async fn chat_stream(
                                     .await;
                             }
 
-                            append_chat_turn_best_effort(
-                                &append_state,
-                                DegradeRoute::ChatStream,
-                                &append_ctx,
-                                &append_request,
-                                &full_answer,
-                                append_request.model.as_deref().unwrap_or_default(),
-                                "failed to persist streamed conversation into memory",
-                            )
-                            .await;
+                            if !chat_turn_persisted {
+                                append_chat_turn_best_effort(
+                                    &append_state,
+                                    DegradeRoute::ChatStream,
+                                    &append_ctx,
+                                    &append_request,
+                                    &full_answer,
+                                    append_request.model.as_deref().unwrap_or_default(),
+                                    "failed to persist streamed conversation into memory",
+                                )
+                                .await;
+                            }
                         };
 
                         let cleanup_session = Arc::clone(&stream_session);

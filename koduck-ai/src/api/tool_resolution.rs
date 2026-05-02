@@ -3,6 +3,7 @@ use std::{
     sync::Arc,
 };
 
+use chrono::{Datelike, NaiveDate, NaiveDateTime, TimeDelta, TimeZone, Utc};
 use serde::Deserialize;
 use tracing::{info, warn};
 
@@ -31,6 +32,7 @@ use super::{
     memory_io::{json_value_as_string, log_memory_failure, metadata_string},
     prompt::build_provider_generate_request,
     ChatRequest, ConversationContextSnapshot, KnowledgeContextSnapshot, KnowledgeProfileDetailSnapshot,
+    KnowledgeProfileHistorySnapshot, KnowledgeTemporalCoverageSnapshot,
     MEMORY_PROMPT_TAIL, MEMORY_QUERY_TOP_K,
 };
 use super::intent::ExecutionIntent;
@@ -100,6 +102,26 @@ pub(super) struct QueryKnowledgeToolArgs {
 struct GetKnowledgeProfileDetailToolArgs {
     entity_id: Option<i64>,
     entry_code: Option<String>,
+    at: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct GetKnowledgeProfileHistoryToolArgs {
+    entity_id: Option<i64>,
+    entry_code: Option<String>,
+    from: Option<String>,
+    to: Option<String>,
+    page: Option<i32>,
+    size: Option<i32>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct GetKnowledgeTemporalCoverageToolArgs {
+    entity_id: Option<i64>,
+    from: Option<String>,
+    to: Option<String>,
+    page: Option<i32>,
+    size: Option<i32>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -324,8 +346,119 @@ fn parse_get_knowledge_profile_detail_tool_args(raw: &str) -> GetKnowledgeProfil
     serde_json::from_str::<GetKnowledgeProfileDetailToolArgs>(raw).unwrap_or_default()
 }
 
+fn parse_get_knowledge_profile_history_tool_args(raw: &str) -> GetKnowledgeProfileHistoryToolArgs {
+    serde_json::from_str::<GetKnowledgeProfileHistoryToolArgs>(raw).unwrap_or_default()
+}
+
+fn parse_get_knowledge_temporal_coverage_tool_args(raw: &str) -> GetKnowledgeTemporalCoverageToolArgs {
+    serde_json::from_str::<GetKnowledgeTemporalCoverageToolArgs>(raw).unwrap_or_default()
+}
+
 fn parse_query_memory_tool_args(raw: &str) -> QueryMemoryToolArgs {
     serde_json::from_str::<QueryMemoryToolArgs>(raw).unwrap_or_default()
+}
+
+pub(super) fn normalize_temporal_argument(raw: Option<&str>, upper_bound: bool) -> Option<String> {
+    let trimmed = raw?.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let localized = normalize_localized_temporal_input(trimmed);
+
+    if let Ok(parsed) = chrono::DateTime::parse_from_rfc3339(trimmed) {
+        return Some(
+            parsed
+                .with_timezone(&Utc)
+                .to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+        );
+    }
+
+    if let Ok(parsed) = NaiveDate::parse_from_str(&localized, "%Y-%m-%d") {
+        let normalized = if upper_bound {
+            parsed
+                .checked_add_signed(TimeDelta::days(1))
+                .unwrap_or(parsed)
+                .and_hms_opt(0, 0, 0)
+        } else {
+            parsed.and_hms_opt(0, 0, 0)
+        }?;
+        return Some(Utc.from_utc_datetime(&normalized).to_rfc3339());
+    }
+
+    if let Some(parsed) = parse_year_month(&localized) {
+        let boundary = if upper_bound {
+            next_month_start(parsed)
+        } else {
+            parsed
+        };
+        let normalized = boundary.and_hms_opt(0, 0, 0)?;
+        return Some(Utc.from_utc_datetime(&normalized).to_rfc3339());
+    }
+
+    if let Some(parsed) = parse_year_start(&localized) {
+        let boundary = if upper_bound {
+            next_year_start(parsed)
+        } else {
+            parsed
+        };
+        let normalized = boundary.and_hms_opt(0, 0, 0)?;
+        return Some(Utc.from_utc_datetime(&normalized).to_rfc3339());
+    }
+
+    for pattern in [
+        "%Y-%m-%dT%H:%M:%S%.f",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%dT%H:%M",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M",
+    ] {
+        if let Ok(parsed) = NaiveDateTime::parse_from_str(&localized, pattern) {
+            return Some(Utc.from_utc_datetime(&parsed).to_rfc3339());
+        }
+    }
+
+    Some(trimmed.to_string())
+}
+
+fn normalize_localized_temporal_input(value: &str) -> String {
+    value
+        .trim()
+        .replace('年', "-")
+        .replace('月', "-")
+        .replace(['日', '号'], "")
+        .trim_end_matches('-')
+        .to_string()
+}
+
+fn parse_year_month(value: &str) -> Option<NaiveDate> {
+    let mut parts = value.split('-');
+    let year = parts.next()?.parse::<i32>().ok()?;
+    let month = parts.next()?.parse::<u32>().ok()?;
+    if parts.next().is_some() {
+        return None;
+    }
+    NaiveDate::from_ymd_opt(year, month, 1)
+}
+
+fn parse_year_start(value: &str) -> Option<NaiveDate> {
+    if value.contains('-') {
+        return None;
+    }
+    let year = value.parse::<i32>().ok()?;
+    NaiveDate::from_ymd_opt(year, 1, 1)
+}
+
+fn next_month_start(date: NaiveDate) -> NaiveDate {
+    if date.month() == 12 {
+        NaiveDate::from_ymd_opt(date.year() + 1, 1, 1).unwrap_or(date)
+    } else {
+        NaiveDate::from_ymd_opt(date.year(), date.month() + 1, 1).unwrap_or(date)
+    }
+}
+
+fn next_year_start(date: NaiveDate) -> NaiveDate {
+    NaiveDate::from_ymd_opt(date.year() + 1, 1, 1).unwrap_or(date)
 }
 
 fn parse_query_intent(raw: &str) -> QueryIntent {
@@ -612,6 +745,8 @@ async fn execute_knowledge_tool_call(
                         result,
                     }),
                     knowledge_profile_detail: None,
+                    knowledge_profile_history: None,
+                    knowledge_temporal_coverage: None,
                 };
             }
             Err(err) => {
@@ -636,6 +771,8 @@ async fn execute_knowledge_tool_call(
                 result,
             }),
             knowledge_profile_detail: None,
+            knowledge_profile_history: None,
+            knowledge_temporal_coverage: None,
         },
         Err(err) => {
             warn!(
@@ -682,11 +819,23 @@ async fn execute_knowledge_profile_detail_tool_call(
         return ConversationContextSnapshot::default();
     };
 
-    match knowledge::get_profile_detail(state, &ctx.request_id, entity_id, &entry_code).await {
+    let normalized_at = normalize_temporal_argument(args.at.as_deref(), false);
+
+    match knowledge::get_profile_detail(
+        state,
+        &ctx.request_id,
+        entity_id,
+        &entry_code,
+        normalized_at.as_deref(),
+    )
+    .await
+    {
         Ok(result) => ConversationContextSnapshot {
             hits: Vec::new(),
             knowledge: None,
             knowledge_profile_detail: Some(KnowledgeProfileDetailSnapshot { result }),
+            knowledge_profile_history: None,
+            knowledge_temporal_coverage: None,
         },
         Err(err) => {
             warn!(
@@ -695,6 +844,132 @@ async fn execute_knowledge_profile_detail_tool_call(
                 tool_name = %tool_call.name,
                 error = %err,
                 "tool selection chose get_knowledge_profile_detail but retrieval failed; continuing without profile detail"
+            );
+            ConversationContextSnapshot::default()
+        }
+    }
+}
+
+async fn execute_knowledge_profile_history_tool_call(
+    state: &Arc<AppState>,
+    ctx: &MemoryRequestContext,
+    tool_call: &ProviderToolCall,
+) -> ConversationContextSnapshot {
+    let args = parse_get_knowledge_profile_history_tool_args(&tool_call.arguments);
+    let Some(entity_id) = args.entity_id else {
+        warn!(
+            request_id = %ctx.request_id,
+            session_id = %ctx.session_id,
+            tool_name = %tool_call.name,
+            "get_knowledge_profile_history skipped because entity_id is unavailable"
+        );
+        return ConversationContextSnapshot::default();
+    };
+
+    let Some(entry_code) = args
+        .entry_code
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+    else {
+        warn!(
+            request_id = %ctx.request_id,
+            session_id = %ctx.session_id,
+            tool_name = %tool_call.name,
+            "get_knowledge_profile_history skipped because entry_code is unavailable"
+        );
+        return ConversationContextSnapshot::default();
+    };
+
+    let normalized_from = normalize_temporal_argument(args.from.as_deref(), false);
+    let normalized_to = normalize_temporal_argument(args.to.as_deref(), true);
+
+    match knowledge::get_profile_history(
+        state,
+        &ctx.request_id,
+        entity_id,
+        &entry_code,
+        normalized_from.as_deref(),
+        normalized_to.as_deref(),
+        args.page,
+        args.size,
+    )
+    .await
+    {
+        Ok(result) => ConversationContextSnapshot {
+            hits: Vec::new(),
+            knowledge: None,
+            knowledge_profile_detail: None,
+            knowledge_profile_history: Some(KnowledgeProfileHistorySnapshot { result }),
+            knowledge_temporal_coverage: None,
+        },
+        Err(err) => {
+            warn!(
+                request_id = %ctx.request_id,
+                session_id = %ctx.session_id,
+                tool_name = %tool_call.name,
+                error = %err,
+                "tool selection chose get_knowledge_profile_history but retrieval failed; continuing without profile history"
+            );
+            ConversationContextSnapshot::default()
+        }
+    }
+}
+
+async fn execute_knowledge_temporal_coverage_tool_call(
+    state: &Arc<AppState>,
+    ctx: &MemoryRequestContext,
+    tool_call: &ProviderToolCall,
+) -> ConversationContextSnapshot {
+    let args = parse_get_knowledge_temporal_coverage_tool_args(&tool_call.arguments);
+    let Some(entity_id) = args.entity_id else {
+        warn!(
+            request_id = %ctx.request_id,
+            session_id = %ctx.session_id,
+            tool_name = %tool_call.name,
+            "get_knowledge_temporal_coverage skipped because entity_id is unavailable"
+        );
+        return ConversationContextSnapshot::default();
+    };
+
+    let normalized_from = normalize_temporal_argument(args.from.as_deref(), false);
+    let normalized_to = normalize_temporal_argument(args.to.as_deref(), true);
+    if normalized_from.is_none() && normalized_to.is_none() {
+        warn!(
+            request_id = %ctx.request_id,
+            session_id = %ctx.session_id,
+            tool_name = %tool_call.name,
+            "get_knowledge_temporal_coverage skipped because neither from nor to is available"
+        );
+        return ConversationContextSnapshot::default();
+    }
+
+    match knowledge::get_temporal_coverage(
+        state,
+        &ctx.request_id,
+        entity_id,
+        normalized_from.as_deref(),
+        normalized_to.as_deref(),
+        args.page,
+        args.size,
+    )
+    .await
+    {
+        Ok(result) => ConversationContextSnapshot {
+            hits: Vec::new(),
+            knowledge: None,
+            knowledge_profile_detail: None,
+            knowledge_profile_history: None,
+            knowledge_temporal_coverage: Some(KnowledgeTemporalCoverageSnapshot { result }),
+        },
+        Err(err) => {
+            warn!(
+                request_id = %ctx.request_id,
+                session_id = %ctx.session_id,
+                tool_name = %tool_call.name,
+                error = %err,
+                "tool selection chose get_knowledge_temporal_coverage but retrieval failed; continuing without temporal coverage"
             );
             ConversationContextSnapshot::default()
         }
@@ -716,6 +991,12 @@ pub(super) async fn execute_supported_tool_call(
         "get_knowledge_profile_detail" => {
             execute_knowledge_profile_detail_tool_call(state, ctx, tool_call).await
         }
+        "get_knowledge_profile_history" => {
+            execute_knowledge_profile_history_tool_call(state, ctx, tool_call).await
+        }
+        "get_knowledge_temporal_coverage" => {
+            execute_knowledge_temporal_coverage_tool_call(state, ctx, tool_call).await
+        }
         _ => return snapshot,
     };
 
@@ -727,6 +1008,12 @@ pub(super) async fn execute_supported_tool_call(
     }
     if next_snapshot.knowledge_profile_detail.is_some() {
         snapshot.knowledge_profile_detail = next_snapshot.knowledge_profile_detail;
+    }
+    if next_snapshot.knowledge_profile_history.is_some() {
+        snapshot.knowledge_profile_history = next_snapshot.knowledge_profile_history;
+    }
+    if next_snapshot.knowledge_temporal_coverage.is_some() {
+        snapshot.knowledge_temporal_coverage = next_snapshot.knowledge_temporal_coverage;
     }
     snapshot
 }
@@ -807,7 +1094,8 @@ pub(super) async fn resolve_tool_call(
             let has_new_context = next_snapshot != snapshot
                 && (!next_snapshot.hits.is_empty()
                     || next_snapshot.knowledge.is_some()
-                    || next_snapshot.knowledge_profile_detail.is_some());
+                    || next_snapshot.knowledge_profile_detail.is_some()
+                    || next_snapshot.knowledge_profile_history.is_some());
             if !has_new_context {
                 info!(
                     request_id = %request_id,

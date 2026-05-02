@@ -240,7 +240,9 @@ pub(super) async fn call_llm_stream(
             let has_new_context = next_snapshot != snapshot
                 && (!next_snapshot.hits.is_empty()
                     || next_snapshot.knowledge.is_some()
-                    || next_snapshot.knowledge_profile_detail.is_some());
+                    || next_snapshot.knowledge_profile_detail.is_some()
+                    || next_snapshot.knowledge_profile_history.is_some()
+                    || next_snapshot.knowledge_temporal_coverage.is_some());
             if !has_new_context {
                 info!(
                     request_id = %request_id,

@@ -1,5 +1,6 @@
 import { Check, Copy, MessageSquareQuote, Trash2 } from "lucide-react";
 import { MarkdownMessage } from "./MarkdownMessage";
+import { sanitizeAssistantDisplayContent } from "./markdown-utils";
 import { StreamingPlaceholder } from "./StreamingPlaceholder";
 import type { ConversationFlowStep, Message } from "./types";
 
@@ -84,17 +85,19 @@ function MessageBody({
     return <p className="text-base whitespace-pre-wrap text-gray-900">{message.content}</p>;
   }
 
+  const visibleContent = sanitizeAssistantDisplayContent(message.content);
+
   if (!message.content) {
     return <StreamingPlaceholder />;
   }
 
   if (message.streaming) {
-    return <p className="whitespace-pre-wrap text-base text-gray-800">{message.content}</p>;
+    return <p className="whitespace-pre-wrap text-base text-gray-800">{visibleContent}</p>;
   }
 
   return (
     <MarkdownMessage
-      content={message.content}
+      content={visibleContent}
       messageId={message.id}
       sessionId={currentSessionId}
       onMemoryEntryDeleted={onMemoryEntryDeleted}

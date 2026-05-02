@@ -38,8 +38,16 @@ class InternalToolCatalogControllerTest {
                 .andExpect(jsonPath("$.tools[0].inputSchema", containsString("\"enum\":[\"history\",\"military\",\"politics\"]")))
                 .andExpect(jsonPath("$.tools[0].inputSchema", containsString("domain_dict")))
                 .andExpect(jsonPath("$.tools[1].name").value("get_knowledge_profile_detail"))
+                .andExpect(jsonPath("$.tools[1].description", containsString("at")))
                 .andExpect(jsonPath("$.tools[1].inputSchema", containsString("\"enum\":[\"BIO\",\"HONOR\"]")))
-                .andExpect(jsonPath("$.tools[1].inputSchema", containsString("profile_entry_dict")));
+                .andExpect(jsonPath("$.tools[1].inputSchema", containsString("profile_entry_dict")))
+                .andExpect(jsonPath("$.tools[2].name").value("get_knowledge_profile_history"))
+                .andExpect(jsonPath("$.tools[2].inputSchema", containsString("\"from\"")))
+                .andExpect(jsonPath("$.tools[2].inputSchema", containsString("\"to\"")))
+                .andExpect(jsonPath("$.tools[3].name").value("get_knowledge_temporal_coverage"))
+                .andExpect(jsonPath("$.tools[3].description", containsString("跨多个 entry_code")))
+                .andExpect(jsonPath("$.tools[3].inputSchema", containsString("\"from\"")))
+                .andExpect(jsonPath("$.tools[3].inputSchema", containsString("\"to\"")));
     }
 
     private DomainDictRepository stubDomainDictRepository() {

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://raw.githubusercontent.com/streetsidesoftware/cspell/main/packages/cspell-types/cspell.schema.json",
+  "version": "0.2",
+  "language": "en",
+  "words": [
+    "healthz",
+    "livez",
+    "readyz"
+  ],
+  "ignorePaths": [
+    "node_modules/**",
+    "target/**",
+    "*.lock",
+    "pnpm-lock.yaml"
+  ]
+}
