@@ -2,11 +2,26 @@ const INTERNAL_ENTITY_ID_SEGMENT_PATTERN =
   /\s*[（(]\s*(?:tool_)?entity[_\s-]?id\s*[:=]\s*\d+\s*[)）]\s*/gi;
 const INTERNAL_ENTITY_ID_TOKEN_PATTERN =
   /\b(?:tool_)?entity[_\s-]?id\s*[:=]\s*\d+\b/gi;
+const INTERNAL_PROFILE_ID_SEGMENT_PATTERN =
+  /\s*[（(]\s*(?:tool_)?profile[_\s-]?id\s*[:=]\s*\d+\s*[)）]\s*/gi;
+const INTERNAL_PROFILE_ID_TOKEN_PATTERN =
+  /\b(?:tool_)?profile[_\s-]?id\s*[:=]\s*\d+\b/gi;
+const INTERNAL_ENTRY_CODE_ID_SEGMENT_PATTERN =
+  /\s*[（(]\s*[A-Z][A-Z_]{1,63}\s+id\s*[:=]\s*\d+[\s,，，、;；:：\-—–]*[^)）]*[)）]\s*/g;
+const INTERNAL_ENTRY_CODE_ID_TOKEN_PATTERN =
+  /\b[A-Z][A-Z_]{1,63}\s+id\s*[:=]\s*\d+\b/g;
+const INTERNAL_ENTRY_CODE_TOKEN_PATTERN =
+  /\b(?:TEAM_TENURE|HONOR_EVENT|CAREER|BIO|OFFICE|FAMILY|HONOR)\b/g;
 
 export function sanitizeAssistantDisplayContent(content: string): string {
   return content
     .replace(INTERNAL_ENTITY_ID_SEGMENT_PATTERN, " ")
     .replace(INTERNAL_ENTITY_ID_TOKEN_PATTERN, "")
+    .replace(INTERNAL_PROFILE_ID_SEGMENT_PATTERN, " ")
+    .replace(INTERNAL_PROFILE_ID_TOKEN_PATTERN, "")
+    .replace(INTERNAL_ENTRY_CODE_ID_SEGMENT_PATTERN, " ")
+    .replace(INTERNAL_ENTRY_CODE_ID_TOKEN_PATTERN, "")
+    .replace(INTERNAL_ENTRY_CODE_TOKEN_PATTERN, "")
     .replace(/[ \t]{2,}/g, " ")
     .replace(/\n[ \t]+\n/g, "\n\n")
     .trim();

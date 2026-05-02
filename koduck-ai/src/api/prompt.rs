@@ -194,8 +194,8 @@ fn build_knowledge_prompt(
                         .collect::<Vec<_>>()
                         .join("; ");
                     format!(
-                        "entry_code={} blob_uri={} tool_profile_id={} matched_spans={}",
-                        item.entry_code, item.blob_uri, item.profile_id, spans
+                        "profile_type={} matched_spans={}",
+                        item.entry_code, spans
                     )
                 })
                 .collect::<Vec<_>>()
@@ -217,7 +217,7 @@ fn build_knowledge_prompt(
     }
 
     Some(format!(
-        "以下内容来自 koduck-knowledge 的结构化实体检索结果，主要用于实体对齐与只读知识引用，不等于完整正文。\n所有 tool_entity_id、tool_profile_id、blob_uri、basic_profile_s3_uri、canonical_name 等字段都属于内部检索上下文：可以用于下一步工具调用和实体对齐，但绝不能在最终回答中直接暴露给用户。\nquery_knowledge 只提供候选实体和 basic profile；如果这些信息仍不足以回答问题，你可以继续调用 get_knowledge_profile_detail 读取单个时点的非 BASIC profile 详情元信息，调用 get_knowledge_profile_history 读取单个 entry_code 的版本时间线，或优先调用 get_knowledge_temporal_coverage 读取跨 entry_code 的时间覆盖命中。\n如果用户在问“某年以后”“某段期间”“某时间范围内有哪些资料/事件/经历”，优先使用 get_knowledge_temporal_coverage。不要只查一个 entry_code 就草率下结论。\n填写 from / to 时，请保持用户原始时间粒度，不要手动把包含式上界预展开成下一天、下一月或下一年。例如“到 2012 年”为止应传 to=\"2012\"，“到 2012-07”为止应传 to=\"2012-07\"，“到 2012-07-20”为止应传 to=\"2012-07-20\"，交给工具侧统一归一化。\n知识查询: query={} domain_class={}\n\n候选实体:\n{}\n\n{}\n\n{}\n\n{}\n\n{}\n\n当前用户问题（请把它作为最终相关性判断依据）:\n{}\n如果这些结果不足以支撑结论，请明确说明知识库未提供足够细节，不要补造事实。",
+        "以下内容来自 koduck-knowledge 的结构化实体检索结果，主要用于实体对齐与只读知识引用，不等于完整正文。\n所有 tool_entity_id、tool_profile_id、blob_uri、basic_profile_s3_uri、canonical_name 等字段都属于内部检索上下文：可以用于下一步工具调用和实体对齐，但绝不能在最终回答中直接暴露给用户。最终回答中也禁止出现任何内部英文 entry code（如 TEAM_TENURE、HONOR_EVENT、CAREER、BIO、OFFICE）或任何类似 id=123、tool_profile_id=123、tool_entity_id=123 的标识；如需描述，请改写成自然中文，例如“职业经历条目”“荣誉事件条目”“持续担任球队老板的记录”。\nquery_knowledge 只提供候选实体和 basic profile；如果这些信息仍不足以回答问题，你可以继续调用 get_knowledge_profile_detail 读取单个时点的非 BASIC profile 详情元信息，调用 get_knowledge_profile_history 读取单个 entry_code 的版本时间线，或优先调用 get_knowledge_temporal_coverage 读取跨 entry_code 的时间覆盖命中。\n如果用户在问“某年以后”“某段期间”“某时间范围内有哪些资料/事件/经历”，优先使用 get_knowledge_temporal_coverage。不要只查一个 entry_code 就草率下结论。只要 temporal coverage 返回了任一 matched span 与用户时间窗口重叠，就必须先承认“有相关资料命中”；除非 coverage 为空，否则不能说“没有记录”“没有资料”或“未找到明确记录”。如果命中的只是持续性 span 或粒度较粗的条目，可以说明“已命中覆盖该时期的资料，但当前缺少更细的逐年事件”。\n填写 from / to 时，请保持用户原始时间粒度，不要手动把包含式上界预展开成下一天、下一月或下一年。例如“到 2012 年”为止应传 to=\"2012\"，“到 2012-07”为止应传 to=\"2012-07\"，“到 2012-07-20”为止应传 to=\"2012-07-20\"，交给工具侧统一归一化。\n知识查询: query={} domain_class={}\n\n候选实体:\n{}\n\n{}\n\n{}\n\n{}\n\n{}\n\n当前用户问题（请把它作为最终相关性判断依据）:\n{}\n如果这些结果不足以支撑结论，请明确说明知识库未提供足够细节，不要补造事实。",
         knowledge.query,
         knowledge.domain_class,
         candidates,
